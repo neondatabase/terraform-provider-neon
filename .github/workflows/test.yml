@@ -1,4 +1,10 @@
 name: Tests
+
+# Every job here runs on a GitHub-hosted runner because it must reach the public
+# internet: the Go toolchain and modules (proxy.golang.org), Terraform releases
+# (releases.hashicorp.com), and the golangci-lint binary. The protected runner
+# group has no public egress and this repo has no internal mirror for any of them.
+
 on:
   pull_request:
     paths-ignore:
@@ -20,9 +26,7 @@ permissions:
 jobs:
   build:
     name: Build & Lint
-    runs-on:
-      group: neondatabase-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -38,9 +42,7 @@ jobs:
   generate:
     name: Docs Generation
     needs: build
-    runs-on:
-      group: neondatabase-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -60,9 +62,7 @@ jobs:
   test:
     name: Unit Tests
     needs: build
-    runs-on:
-      group: neondatabase-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -80,9 +80,7 @@ jobs:
   acc-test:
     name: Terraform Provider Acceptance Tests
     needs: test
-    runs-on:
-      group: neondatabase-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false

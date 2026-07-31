@@ -11,7 +11,7 @@ on:
       - '.github'
       - 'cmd'
     branches:
-      - master
+      - main
   workflow_dispatch:
 
 permissions:

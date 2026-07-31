@@ -1,4 +1,9 @@
 name: Release
+
+# Runs on a GitHub-hosted runner because it must reach the public internet: the
+# Go toolchain and modules, and GoReleaser's cross-compilation downloads. The
+# protected runner group has no public egress.
+
 on:
   push:
     tags:
@@ -8,9 +13,7 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on:
-      group: neondatabase-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       -
         name: Checkout

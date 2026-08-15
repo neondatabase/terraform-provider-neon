@@ -35,3 +35,14 @@ website/vendor
 *.winfile eol=crlf
 
 .env
+
+# Openspec
+openspec/
+
+# Coding Agents
+.opencode/
+.pi/
+.pi-subagents/
+.claude/
+.agents
+

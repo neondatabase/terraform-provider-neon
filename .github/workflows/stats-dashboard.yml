@@ -1,8 +1,7 @@
 name: "Release Dashboard"
 
-# Publishes the static download-stats page. Every step talks to GitHub only
-# (checkout, artifact upload, Pages deploy) so no public egress is needed and
-# this can stay on the protected runner group.
+# Deploys the static download-stats page to GitHub Pages. harden-runner
+# records egress; the job itself only talks to GitHub.
 
 on:
   workflow_dispatch:
@@ -25,6 +24,11 @@ jobs:
       group: neondatabase-protected-runner-group
       labels: linux-ubuntu-latest
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
+        with:
+          egress-policy: audit
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1

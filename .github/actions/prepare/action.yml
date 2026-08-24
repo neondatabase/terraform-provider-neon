@@ -1,0 +1,46 @@
+name: Prepare
+description: Set up Go and, on trusted runs, the Databricks JFrog Go module proxy
+
+inputs:
+  use-jfrog:
+    description: "Mint a JFrog OIDC token and resolve modules from db-golang. False for fork and Dependabot PRs, which cannot mint OIDC."
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup JFrog CLI with OIDC
+      if: inputs.use-jfrog == 'true'
+      uses: jfrog/setup-jfrog-cli@279b1f629f43dd5bc658d8361ac4802a7ef8d2d5 # v4.9.1
+      env:
+        JF_URL: https://databricks.jfrog.io
+      with:
+        oidc-provider-name: github-actions
+
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    # db-golang is the Databricks Go virtual repo. Native go commands after
+    # this step use the downloaded module cache, not proxy.golang.org.
+    - name: Configure Go module proxy via JFrog
+      if: inputs.use-jfrog == 'true'
+      shell: bash
+      run: jf goc --repo-resolve=db-golang
+
+    - name: Download Go modules
+      if: inputs.use-jfrog == 'true'
+      shell: bash
+      run: |
+        jf go mod download
+        echo "GOPROXY=file://$(go env GOMODCACHE)/cache/download" >> "$GITHUB_ENV"
+        echo "GONOSUMCHECK=*" >> "$GITHUB_ENV"
+        echo "GONOSUMDB=*" >> "$GITHUB_ENV"
+
+    - name: Download Go modules
+      if: inputs.use-jfrog != 'true'
+      shell: bash
+      run: go mod download

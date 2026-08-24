@@ -24,8 +24,7 @@ runs:
         go-version-file: go.mod
         cache: true
 
-    # db-golang is the Databricks Go virtual repo. Native go commands after
-    # this step use the downloaded module cache, not proxy.golang.org.
+    # Resolve modules through JFrog so this job can stay on the protected group.
     - name: Configure Go module proxy via JFrog
       if: inputs.use-jfrog == 'true'
       shell: bash

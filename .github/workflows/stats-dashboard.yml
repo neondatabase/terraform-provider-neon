@@ -1,7 +1,6 @@
 name: "Release Dashboard"
 
-# Deploys the static download-stats page to GitHub Pages. harden-runner
-# records egress; the job itself only talks to GitHub.
+# GitHub is the job's only external dependency, so it can use a protected runner.
 
 on:
   workflow_dispatch:

@@ -1,9 +1,7 @@
 name: Tests
 
-# Same-repo and workflow_dispatch runs use the protected runner group and
-# resolve Go modules through JFrog (db-golang). Fork and Dependabot PRs cannot
-# mint OIDC, so they stay on ubuntu-latest and the public module proxy.
-# Provider release publishing does not live in this repo.
+# Fork and Dependabot PRs cannot mint OIDC, so they use GitHub-hosted runners
+# and the public Go module proxy.
 
 on:
   pull_request:

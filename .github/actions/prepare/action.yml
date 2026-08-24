@@ -36,7 +36,6 @@ runs:
       run: |
         jf go mod download
         echo "GOPROXY=file://$(go env GOMODCACHE)/cache/download" >> "$GITHUB_ENV"
-        echo "GONOSUMCHECK=*" >> "$GITHUB_ENV"
         echo "GONOSUMDB=*" >> "$GITHUB_ENV"
 
     - name: Download Go modules

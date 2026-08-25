@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed the link in the JWKS URL resource's documentation.
+- Refresh of `neon_jwks_url` no longer errors when the JWKS was deleted outside Terraform. The resource is removed from state.
 
 ### Changed
 

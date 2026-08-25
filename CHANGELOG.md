@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- [[209](https://github.com/kislerdm/terraform-provider-neon/issues/209)] Changed the provider's state management behaviour. Now, the provider will not update the state of the resources if the resource's attributes are not changed in the Terraform configuration. It will attempt to recreate sources deleted outside terraform only if the resource's attributes are changed in the Terraform configuration. This change is introduced to avoid unexpected recreation of resources when they are deleted outside Terraform.
+- [[209](https://github.com/kislerdm/terraform-provider-neon/issues/209)] Refresh no longer recreates a resource that was deleted outside Terraform. The read removes it from state. The next plan recreates it if it is still in configuration.
 
 ## [v0.14.0] - 2026-07-14
 

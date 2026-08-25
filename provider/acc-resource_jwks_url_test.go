@@ -94,8 +94,6 @@ resource "neon_jwks_url" "_" {
 							"the resource does not support import, please recreate it instead",
 						),
 					},
-					// shall yield non-empty plan if the resource is deleted outside terraform
-					// given that JWKs existed prior to deletion
 					{
 						PreConfig: func() {
 							ref, err := readProjectInfo(client, projectName)

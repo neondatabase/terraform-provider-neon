@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.15.0] - 2026-08-02
+
+### Fixed
+
+- Fixed the link in the JWKS URL resource's documentation.
+- Refresh of `neon_jwks_url` no longer errors when the JWKS was deleted outside Terraform. The resource is removed from state.
+
+### Changed
+
+- [[209](https://github.com/kislerdm/terraform-provider-neon/issues/209)] Refresh no longer recreates a resource that was deleted outside Terraform. The read removes it from state. The next plan recreates it if it is still in configuration.
+
 ## [v0.14.0] - 2026-07-14
 
 ### Added

@@ -45,7 +45,7 @@ func TestAccJwksUrl(t *testing.T) {
 	wantJwksUrl := fmt.Sprintf("https://api.stack-auth.com/api/v1/projects/%s/.well-known/jwks.json", idpProjectID)
 	wantRoleName := "foo"
 	var resourceDefinition = func(projectName string) string {
-		return fmt.Sprintf(`resource "neon_project" "_" { 
+		return fmt.Sprintf(`resource "neon_project" "_" {
 	name = "%s"
 	branch {role_name = "%s"}
 }

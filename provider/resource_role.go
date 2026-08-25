@@ -115,7 +115,7 @@ func resourceRoleReadRetry(ctx context.Context, d *schema.ResourceData, meta int
 		http.StatusNotFound: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 			tflog.Debug(ctx, "role not found, removing from state",
 				map[string]interface{}{
-					"project_id": d.Get("project_id"), "branch_id": d.Get("project_id"),
+					"project_id": d.Get("project_id"), "branch_id": d.Get("branch_id"),
 					"name": d.Get("name"),
 				})
 			d.SetId("")

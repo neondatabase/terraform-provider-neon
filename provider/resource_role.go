@@ -117,7 +117,7 @@ func resourceRoleReadRetry(ctx context.Context, d *schema.ResourceData, meta int
 				map[string]interface{}{
 					"name":       d.Get("name"),
 					"project_id": d.Get("project_id"),
-					"branch_id":  d.Get("project_id"),
+					"branch_id":  d.Get("branch_id"),
 				})
 			d.SetId("")
 			return nil

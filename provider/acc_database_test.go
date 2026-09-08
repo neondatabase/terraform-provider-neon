@@ -1,12 +1,11 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -27,18 +26,14 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	projectNamePrefix += "databaseRecreation-"
+	projectNamePrefix := "databaseRecreation-"
 
 	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil)
+		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
 		for _, project := range resp.Projects {
 			_, _ = client.DeleteProject(project.ID)
 		}
 	})
-
-	var newProjectName = func() string {
-		return projectNamePrefix + strconv.FormatInt(time.Now().UnixMilli(), 10)
-	}
 
 	var preConfig = func(projectName, dbName string) int64 {
 		ref, err := readProjectInfo(client, projectName)
@@ -46,18 +41,23 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 			panic(err)
 		}
 		br, err := client.ListProjectBranches(ref.ID,
-			nil, nil, nil, nil, nil)
+			nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			panic(err)
 		}
 		var dbID int64
 		for _, branch := range br.Branches {
 			if branch.Default {
-				resp, err := client.DeleteProjectBranchDatabase(ref.ID, branch.ID, dbName)
+				resp, err := client.GetProjectBranchDatabase(ref.ID, branch.ID, dbName)
 				if err != nil {
 					panic(err)
 				}
 				dbID = resp.Database.ID
+				op, err := client.DeleteProjectBranchDatabase(ref.ID, branch.ID, dbName)
+				if err != nil {
+					panic(err)
+				}
+				waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
 			}
 		}
 		return dbID
@@ -65,7 +65,7 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 
 	t.Run("shall yield non empty refresh plan if the database was deleted outside of terraform",
 		func(t *testing.T) {
-			projectName := newProjectName()
+			projectName := newProjectName(projectNamePrefix)
 			config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
@@ -94,7 +94,7 @@ resource "neon_database" "this" {
 										return err
 									}
 									br, err := client.ListProjectBranches(ref.ID,
-										nil, nil, nil, nil, nil)
+										nil, nil, nil, nil, nil, nil)
 									if err != nil {
 										return err
 									}
@@ -128,7 +128,7 @@ resource "neon_database" "this" {
 		})
 
 	t.Run("shall destroy even if the database was deleted outside of terraform,", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
@@ -159,7 +159,7 @@ resource "neon_database" "this" {
 	})
 
 	t.Run("shall recreate database upon update if it was deleted outside of terraform", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		var refDatabaseID int64
 		resource.Test(
 			t, resource.TestCase{
@@ -206,7 +206,7 @@ resource "neon_database" "this" {
 									return err
 								}
 								br, err := client.ListProjectBranches(pr.ID,
-									nil, nil, nil, nil, nil)
+									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
 								}
@@ -234,7 +234,7 @@ resource "neon_database" "this" {
 	})
 
 	t.Run("shall fail to import database if it was deleted", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
@@ -264,7 +264,7 @@ resource "neon_database" "this" {
 							}
 
 							br, err := client.ListProjectBranches(ref.ID,
-								nil, nil, nil, nil, nil)
+								nil, nil, nil, nil, nil, nil)
 							if err != nil {
 								return "", err
 							}
@@ -283,10 +283,11 @@ resource "neon_database" "this" {
 
 							for _, db := range resp.Databases {
 								if db.Name == "test" {
-									_, err := client.DeleteProjectBranchDatabase(ref.ID, branchID, db.Name)
+									op, err := client.DeleteProjectBranchDatabase(ref.ID, branchID, db.Name)
 									if err != nil {
 										return "", err
 									}
+									waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
 								}
 							}
 							return fmt.Sprintf("%s/%s/%s", ref.ID, branchID, "test"), nil

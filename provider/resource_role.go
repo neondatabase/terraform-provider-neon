@@ -100,7 +100,7 @@ func resourceRoleCreate(ctx context.Context, d *schema.ResourceData, meta interf
 
 	role := resp.Role
 	if role.Password == nil {
-		r, err := client.GetProjectBranchRolePassword(r.ProjectID, r.ProjectID, role.Name)
+		r, err := client.GetProjectBranchRolePassword(r.ProjectID, r.BranchID, role.Name)
 		if err != nil {
 			return err
 		}
@@ -164,7 +164,7 @@ func resourceRoleDeleteRetry(ctx context.Context, d *schema.ResourceData, meta i
 func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	tflog.Trace(ctx, "delete Role")
 	client := meta.(*neon.Client)
-	resp, err := client.DeleteProjectBranchRole(
+	op, err := client.DeleteProjectBranchRole(
 		d.Get("project_id").(string),
 		d.Get("branch_id").(string),
 		d.Get("name").(string),
@@ -172,7 +172,7 @@ func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interf
 	if err != nil {
 		return err
 	}
-	waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
+	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 	d.SetId("")
 	if err := d.Set("project_id", ""); err != nil {
 		return err

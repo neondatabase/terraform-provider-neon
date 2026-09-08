@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
-	"github.com/kislerdm/terraform-provider-neon/provider/types"
+	"github.com/neondatabase/terraform-provider-neon/provider/types"
 )
 
 const providerDefaultHistoryRetentionSeconds = int(time.Hour/time.Second) * 24
@@ -23,6 +23,58 @@ func newStoreProjectPasswordDefault() *schema.Schema {
 Storing passwords facilitates access to Neon features that require authorization.`, false)
 	o.Default = types.ValTrue
 	return o
+}
+
+var schemaCompute = &schema.Schema{
+	Type:        schema.TypeList,
+	MaxItems:    1,
+	Computed:    true,
+	Optional:    true,
+	Description: `Primary read-write compute resource provisioned with the project.`,
+	Elem: &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"id": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Endpoint ID.",
+			},
+			"autoscaling_limit_min_cu": {
+				Type:        schema.TypeFloat,
+				Optional:    true,
+				Computed:    true,
+				Description: `Minimal value of the autoscaling limit for the primary project compute.`,
+			},
+			"autoscaling_limit_max_cu": {
+				Type:        schema.TypeFloat,
+				Optional:    true,
+				Computed:    true,
+				Description: `Maximal value of the autoscaling limit for the primary project compute.`,
+			},
+			"suspend_timeout_seconds": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+				ValidateFunc: func(v interface{}, s string) (warn []string, errs []error) {
+					switch vv, ok := v.(int); ok {
+					case vv == -1:
+					default:
+						warn, errs = intValidationNotNegative(v, s)
+					}
+					return warn, errs
+				},
+				Description: `Duration of inactivity in seconds after which the default compute endpoint is automatically suspended.
+The value 0 means use the global default.
+The value -1 means never suspend. The default value is 300 seconds (5 minutes).
+The maximum value is 604800 seconds (1 week)`,
+			},
+			"name": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+				Description: "Compute name.",
+			},
+		},
+	},
 }
 
 func resourceProject() *schema.Resource {
@@ -63,8 +115,14 @@ func resourceProject() *schema.Resource {
 	return &schema.Resource{
 		Description: `Neon Project.
 
-See details: https://neon.tech/docs/get-started-with-neon/setting-up-a-project/
-API: https://api-docs.neon.tech/reference/createproject`,
+Note that this resource manages five resources:
+
+- Project: https://neon.com/docs/reference/glossary#project
+- Root branch: https://neon.com/docs/reference/glossary#root-branch
+- Primary compute with the default read-write endpoint: https://neon.com/docs/reference/glossary#compute
+- Default database: https://neon.com/docs/reference/glossary#database
+- Default role: https://neon.com/docs/reference/glossary#postgres-role
+`,
 		SchemaVersion: 11,
 		Importer: &schema.ResourceImporter{
 			StateContext: resourceProjectImport,
@@ -140,9 +198,8 @@ Specify the k8s-neonvm provisioner to create a compute endpoint that supports Au
 					return
 				},
 			},
-			"quota":                     schemaQuota,
-			"default_endpoint_settings": schemaDefaultEndpointSettings,
-			"branch":                    schemaDefaultBranch,
+			"quota":  schemaQuota,
+			"branch": schemaDefaultBranch,
 			"allowed_ips": {
 				Type:     schema.TypeList,
 				MinItems: 1,
@@ -224,6 +281,40 @@ Note that HIPAA must be configured for the organization first.
 				Optional:    true,
 				Default:     false,
 				Description: "Set default branch as protected. **Note** that the default value is false.",
+			},
+			"primary_compute": schemaCompute,
+
+			// project-wide config for the compute resources
+			"autoscaling_limit_min_cu": {
+				Type:     schema.TypeFloat,
+				Optional: true,
+				Computed: true,
+				Description: `Minimal value of the project-wide autoscaling limit. 
+Note that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.`,
+			},
+			"autoscaling_limit_max_cu": {
+				Type:     schema.TypeFloat,
+				Optional: true,
+				Computed: true,
+				Description: `Maximal value of the project-wide autoscaling limit. 
+Note that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.`,
+			},
+			"suspend_timeout_seconds": {
+				Type:     schema.TypeInt,
+				Optional: true,
+				Computed: true,
+				ValidateFunc: func(v interface{}, s string) (warn []string, errs []error) {
+					switch vv, ok := v.(int); ok {
+					case vv == -1:
+					default:
+						warn, errs = intValidationNotNegative(v, s)
+					}
+					return warn, errs
+				},
+				Description: `Duration of inactivity in seconds after which the compute endpoint is automatically suspended.
+The value 0 means use the global default.
+The value -1 means never suspend. The default value is 300 seconds (5 minutes).
+The maximum value is 604800 seconds (1 week)`,
 			},
 		},
 	}
@@ -311,65 +402,6 @@ func mapToQuotaSettings(v map[string]interface{}) (o *neon.ProjectQuota) {
 	return o
 }
 
-var schemaDefaultEndpointSettings = &schema.Schema{
-	Type:     schema.TypeList,
-	MaxItems: 1,
-	Computed: true,
-	Optional: true,
-	Elem: &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			"id": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Endpoint ID.",
-			},
-			"autoscaling_limit_min_cu": {
-				Type:     schema.TypeFloat,
-				Optional: true,
-				Computed: true,
-			},
-			"autoscaling_limit_max_cu": {
-				Type:     schema.TypeFloat,
-				Optional: true,
-				Computed: true,
-			},
-			"suspend_timeout_seconds": {
-				Type:     schema.TypeInt,
-				Optional: true,
-				Computed: true,
-				ValidateFunc: func(v interface{}, s string) (warn []string, errs []error) {
-					switch vv, ok := v.(int); ok {
-					case vv == -1:
-					default:
-						warn, errs = intValidationNotNegative(v, s)
-					}
-					return warn, errs
-				},
-				Description: `Duration of inactivity in seconds after which the compute endpoint is automatically suspended.
-The value 0 means use the global default.
-The value -1 means never suspend. The default value is 300 seconds (5 minutes).
-The maximum value is 604800 seconds (1 week)`,
-			},
-		},
-	},
-}
-
-func mapToDefaultEndpointsSettings(v map[string]interface{}) *neon.DefaultEndpointSettings {
-	o := neon.DefaultEndpointSettings{}
-	if v, ok := v["autoscaling_limit_min_cu"].(float64); ok && v > 0 {
-		o.AutoscalingLimitMinCu = pointer(neon.ComputeUnit(v))
-	}
-
-	if v, ok := v["autoscaling_limit_max_cu"].(float64); ok && v > 0 {
-		o.AutoscalingLimitMaxCu = pointer(neon.ComputeUnit(v))
-	}
-
-	if v, ok := v["suspend_timeout_seconds"].(int); ok && v > -2 {
-		o.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v))
-	}
-	return &o
-}
-
 var schemaDefaultBranch = &schema.Schema{
 	Type:     schema.TypeList,
 	MaxItems: 1,
@@ -447,12 +479,13 @@ func newDbConnectionInfo(
 	defaultRolePass := resp.Password
 
 	return dbConnectionInfo{
-		userName:   defaultDB.OwnerName,
-		pass:       defaultRolePass,
-		dbName:     defaultDB.Name,
-		host:       defaultEndpoint.Host,
-		poolerHost: newPooledHost(defaultEndpoint.Host),
-		endpointID: defaultEndpoint.ID,
+		userName:        defaultDB.OwnerName,
+		pass:            defaultRolePass,
+		dbName:          defaultDB.Name,
+		host:            defaultEndpoint.Host,
+		poolerHost:      newPooledHost(defaultEndpoint.Host),
+		endpointID:      defaultEndpoint.ID,
+		defaultEndpoint: defaultEndpoint,
 	}, nil
 }
 
@@ -497,7 +530,7 @@ func findDefaultEndpoint(endpoints []neon.Endpoint, defaultBranchID string) neon
 		var eps []neon.Endpoint
 		for _, el := range endpoints {
 			// the default endpoint can only be of read_write type
-			if !el.Disabled && el.Type == endpointTypeRW && el.BranchID == defaultBranchID {
+			if !el.Disabled && el.Type == neon.EndpointTypeReadWrite && el.BranchID == defaultBranchID {
 				eps = append(eps, el)
 			}
 		}
@@ -514,12 +547,13 @@ func findDefaultEndpoint(endpoints []neon.Endpoint, defaultBranchID string) neon
 }
 
 type dbConnectionInfo struct {
-	userName   string
-	pass       string
-	dbName     string
-	host       string
-	endpointID string
-	poolerHost string
+	userName        string
+	pass            string
+	dbName          string
+	host            string
+	endpointID      string
+	poolerHost      string
+	defaultEndpoint neon.Endpoint
 }
 
 const sslMode = "?sslmode=require"
@@ -564,31 +598,39 @@ func updateStateProject(d *schema.ResourceData, r neon.Project, defaultBranchID,
 		return err
 	}
 
-	defaultEndpointSettings := map[string]interface{}{}
-	if v, ok := d.GetOk("default_endpoint_settings"); ok && len(v.([]interface{})) > 0 && v.([]interface{})[0] != nil {
-		if v, ok := v.([]interface{})[0].(map[string]interface{}); ok && len(v) > 0 {
-			defaultEndpointSettings = v
-		}
-	}
-
 	if r.DefaultEndpointSettings != nil {
 		if r.DefaultEndpointSettings.AutoscalingLimitMinCu != nil {
-			defaultEndpointSettings["autoscaling_limit_min_cu"] = float64(*r.DefaultEndpointSettings.AutoscalingLimitMinCu)
+			err := d.Set("autoscaling_limit_min_cu", float64(*r.DefaultEndpointSettings.AutoscalingLimitMinCu))
+			if err != nil {
+				return err
+			}
 		}
 		if r.DefaultEndpointSettings.AutoscalingLimitMaxCu != nil {
-			defaultEndpointSettings["autoscaling_limit_max_cu"] = float64(*r.DefaultEndpointSettings.AutoscalingLimitMaxCu)
+			err := d.Set("autoscaling_limit_max_cu", float64(*r.DefaultEndpointSettings.AutoscalingLimitMaxCu))
+			if err != nil {
+				return err
+			}
 		}
 		if r.DefaultEndpointSettings.SuspendTimeoutSeconds != nil {
-			defaultEndpointSettings["suspend_timeout_seconds"] = float64(*r.DefaultEndpointSettings.SuspendTimeoutSeconds)
-		}
-		if err := d.Set("default_endpoint_settings", []interface{}{defaultEndpointSettings}); err != nil {
-			return err
+			err := d.Set("suspend_timeout_seconds", int(*r.DefaultEndpointSettings.SuspendTimeoutSeconds))
+			if err != nil {
+				return err
+			}
 		}
 	}
 
+	var primaryCompute = make(map[string]interface{}, len(schemaCompute.Elem.(*schema.Resource).Schema))
 	if dbConnectionInfo.endpointID != "" {
-		defaultEndpointSettings["id"] = dbConnectionInfo.endpointID
-		if err := d.Set("default_endpoint_settings", []interface{}{defaultEndpointSettings}); err != nil {
+		primaryCompute["id"] = dbConnectionInfo.endpointID
+		primaryCompute["autoscaling_limit_min_cu"] = float64(dbConnectionInfo.defaultEndpoint.AutoscalingLimitMinCu)
+		primaryCompute["autoscaling_limit_max_cu"] = float64(dbConnectionInfo.defaultEndpoint.AutoscalingLimitMaxCu)
+		primaryCompute["suspend_timeout_seconds"] = int(dbConnectionInfo.defaultEndpoint.SuspendTimeoutSeconds)
+		var name string
+		if dbConnectionInfo.defaultEndpoint.Name != nil {
+			name = *dbConnectionInfo.defaultEndpoint.Name
+		}
+		primaryCompute["name"] = name
+		if err := d.Set("primary_compute", []interface{}{primaryCompute}); err != nil {
 			return err
 		}
 	}
@@ -628,7 +670,7 @@ func updateStateProject(d *schema.ResourceData, r neon.Project, defaultBranchID,
 		var allowedIPs = make([]string, 0)
 		var protectedBranchesOnly *bool
 		if r.Settings.AllowedIps.Ips != nil {
-			allowedIPs = *r.Settings.AllowedIps.Ips
+			allowedIPs = r.Settings.AllowedIps.Ips
 			protectedBranchesOnly = r.Settings.AllowedIps.ProtectedBranchesOnly
 		}
 		if err := d.Set("allowed_ips", allowedIPs); err != nil {
@@ -777,10 +819,25 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 		projectDef.PgVersion = pointer(neon.PgVersion(v.(int)))
 	}
 
-	if v, ok := d.GetOk("default_endpoint_settings"); ok && len(v.([]interface{})) > 0 && v.([]interface{})[0] != nil {
-		if v, ok := v.([]interface{})[0].(map[string]interface{}); ok && len(v) > 0 {
-			projectDef.DefaultEndpointSettings = mapToDefaultEndpointsSettings(v)
+	if v, ok := d.GetOk("autoscaling_limit_min_cu"); ok && v.(float64) > 0 {
+		if projectDef.DefaultEndpointSettings == nil {
+			projectDef.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
 		}
+		projectDef.DefaultEndpointSettings.AutoscalingLimitMinCu = pointer(neon.ComputeUnit(v.(float64)))
+	}
+
+	if v, ok := d.GetOk("autoscaling_limit_max_cu"); ok && v.(float64) > 0 {
+		if projectDef.DefaultEndpointSettings == nil {
+			projectDef.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+		}
+		projectDef.DefaultEndpointSettings.AutoscalingLimitMaxCu = pointer(neon.ComputeUnit(v.(float64)))
+	}
+
+	if v, ok := d.GetOk("suspend_timeout_seconds"); ok && v.(int) > -2 {
+		if projectDef.DefaultEndpointSettings == nil {
+			projectDef.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+		}
+		projectDef.DefaultEndpointSettings.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v.(int)))
 	}
 
 	if v, ok := d.GetOk("quota"); ok && len(v.([]interface{})) > 0 && v.([]interface{})[0] != nil {
@@ -801,7 +858,7 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 			projectDef.Settings = &neon.ProjectSettingsData{}
 		}
 		projectDef.Settings.AllowedIps = &neon.AllowedIps{
-			Ips: &ips,
+			Ips: ips,
 		}
 
 		projectDef.Settings.AllowedIps.ProtectedBranchesOnly = types.GetTristateBool(d,
@@ -878,7 +935,8 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 	d.SetId(projectID)
 
 	branch := resp.BranchResponse.Branch
-	info, err := newDbConnectionInfo(client, projectID, branch.ID, resp.EndpointsResponse.Endpoints,
+	var info dbConnectionInfo
+	info, err = newDbConnectionInfo(client, projectID, branch.ID, resp.EndpointsResponse.Endpoints,
 		resp.DatabasesResponse.Databases)
 	if err != nil {
 		return err
@@ -896,6 +954,39 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, meta int
 			return err
 		}
 		waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
+	}
+
+	if v, ok := d.GetOk("primary_compute"); ok && len(v.([]interface{})) > 0 && v.([]interface{})[0] != nil {
+		if v, ok := v.([]interface{})[0].(map[string]interface{}); ok && len(v) > 0 {
+			cfg := neon.EndpointUpdateRequestEndpoint{}
+			if v, ok := v["autoscaling_limit_min_cu"].(float64); ok && v > 0 {
+				cfg.AutoscalingLimitMinCu = pointer(neon.ComputeUnit(v))
+			}
+
+			if v, ok := v["autoscaling_limit_max_cu"].(float64); ok && v > 0 {
+				cfg.AutoscalingLimitMaxCu = pointer(neon.ComputeUnit(v))
+			}
+
+			if v, ok := v["suspend_timeout_seconds"].(int); ok && v > -2 {
+				cfg.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v))
+			}
+
+			if v, ok := v["name"].(string); ok && v != "" {
+				cfg.Name = &v
+			}
+
+			client := meta.(*neon.Client)
+			resp, err := client.UpdateProjectEndpoint(
+				projectID,
+				info.endpointID,
+				neon.EndpointUpdateRequest{Endpoint: cfg},
+			)
+			if err != nil {
+				return err
+			}
+			waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
+			info.defaultEndpoint = resp.EndpointResponse.Endpoint
+		}
 	}
 
 	return updateStateProject(d, resp.ProjectResponse.Project, branch.ID, branch.Name, info, defaultBranchProtected)
@@ -920,11 +1011,30 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, meta int
 		req.Project.HistoryRetentionSeconds = pointer(int32(d.Get("history_retention_seconds").(int)))
 	}
 
-	if d.HasChange("default_endpoint_settings") {
-		if v, ok := d.GetOk("default_endpoint_settings"); ok && len(v.([]interface{})) > 0 && v.([]interface{})[0] != nil {
-			if v, ok := v.([]interface{})[0].(map[string]interface{}); ok && len(v) > 0 {
-				req.Project.DefaultEndpointSettings = mapToDefaultEndpointsSettings(v)
+	if d.HasChange("autoscaling_limit_max_cu") {
+		if v, ok := d.GetOk("autoscaling_limit_min_cu"); ok && v.(float64) > 0 {
+			if req.Project.DefaultEndpointSettings == nil {
+				req.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
 			}
+			req.Project.DefaultEndpointSettings.AutoscalingLimitMinCu = pointer(neon.ComputeUnit(v.(float64)))
+		}
+	}
+
+	if d.HasChange("autoscaling_limit_max_cu") {
+		if v, ok := d.GetOk("autoscaling_limit_max_cu"); ok && v.(float64) > 0 {
+			if req.Project.DefaultEndpointSettings == nil {
+				req.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+			}
+			req.Project.DefaultEndpointSettings.AutoscalingLimitMaxCu = pointer(neon.ComputeUnit(v.(float64)))
+		}
+	}
+
+	if d.HasChange("suspend_timeout_seconds") {
+		if v, ok := d.GetOk("suspend_timeout_seconds"); ok && v.(int) > -2 {
+			if req.Project.DefaultEndpointSettings == nil {
+				req.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+			}
+			req.Project.DefaultEndpointSettings.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v.(int)))
 		}
 	}
 
@@ -977,7 +1087,7 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, meta int
 		for i, vv := range v.([]interface{}) {
 			allowedIPs[i] = fmt.Sprintf("%v", vv)
 		}
-		req.Project.Settings.AllowedIps.Ips = &allowedIPs
+		req.Project.Settings.AllowedIps.Ips = allowedIPs
 	}
 
 	client := meta.(sdkProject)
@@ -1002,6 +1112,39 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, meta int
 		waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
 	}
 
+	if d.HasChange("primary_compute") {
+		if v, ok := d.GetOk("primary_compute"); ok && len(v.([]interface{})) > 0 && v.([]interface{})[0] != nil {
+			if v, ok := v.([]interface{})[0].(map[string]interface{}); ok && len(v) > 0 {
+				cfg := neon.EndpointUpdateRequestEndpoint{}
+				if v, ok := v["autoscaling_limit_min_cu"].(float64); ok && v > 0 {
+					cfg.AutoscalingLimitMinCu = pointer(neon.ComputeUnit(v))
+				}
+
+				if v, ok := v["autoscaling_limit_max_cu"].(float64); ok && v > 0 {
+					cfg.AutoscalingLimitMaxCu = pointer(neon.ComputeUnit(v))
+				}
+
+				if v, ok := v["suspend_timeout_seconds"].(int); ok && v > -2 {
+					cfg.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v))
+				}
+				if v, ok := v["name"].(string); ok && v != "" {
+					cfg.Name = &v
+				}
+
+				client := meta.(*neon.Client)
+				resp, err := client.UpdateProjectEndpoint(
+					d.Id(),
+					v["id"].(string),
+					neon.EndpointUpdateRequest{Endpoint: cfg},
+				)
+				if err != nil {
+					return err
+				}
+				waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
+			}
+		}
+	}
+
 	return resourceProjectRead(ctx, d, meta)
 }
 
@@ -1016,7 +1159,7 @@ func resourceProjectRead(ctx context.Context, d *schema.ResourceData, meta inter
 
 	project := resp.Project
 
-	branches, err := client.ListProjectBranches(d.Id(), nil, nil, nil, nil, nil)
+	branches, err := client.ListProjectBranches(d.Id(), nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -1087,7 +1230,8 @@ type sdkProject interface {
 	CreateProject(neon.ProjectCreateRequest) (neon.CreatedProject, error)
 	UpdateProject(string, neon.ProjectUpdateRequest) (neon.UpdateProjectRespObj, error)
 	GetProject(string) (neon.ProjectResponse, error)
-	ListProjectBranches(string, *string, *string, *string, *string, *int) (neon.ListProjectBranchesRespObj, error)
+	ListProjectBranches(string, *string, *neon.ListProjectBranchesSortBy, *string, *neon.SortOrderParam, *uint16,
+		*bool) (neon.ListProjectBranchesRespObj, error)
 	ListProjectBranchEndpoints(string, string) (neon.EndpointsResponse, error)
 	DeleteProject(string) (neon.ProjectResponse, error)
 	ListProjectBranchDatabases(string, string) (neon.DatabasesResponse, error)

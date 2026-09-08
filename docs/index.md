@@ -6,7 +6,7 @@ description: |-
 
 # Neon Provider
 
-![logo](https://raw.githubusercontent.com/kislerdm/terraform-provider-neon/master/fig/logo.svg)
+![logo](https://raw.githubusercontent.com/neondatabase/terraform-provider-neon/main/fig/logo.svg)
 
 The terraform provider to manage [Neon Platform](https://neon.tech) resources.
 
@@ -22,7 +22,7 @@ Find more about Neon [here](https://neon.tech/docs/introduction/about/).
 terraform {
   required_providers {
     neon = {
-      source = "kislerdm/neon"
+      source = "neondatabase/neon"
     }
   }
 }

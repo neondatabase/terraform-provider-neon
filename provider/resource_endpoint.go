@@ -13,9 +13,9 @@ import (
 	neon "github.com/kislerdm/neon-sdk-go"
 )
 
-const (
-	endpointTypeRW       = "read_write"
-	endpointTypeReadOnly = "read_only"
+var (
+	endpointTypeRW       = neon.EndpointTypeReadWrite
+	endpointTypeReadOnly = neon.EndpointTypeReadOnly
 )
 
 func resourceEndpoint() *schema.Resource {
@@ -48,11 +48,11 @@ func resourceEndpoint() *schema.Resource {
 			"type": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     endpointTypeRW,
+				Default:     endpointTypeRW.String(),
 				Description: `Access type. **Note** that a single branch can have only one "read_write" endpoint.`,
 				ValidateFunc: func(d interface{}, k string) (warn []string, errs []error) {
 					switch v := d.(string); v {
-					case "read_write", "read_only":
+					case endpointTypeRW.String(), endpointTypeReadOnly.String():
 					default:
 						errs = append(errs, errors.New(v+" is not supported value for "+k))
 					}
@@ -66,32 +66,20 @@ func resourceEndpoint() *schema.Resource {
 			},
 			"region_id": schemaRegionID,
 			"autoscaling_limit_min_cu": {
-				Type:     schema.TypeFloat,
-				Optional: true,
-				Computed: true,
+				Type:        schema.TypeFloat,
+				Optional:    true,
+				Computed:    true,
+				Description: "Minimal value of the compute autoscaling limit.",
 			},
 			"autoscaling_limit_max_cu": {
-				Type:     schema.TypeFloat,
-				Optional: true,
-				Computed: true,
+				Type:        schema.TypeFloat,
+				Optional:    true,
+				Computed:    true,
+				Description: "Maximal value of the compute autoscaling limit.",
 			},
 			"pg_settings": {
 				Type:     schema.TypeMap,
 				Optional: true,
-			},
-			"pooler_enabled": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Computed: true,
-				Description: `Activate connection pooling.
-See details: https://neon.tech/docs/connect/connection-pooling`,
-			},
-			"pooler_mode": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				Description: `Mode of connections pooling.
-See details: https://neon.tech/docs/connect/connection-pooling`,
 			},
 			"disabled": {
 				Type:        schema.TypeBool,
@@ -133,20 +121,43 @@ Specify the k8s-neonvm provisioner to create a compute endpoint that supports Au
 The value 0 means use the global default.
 The value -1 means never suspend. The default value is 300 seconds (5 minutes).
 The maximum value is 604800 seconds (1 week)`,
+				ValidateFunc: func(d interface{}, k string) (_ []string, errs []error) {
+					var v int64
+					switch d := d.(type) {
+					case int:
+						v = int64(d)
+					case int64:
+						v = d
+					}
+					if v > 604800 || v < -1 {
+						errs = append(errs, fmt.Errorf("%d is not supported value for %s", v, k))
+					}
+					return nil, errs
+				},
+			},
+			"host_pooling": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Endpoint URI for connection pooling.",
+			},
+			"name": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+				Description: "Compute name.",
 			},
 		},
 	}
 }
 
 func updateStateEndpoint(d *schema.ResourceData, v neon.Endpoint) error {
-	if err := d.Set("type", v.Type); err != nil {
+	if err := d.Set("type", v.Type.String()); err != nil {
 		return err
 	}
-	host := v.Host
-	if v.PoolerEnabled {
-		host = newPooledHost(host)
+	if err := d.Set("host", v.Host); err != nil {
+		return err
 	}
-	if err := d.Set("host", host); err != nil {
+	if err := d.Set("host_pooling", newPooledHost(v.Host)); err != nil {
 		return err
 	}
 	if err := d.Set("region_id", v.RegionID); err != nil {
@@ -163,12 +174,6 @@ func updateStateEndpoint(d *schema.ResourceData, v neon.Endpoint) error {
 			return err
 		}
 	}
-	if err := d.Set("pooler_enabled", v.PoolerEnabled); err != nil {
-		return err
-	}
-	if err := d.Set("pooler_mode", string(v.PoolerMode)); err != nil {
-		return err
-	}
 	if err := d.Set("disabled", v.Disabled); err != nil {
 		return err
 	}
@@ -184,6 +189,11 @@ func updateStateEndpoint(d *schema.ResourceData, v neon.Endpoint) error {
 	if err := d.Set("branch_id", v.BranchID); err != nil {
 		return err
 	}
+	if v.Name != nil {
+		if err := d.Set("name", *v.Name); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -194,15 +204,17 @@ func resourceEndpointCreateRetry(ctx context.Context, d *schema.ResourceData, me
 func resourceEndpointCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	tflog.Trace(ctx, "created Endpoint")
 
+	endpointType, err := neon.NewEndpointType(d.Get("type").(string))
+	if err != nil {
+		return err
+	}
+
 	cfg := neon.EndpointCreateRequestEndpoint{
-		BranchID:              d.Get("branch_id").(string),
-		Type:                  neon.EndpointType(d.Get("type").(string)),
-		RegionID:              pointer(d.Get("region_id").(string)),
-		PoolerEnabled:         pointer(d.Get("pooler_enabled").(bool)),
-		PoolerMode:            pointer(neon.EndpointPoolerMode(d.Get("pooler_mode").(string))),
-		Disabled:              pointer(d.Get("disabled").(bool)),
-		Provisioner:           pointer(neon.Provisioner(d.Get("compute_provisioner").(string))),
-		SuspendTimeoutSeconds: pointer(neon.SuspendTimeoutSeconds(d.Get("suspend_timeout_seconds").(int))),
+		BranchID:    d.Get("branch_id").(string),
+		Type:        endpointType,
+		RegionID:    pointer(d.Get("region_id").(string)),
+		Disabled:    pointer(d.Get("disabled").(bool)),
+		Provisioner: pointer(neon.Provisioner(d.Get("compute_provisioner").(string))),
 	}
 
 	if v, ok := d.GetOk("autoscaling_limit_min_cu"); ok {
@@ -213,10 +225,22 @@ func resourceEndpointCreate(ctx context.Context, d *schema.ResourceData, meta in
 		cfg.AutoscalingLimitMaxCu = pointer(neon.ComputeUnit(v.(float64)))
 	}
 
-	if v, ok := d.GetOk("pg_settings"); ok {
-		cfg.Settings = &neon.EndpointSettingsData{
-			PgSettings: v.(map[string]interface{}),
+	if v, ok := d.GetOk("suspend_timeout_seconds"); ok {
+		cfg.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v.(int)))
+	}
+
+	if v, ok := d.GetOk("pg_settings"); ok && len(v.(map[string]any)) > 0 {
+		var pgSettings = make(neon.PgSettingsData, len(v.(map[string]any)))
+		for k, vv := range v.(map[string]any) {
+			pgSettings[k] = vv
 		}
+		cfg.Settings = &neon.EndpointSettingsData{
+			PgSettings: &pgSettings,
+		}
+	}
+
+	if v, ok := d.GetOk("name"); ok && v.(string) != "" {
+		cfg.Name = pointer(v.(string))
 	}
 
 	client := meta.(*neon.Client)
@@ -272,20 +296,33 @@ func resourceEndpointUpdate(ctx context.Context, d *schema.ResourceData, meta in
 	tflog.Trace(ctx, "update Endpoint")
 
 	cfg := neon.EndpointUpdateRequestEndpoint{
-		PoolerEnabled:         pointer(d.Get("pooler_enabled").(bool)),
-		PoolerMode:            pointer(neon.EndpointPoolerMode(d.Get("pooler_mode").(string))),
 		Disabled:              pointer(d.Get("disabled").(bool)),
 		BranchID:              pointer(d.Get("branch_id").(string)),
 		AutoscalingLimitMinCu: pointer(neon.ComputeUnit(d.Get("autoscaling_limit_min_cu").(float64))),
 		AutoscalingLimitMaxCu: pointer(neon.ComputeUnit(d.Get("autoscaling_limit_max_cu").(float64))),
 		Provisioner:           pointer(neon.Provisioner(d.Get("compute_provisioner").(string))),
-		SuspendTimeoutSeconds: pointer(neon.SuspendTimeoutSeconds(d.Get("suspend_timeout_seconds").(int))),
 	}
 
-	if v, ok := d.GetOk("pg_settings"); ok {
-		cfg.Settings = &neon.EndpointSettingsData{
-			PgSettings: v.(map[string]interface{}),
+	if d.HasChange("suspend_timeout_seconds") {
+		if v, ok := d.GetOk("suspend_timeout_seconds"); ok {
+			cfg.SuspendTimeoutSeconds = pointer(neon.SuspendTimeoutSeconds(v.(int)))
 		}
+	}
+
+	if d.HasChange("pg_settings") {
+		if v, ok := d.GetOk("pg_settings"); ok && len(v.(map[string]any)) > 0 {
+			var pgSettings = make(neon.PgSettingsData, len(v.(map[string]any)))
+			for k, vv := range v.(map[string]any) {
+				pgSettings[k] = vv
+			}
+			cfg.Settings = &neon.EndpointSettingsData{
+				PgSettings: &pgSettings,
+			}
+		}
+	}
+
+	if d.HasChange("name") && d.Get("name").(string) != "" {
+		cfg.Name = pointer(d.Get("name").(string))
 	}
 
 	client := meta.(*neon.Client)
@@ -339,11 +376,11 @@ func resourceEndpointDeleteRetry(ctx context.Context, d *schema.ResourceData, me
 func resourceEndpointDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	tflog.Trace(ctx, "delete Endpoint")
 	client := meta.(*neon.Client)
-	resp, err := client.DeleteProjectEndpoint(d.Get("project_id").(string), d.Id())
+	op, err := client.DeleteProjectEndpoint(d.Get("project_id").(string), d.Id())
 	if err != nil {
 		return err
 	}
-	waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
+	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 	d.SetId("")
 	return updateStateEndpoint(d, neon.Endpoint{})
 }

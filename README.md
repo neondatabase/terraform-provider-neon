@@ -16,7 +16,7 @@ Terraform provider to manage the [Neon](https://neon.tech/) Postgres projects.
 terraform {
     required_providers {
         neon = {
-            source = "kislerdm/neon"
+            source = "neondatabase/neon"
         }
     }
 }

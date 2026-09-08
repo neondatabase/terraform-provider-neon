@@ -5,16 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.15.0] - 2026-08-02
+## [v0.17.0] - 2026-09-08
+
+### Added
+
+- [[#202](https://github.com/kislerdm/terraform-provider-neon/issues/202)] Added the resource `neon_branch_backup_schedule` to configure backup schedules for project branches.
+
+## [v0.16.0] - 2026-09-07
+
+### Added
+
+- Added attributes `autoscaling_limit_min_cu`, `autoscaling_limit_max_cu`, `suspend_timeout_seconds` to the `neon_project` resource to configure defaults for the project's compute resources.
+- [[#234](https://github.com/kislerdm/terraform-provider-neon/issues/234)] Added the attr. block `primary_compute` to the resource `neon_project` to configure the primary compute resources provisioned with the project.
+- Added read-only attribute `host_pooling` to the resource `neon_endpoint`.
+- Added the attribute `name` to the resource `neon_endpoint`.
+
+### Removed
+
+- **[BREAKING]** Removed the attr. block `default_endpoint_settings` from the resource `neon_project`. 
+Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscaling_limit_max_cu`, `suspend_timeout_seconds` to configure defaults for the project's compute resources.
+- **[BREAKING]** Removed the attribute `pooler_mode` from the resource `neon_endpoint` because it's no longer supported by the Neon API.
+- **[BREAKING]** Removed the attribute `pooler_enabled` from the resource `neon_endpoint` because the pooling is [always activated](https://neon.com/docs/connect/connection-pooling#enable-disable-and-find-the-pooled-connection-string-in-the-console:~:text=The%20pooled%20endpoint%20is%20always%20available).
+
+### Changed
+
+- Updated dependencies:
+  - Neon Go SDK: [v0.20.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.16.0...v0.20.0)
+
+## [v0.15.0] - 2026-08-02                                                                                                     
 
 ### Fixed
 
 - Fixed the link in the JWKS URL resource's documentation.
-- Refresh of `neon_jwks_url` no longer errors when the JWKS was deleted outside Terraform. The resource is removed from state.
 
 ### Changed
 
-- [[209](https://github.com/kislerdm/terraform-provider-neon/issues/209)] Refresh no longer recreates a resource that was deleted outside Terraform. The read removes it from state. The next plan recreates it if it is still in configuration.
+- [[209](https://github.com/kislerdm/terraform-provider-neon/issues/209)] Changed the provider's state management behaviour. Now, the provider will not update the state of the resources if the resource's attributes are not changed in the Terraform configuration. It will attempt to recreate sources deleted outside terraform only if the resource's attributes are changed in the Terraform configuration. This change is introduced to avoid unexpected recreation of resources when they are deleted outside Terraform.
 
 ## [v0.14.0] - 2026-07-14
 

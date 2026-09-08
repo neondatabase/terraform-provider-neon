@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"testing"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -28,18 +26,14 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	projectNamePrefix += "roleRecreation-"
+	projectNamePrefix := "roleRecreation"
 
 	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil)
+		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
 		for _, project := range resp.Projects {
 			_, _ = client.DeleteProject(project.ID)
 		}
 	})
-
-	var newProjectName = func() string {
-		return projectNamePrefix + strconv.FormatInt(time.Now().UnixMilli(), 10)
-	}
 
 	var preConfig = func(projectName string, roleName string) {
 		ref, err := readProjectInfo(client, projectName)
@@ -48,7 +42,7 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 		}
 
 		respBranches, err := client.ListProjectBranches(ref.ID,
-			nil, nil, nil, nil, nil)
+			nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -60,15 +54,15 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 			}
 		}
 
-		resp, err := client.DeleteProjectBranchRole(ref.ID, branchID, roleName)
+		op, err := client.DeleteProjectBranchRole(ref.ID, branchID, roleName)
 		if err != nil {
 			panic(err)
 		}
-		waitUnfinishedOperations(context.TODO(), client, resp.OperationsResponse.Operations)
+		waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
 	}
 
 	t.Run("shall indicate non empty plan if the role was deleted outside of terraform", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
 				ProviderFactories: map[string]func() (*schema.Provider, error){
@@ -103,7 +97,7 @@ resource "neon_role" "this" {
 	})
 
 	t.Run("shall destroy even if the role was deleted outside of terraform,", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id
@@ -144,7 +138,7 @@ resource "neon_role" "this" {
 	})
 
 	t.Run("shall recreate role upon update if it was deleted outside of terraform", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
 				ProviderFactories: map[string]func() (*schema.Provider, error){
@@ -189,7 +183,7 @@ resource "neon_role" "this" {
 								}
 
 								resp, err := client.ListProjectBranches(ref.ID,
-									nil, nil, nil, nil, nil)
+									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
 								}
@@ -227,7 +221,7 @@ resource "neon_role" "this" {
 	})
 
 	t.Run("shall fail to import role if it was deleted", func(t *testing.T) {
-		projectName := newProjectName()
+		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id
@@ -256,7 +250,7 @@ resource "neon_role" "this" {
 							}
 
 							resp, err := client.ListProjectBranches(ref.ID,
-								nil, nil, nil, nil, nil)
+								nil, nil, nil, nil, nil, nil)
 							if err != nil {
 								return "", err
 							}
@@ -267,11 +261,11 @@ resource "neon_role" "this" {
 								}
 							}
 
-							respDeletion, err := client.DeleteProjectBranchRole(ref.ID, branchID, "test")
+							op, err := client.DeleteProjectBranchRole(ref.ID, branchID, "test")
 							if err != nil {
 								return "", err
 							}
-							waitUnfinishedOperations(context.TODO(), client, respDeletion.OperationsResponse.Operations)
+							waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
 
 							return fmt.Sprintf("%s/%s/test", ref.ID, branchID), nil
 						},

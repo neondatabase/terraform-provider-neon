@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
+	"log"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-	"github.com/kislerdm/terraform-provider-neon/provider"
+	"github.com/neondatabase/terraform-provider-neon/provider"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website
@@ -30,13 +31,18 @@ func main() {
 	flag.BoolVar(&debugMode, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
+	muxServer, err := provider.NewServer(version)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	opts := &plugin.ServeOpts{
 		Debug: debugMode,
 
 		ProviderAddr: "registry.terraform.io/" + provider.Name,
 
-		ProviderFunc: func() *schema.Provider {
-			return provider.New(version)
+		GRPCProviderV6Func: func() tfprotov6.ProviderServer {
+			return muxServer
 		},
 	}
 

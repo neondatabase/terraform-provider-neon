@@ -37,16 +37,13 @@ resource "neon_endpoint" "example" {
 
 ### Optional
 
-- `autoscaling_limit_max_cu` (Number)
-- `autoscaling_limit_min_cu` (Number)
+- `autoscaling_limit_max_cu` (Number) Maximal value of the compute autoscaling limit.
+- `autoscaling_limit_min_cu` (Number) Minimal value of the compute autoscaling limit.
 - `compute_provisioner` (String) Provisioner The Neon compute provisioner.
 Specify the k8s-neonvm provisioner to create a compute endpoint that supports Autoscaling.
 - `disabled` (Boolean) Disable the endpoint.
+- `name` (String) Compute name.
 - `pg_settings` (Map of String)
-- `pooler_enabled` (Boolean) Activate connection pooling.
-See details: https://neon.tech/docs/connect/connection-pooling
-- `pooler_mode` (String) Mode of connections pooling.
-See details: https://neon.tech/docs/connect/connection-pooling
 - `region_id` (String) Deployment region: https://neon.tech/docs/introduction/regions
 - `suspend_timeout_seconds` (Number) Duration of inactivity in seconds after which the compute endpoint is automatically suspended.
 The value 0 means use the global default.
@@ -57,6 +54,7 @@ The maximum value is 604800 seconds (1 week)
 ### Read-Only
 
 - `host` (String) Endpoint URI.
+- `host_pooling` (String) Endpoint URI for connection pooling.
 - `id` (String) Endpoint ID.
 - `proxy_host` (String)
 

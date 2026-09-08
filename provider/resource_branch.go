@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
-	"github.com/kislerdm/terraform-provider-neon/provider/types"
+	"github.com/neondatabase/terraform-provider-neon/provider/types"
 )
 
 func resourceBranch() *schema.Resource {
@@ -144,7 +144,7 @@ func resourceBranchCreate(ctx context.Context, d *schema.ResourceData, meta inte
 	tflog.Trace(ctx, "created Branch")
 	tflog.Debug(ctx, "create Branch.", map[string]interface{}{"projectID": d.Get("project_id")})
 
-	cfg := neon.CreateProjectBranchReqObj{
+	cfg := neon.CreateProjectBranchCfg{
 		BranchCreateRequest: neon.BranchCreateRequest{
 			Branch: &neon.BranchCreateRequestBranch{
 				Name:      pointer(d.Get("name").(string)),
@@ -242,11 +242,12 @@ func resourceBranchDelete(ctx context.Context, d *schema.ResourceData, meta inte
 	tflog.Trace(ctx, "delete Branch")
 
 	client := meta.(*neon.Client)
-	resp, err := client.DeleteProjectBranch(d.Get("project_id").(string), d.Id())
+	hardDelete := true
+	op, err := client.DeleteProjectBranch(d.Get("project_id").(string), d.Id(), &hardDelete)
 	if err != nil {
 		return err
 	}
-	waitUnfinishedOperations(ctx, client, resp.OperationsResponse.Operations)
+	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 
 	d.SetId("")
 	return updateStateBranch(d, neon.Branch{})

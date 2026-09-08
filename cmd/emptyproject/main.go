@@ -33,35 +33,36 @@ func main() {
 	branchID := rProject.Branch.ID
 	for _, db := range rProject.DatabasesResponse.Databases {
 		dbName := db.Name
-		r, e := c.DeleteProjectBranchDatabase(projectID, branchID, dbName)
+		op, e := c.DeleteProjectBranchDatabase(projectID, branchID, dbName)
 		if e != nil {
 			log.Printf("error deleting database %s: %v\n", dbName, e)
 		}
-		waitRunningOps(c, projectID, r.OperationsResponse.Operations)
+		waitRunningOps(c, projectID, op.OperationsResponse.Operations)
 	}
 
 	for _, role := range rProject.RolesResponse.Roles {
-		rR, e := c.DeleteProjectBranchRole(projectID, branchID, role.Name)
+		op, e := c.DeleteProjectBranchRole(projectID, branchID, role.Name)
 		if e != nil {
 			log.Printf("error role %s: %v\n", role.Name, e)
 		}
-		waitRunningOps(c, projectID, rR.OperationsResponse.Operations)
+		waitRunningOps(c, projectID, op.OperationsResponse.Operations)
 	}
 
 	for _, endpoint := range rProject.EndpointsResponse.Endpoints {
-		rE, e := c.DeleteProjectEndpoint(projectID, endpoint.ID)
+		op, e := c.DeleteProjectEndpoint(projectID, endpoint.ID)
 		if e != nil {
 			log.Printf("error deleting endpoint %s: %v\n", endpoint.ID, e)
 		}
-		waitRunningOps(c, projectID, rE.OperationsResponse.Operations)
+		waitRunningOps(c, projectID, op.OperationsResponse.Operations)
 	}
 
 	if !rProject.Branch.Default {
-		rB, e := c.DeleteProjectBranch(projectID, branchID)
+		hardDelete := true
+		op, e := c.DeleteProjectBranch(projectID, branchID, &hardDelete)
 		if e != nil {
 			log.Printf("error deleting branch %s: %v\n", branchID, e)
 		}
-		waitRunningOps(c, projectID, rB.OperationsResponse.Operations)
+		waitRunningOps(c, projectID, op.OperationsResponse.Operations)
 	}
 
 	log.Printf("lapsed: %d ms.\n", time.Since(t0).Milliseconds())
@@ -81,7 +82,7 @@ func waitRunningOps(c *neon.Client, projectID string, ops []neon.Operation) {
 		if wait {
 			log.Println("waiting running operations")
 			time.Sleep(50 * time.Millisecond)
-			newOps, _ := c.ListProjectOperations(projectID, nil, nil)
+			newOps, _ := c.ListProjectOperations(nil, nil, projectID)
 			waitRunningOps(c, projectID, newOps.OperationsResponse.Operations)
 		}
 	}

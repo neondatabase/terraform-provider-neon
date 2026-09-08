@@ -1,9 +1,9 @@
 <html lang="en">
 <head>
-    <title>kislerdm/neon download stats</title>
+    <title>neondatabase/neon download stats</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Download stats for kislerdm/neon">
+    <meta name="description" content="Download stats for neondatabase/neon">
     <script src="https://cdn.plot.ly/plotly-3.0.0.min.js"></script>
     <style>
         html, body {
@@ -28,7 +28,7 @@
     </style>
 </head>
 <body>
-<h1>Terraform registry download statistics for <a href="https://registry.terraform.io/providers/kislerdm/neon" target="_blank">kislerdm/neon</a></h1>
+<h1>Terraform registry download statistics for <a href="https://registry.terraform.io/providers/neondatabase/neon" target="_blank">neondatabase/neon</a></h1>
 <div id="input">
     <label id="filters"><b>Filters</b></label>
     <label for="start">Start month:</label>
@@ -42,7 +42,7 @@
 <div id="plot" style="width:100%;height:100%"></div>
 <script type="module">
     async function readData() {
-        const resp = await fetch("https://raw.githubusercontent.com/kislerdm/terraform-provider-neon/refs/heads/master/download-stats/data.json");
+        const resp = await fetch("https://raw.githubusercontent.com/neondatabase/terraform-provider-neon/refs/heads/main/download-stats/data.json");
         if (resp.status !== 200) {
             console.error(resp);
             throw new Error(`could not fetch data, resp: ${resp.status}`);

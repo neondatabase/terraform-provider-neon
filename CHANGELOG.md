@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [[#202](https://github.com/kislerdm/terraform-provider-neon/issues/202)] Added the resource `neon_branch_backup_schedule` to configure backup schedules for project branches.
 
+### Fixed
+
+- `terraform destroy` of `neon_branch_backup_schedule` now clears the schedule on Neon. The destroy request was sent without an API key and ignored the HTTP status, so the resource left state while the schedule stayed on the branch.
+- Updating only `autoscaling_limit_min_cu` on `neon_project` now reaches the API. The min-CU update was gated on a change to `autoscaling_limit_max_cu`.
+
 ## [v0.16.0] - 2026-09-07
 
 ### Added

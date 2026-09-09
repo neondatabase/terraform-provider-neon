@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -251,7 +252,7 @@ func (r *branchBackupScheduleResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	// workaround to send an `[]` as the request payload to delete the backup schedule
+	// The delete API takes a JSON array, not the BackupSchedule object the SDK encodes.
 	reqURL := "https://console.neon.tech/api/v2/projects/" + state.ProjectID.ValueString() +
 		"/branches/" + state.BranchID.ValueString() + "/backup_schedule"
 	httpReq, err := http.NewRequest(http.MethodPut, reqURL, bytes.NewReader([]byte(`[]`)))
@@ -260,15 +261,31 @@ func (r *branchBackupScheduleResource) Delete(ctx context.Context, req resource.
 			err.Error())
 		return
 	}
-	_, err = r.client.sdkCfg.HTTPClient.Do(httpReq)
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
+	if r.client.sdkCfg.Key == "" {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon API key is not set.")
+		return
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+r.client.sdkCfg.Key)
+
+	httpRes, err := r.client.sdkCfg.HTTPClient.Do(httpReq)
 	if err != nil {
 		resp.Diagnostics.AddError("Could not send the HTTP request to delete Neon Branch Backup Schedule",
 			err.Error())
 		return
 	}
+	defer httpRes.Body.Close()
+	if httpRes.StatusCode > 299 {
+		body, _ := io.ReadAll(httpRes.Body)
+		resp.Diagnostics.AddError(
+			"Could not delete Neon Branch Backup Schedule",
+			fmt.Sprintf("API returned HTTP %d: %s", httpRes.StatusCode, strings.TrimSpace(string(body))),
+		)
+		return
+	}
 
-	state.ID = types.StringValue("")
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.State.RemoveResource(ctx)
 }
 
 func newBackupScheduleID(projectID, branchID string) string {

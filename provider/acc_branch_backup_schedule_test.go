@@ -189,8 +189,7 @@ resource "neon_branch_backup_schedule" "this" {
 								if err != nil {
 									return err
 								}
-								// the API-set schedule remains set in Neon server
-								assert.Len(t, schedule.Schedule, 1)
+								assert.Len(t, schedule.Schedule, 0)
 							}
 
 							return nil

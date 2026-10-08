@@ -784,10 +784,6 @@ func resourceProjectDeleteRetry(ctx context.Context, d *schema.ResourceData, met
 			d.SetId("")
 			return nil
 		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
 	})
 }
 
@@ -1207,8 +1203,12 @@ func resourceProjectReadRetry(ctx context.Context, d *schema.ResourceData, meta 
 func resourceProjectDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 	tflog.Trace(ctx, "delete Project")
 
-	if _, err := meta.(sdkProject).DeleteProject(d.Id()); err != nil {
-		return err
+	client := meta.(sdkProject)
+	if _, err := client.DeleteProject(d.Id()); err != nil {
+		return confirmDeleted(err, func() error {
+			_, err := client.GetProject(d.Id())
+			return err
+		})
 	}
 
 	d.SetId("")

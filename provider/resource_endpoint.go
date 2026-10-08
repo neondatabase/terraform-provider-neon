@@ -366,10 +366,6 @@ func resourceEndpointDeleteRetry(ctx context.Context, d *schema.ResourceData, me
 			d.SetId("")
 			return nil
 		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
 	})
 }
 
@@ -378,7 +374,10 @@ func resourceEndpointDelete(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(*neon.Client)
 	op, err := client.DeleteProjectEndpoint(d.Get("project_id").(string), d.Id())
 	if err != nil {
-		return err
+		return confirmDeleted(err, func() error {
+			_, err := client.GetProjectEndpoint(d.Get("project_id").(string), d.Id())
+			return err
+		})
 	}
 	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 	d.SetId("")

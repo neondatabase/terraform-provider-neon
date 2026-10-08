@@ -92,3 +92,15 @@ var projectReadiness = delay{
 	delay:  1 * time.Second,
 	maxCnt: 120,
 }
+
+// confirmDeleted keeps a 422 from a delete unless the resource has in fact gone:
+// Neon also answers 422 when it refuses a delete, e.g. a project with a protected branch.
+func confirmDeleted(err error, get func() error) error {
+	if e, ok := err.(neon.Error); !ok || e.HTTPCode != http.StatusUnprocessableEntity {
+		return err
+	}
+	if e, ok := get().(neon.Error); ok && e.HTTPCode == http.StatusNotFound {
+		return e
+	}
+	return err
+}

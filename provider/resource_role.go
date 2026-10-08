@@ -154,10 +154,6 @@ func resourceRoleDeleteRetry(ctx context.Context, d *schema.ResourceData, meta i
 			d.SetId("")
 			return nil
 		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
 	})
 }
 
@@ -170,7 +166,14 @@ func resourceRoleDelete(ctx context.Context, d *schema.ResourceData, meta interf
 		d.Get("name").(string),
 	)
 	if err != nil {
-		return err
+		return confirmDeleted(err, func() error {
+			_, err := client.GetProjectBranchRole(
+				d.Get("project_id").(string),
+				d.Get("branch_id").(string),
+				d.Get("name").(string),
+			)
+			return err
+		})
 	}
 	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 	d.SetId("")

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- [[#52](https://github.com/neondatabase/terraform-provider-neon/issues/52)] Destroying `neon_project`, `neon_branch`, `neon_endpoint`, `neon_database`, `neon_role`, `neon_vpc_endpoint_assignment` or `neon_vpc_endpoint_restriction` no longer reports success when Neon refuses the delete with HTTP 422, e.g. a project with a protected branch. A 422 now drops the resource from state only if it can no longer be read.
+
 ## [v0.17.0] - 2026-09-08
 
 ### Added

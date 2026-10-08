@@ -152,10 +152,6 @@ func resourceDatabaseDeleteRetry(ctx context.Context, d *schema.ResourceData, me
 			d.SetId("")
 			return nil
 		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
 	})
 }
 
@@ -168,7 +164,14 @@ func resourceDatabaseDelete(ctx context.Context, d *schema.ResourceData, meta in
 		d.Get("name").(string),
 	)
 	if err != nil {
-		return err
+		return confirmDeleted(err, func() error {
+			_, err := client.GetProjectBranchDatabase(
+				d.Get("project_id").(string),
+				d.Get("branch_id").(string),
+				d.Get("name").(string),
+			)
+			return err
+		})
 	}
 	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 	d.SetId("")

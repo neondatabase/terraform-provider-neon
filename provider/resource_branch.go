@@ -133,10 +133,6 @@ func resourceBranchDeleteRetry(ctx context.Context, d *schema.ResourceData, meta
 			d.SetId("")
 			return nil
 		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
 	})
 }
 
@@ -245,7 +241,10 @@ func resourceBranchDelete(ctx context.Context, d *schema.ResourceData, meta inte
 	hardDelete := true
 	op, err := client.DeleteProjectBranch(d.Get("project_id").(string), d.Id(), &hardDelete)
 	if err != nil {
-		return err
+		return confirmDeleted(err, func() error {
+			_, err := client.GetProjectBranch(d.Get("project_id").(string), d.Id())
+			return err
+		})
 	}
 	waitUnfinishedOperations(ctx, client, op.OperationsResponse.Operations)
 

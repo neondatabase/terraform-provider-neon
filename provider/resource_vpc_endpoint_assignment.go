@@ -80,7 +80,8 @@ func resourceVPCEndpointAssignmentRead(_ context.Context, d *schema.ResourceData
 }
 
 func resourceVPCEndpointAssignmentDelete(_ context.Context, d *schema.ResourceData, meta interface{}) error {
-	err := meta.(sdkVPCEndpoint).DeleteOrganizationVPCEndpoint(
+	client := meta.(sdkVPCEndpoint)
+	err := client.DeleteOrganizationVPCEndpoint(
 		d.Get("org_id").(string),
 		d.Get("region_id").(string),
 		d.Get("vpc_endpoint_id").(string),
@@ -88,7 +89,14 @@ func resourceVPCEndpointAssignmentDelete(_ context.Context, d *schema.ResourceDa
 	if err == nil {
 		d.SetId("")
 	}
-	return err
+	return confirmDeleted(err, func() error {
+		_, err := client.GetOrganizationVPCEndpointDetails(
+			d.Get("org_id").(string),
+			d.Get("region_id").(string),
+			d.Get("vpc_endpoint_id").(string),
+		)
+		return err
+	})
 }
 
 func resourceVPCEndpointAssignmentCreateRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -112,10 +120,6 @@ func resourceVPCEndpointAssignmentReadRetry(ctx context.Context, d *schema.Resou
 func resourceVPCEndpointAssignmentDeleteRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	return projectReadiness.RetryWithFallback(resourceVPCEndpointAssignmentDelete, ctx, d, meta, map[int]FallbackFn{
 		http.StatusNotFound: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 			d.SetId("")
 			return nil
 		},

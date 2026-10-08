@@ -103,13 +103,25 @@ func resourceVPCEndpointRestrictionRead(_ context.Context, d *schema.ResourceDat
 }
 
 func resourceVPCEndpointRestrictionDelete(_ context.Context, d *schema.ResourceData, meta interface{}) error {
-	err := meta.(*neon.Client).DeleteProjectVPCEndpoint(
+	client := meta.(*neon.Client)
+	err := client.DeleteProjectVPCEndpoint(
 		d.Get("project_id").(string), d.Get("vpc_endpoint_id").(string),
 	)
 	if err == nil {
 		d.SetId("")
 	}
-	return err
+	return confirmDeleted(err, func() error {
+		resp, err := client.ListProjectVPCEndpoints(d.Get("project_id").(string))
+		if err != nil {
+			return err
+		}
+		for _, el := range resp.Endpoints {
+			if el.VpcEndpointID == d.Get("vpc_endpoint_id").(string) {
+				return nil
+			}
+		}
+		return neon.Error{HTTPCode: http.StatusNotFound}
+	})
 }
 
 func resourceVPCEndpointRestrictionCreateRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
@@ -132,10 +144,6 @@ func resourceVPCEndpointRestrictionReadRetry(ctx context.Context, d *schema.Reso
 func resourceVPCEndpointRestrictionDeleteRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	return projectReadiness.RetryWithFallback(resourceVPCEndpointRestrictionDelete, ctx, d, meta, map[int]FallbackFn{
 		http.StatusNotFound: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			d.SetId("")
-			return nil
-		},
-		http.StatusUnprocessableEntity: func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
 			d.SetId("")
 			return nil
 		},

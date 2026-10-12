@@ -35,6 +35,6 @@ provider "neon" {}
 
 ### Optional
 
-- `api_key` (String) API access key. Default is read from the environment variable `NEON_API_KEY`.
+- `api_key` (String, Sensitive) API access key. Default is read from the environment variable `NEON_API_KEY`.
 
 

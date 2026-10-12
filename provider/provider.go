@@ -36,6 +36,7 @@ var p = &schema.Provider{
 		"api_key": {
 			Type:        schema.TypeString,
 			Optional:    true,
+			Sensitive:   true,
 			Description: "API access key. Default is read from the environment variable `NEON_API_KEY`.",
 			Default:     os.Getenv("NEON_API_KEY"),
 		},
@@ -112,6 +113,7 @@ func (p *frameworkProvider) Schema(_ context.Context, _ frameworkprovider.Schema
 		Attributes: map[string]providerschema.Attribute{
 			"api_key": providerschema.StringAttribute{
 				Optional:            true,
+				Sensitive:           true,
 				MarkdownDescription: "API access key. Default is read from the environment variable `NEON_API_KEY`.",
 			},
 		},

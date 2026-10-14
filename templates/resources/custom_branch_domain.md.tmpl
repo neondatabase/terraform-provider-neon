@@ -1,0 +1,23 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_custom_branch_domain/resource.tf" }}
+
+`entity_id` is the function slug, rather than the API-returned `function_id`. Use the exact `cname_target` as the value of a DNS CNAME record. Registration does not wait for DNS or certificate activation; otherwise the DNS resource depending on this value could never be created. Read exposes domain/DNS/binding status, handles pagination, and removes missing registrations from state. All binding inputs require replacement. Supply a lowercase domain without a trailing dot.
+
+{{.SchemaMarkdown}}
+
+## Import
+
+```shell
+terraform import neon_custom_branch_domain.api "PROJECT_ID/BRANCH_ID/api.example.com"
+```

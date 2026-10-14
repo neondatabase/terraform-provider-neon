@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Add `neon_function` for prebuilt ZIP deployments, in-place code/environment updates, import and deployment status tracking.
+- Add `neon_custom_branch_domain` for branch-scoped function domains and the API-returned DNS CNAME target.
+- Add `neon_branch_auth` for Neon-managed Better Auth enablement, import and disabling without deleting user data.
+
+### Changed
+
+- Update the Neon Go SDK from v0.20.0 to v0.30.1 and adapt branch deletion calls to its current signature.
+
 ## [v0.17.0] - 2026-09-08
 
 ### Added

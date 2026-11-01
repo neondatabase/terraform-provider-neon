@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -1091,6 +1092,21 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 			pointer(neon.SuspendTimeoutSeconds(state.SuspendTimeoutSeconds.ValueInt64()))
 	}
 
+	if (state.Branch != nil && !state.Branch.Name.IsNull() && !state.Branch.Name.IsUnknown()) ||
+		(!state.DatabaseName.IsNull() && !state.DatabaseName.IsUnknown()) ||
+		(!state.DatabaseUser.IsNull() && !state.DatabaseUser.IsUnknown()) {
+		cfg.Project.Branch = &neon.ProjectCreateRequestProjectBranch{}
+		if state.Branch != nil && !state.Branch.Name.IsNull() && !state.Branch.Name.IsUnknown() {
+			cfg.Project.Branch.Name = state.Branch.Name.ValueStringPointer()
+		}
+		if !state.DatabaseName.IsNull() && !state.DatabaseName.IsUnknown() {
+			cfg.Project.Branch.DatabaseName = state.DatabaseName.ValueStringPointer()
+		}
+		if !state.DatabaseUser.IsNull() && !state.DatabaseUser.IsUnknown() {
+			cfg.Project.Branch.RoleName = state.DatabaseUser.ValueStringPointer()
+		}
+	}
+
 	var project neon.Project
 	var defaultBranch neon.Branch
 	var endpoints []neon.Endpoint
@@ -1112,6 +1128,7 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	primaryComputeSettings := state.PrimaryCompute
+	branchSettings := state.Branch
 
 	defaultEndpoint := findDefaultEndpoint(endpoints, defaultBranch.ID)
 	defaultDatabase := findDefaultDatabase(databases, defaultBranch.ID)
@@ -1127,6 +1144,13 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 	// set custom config for the primary compute
 	if primaryComputeSettings != nil && defaultEndpoint.ID != "" {
 		state.PrimaryCompute = r.updatePrimaryCompute(ctx, state.PrimaryCompute, primaryComputeSettings, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if branchSettings != nil && state.Branch != nil && defaultBranch.ID != "" {
+		state.Branch = r.updateBranch(ctx, state.Branch, branchSettings, &resp.Diagnostics)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -1331,6 +1355,25 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	if stringChanged(prior.DatabaseName, plan.DatabaseName) ||
+		stringChanged(prior.DatabaseUser, plan.DatabaseUser) {
+		resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+			return r.updateDefaultDatabase(ctx, prior, plan)
+		}, ctx)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if config.Branch != nil && plan.Branch != nil && prior.Branch != nil &&
+		(!plan.Branch.Name.Equal(prior.Branch.Name) ||
+			!plan.Branch.Protected.Equal(prior.Branch.Protected)) {
+		plan.Branch = r.updateBranch(ctx, prior.Branch, plan.Branch, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	if config.PrimaryCompute != nil && plan.PrimaryCompute != nil && prior.PrimaryCompute != nil {
 		plan.PrimaryCompute = r.updatePrimaryCompute(ctx, prior.PrimaryCompute, plan.PrimaryCompute, &resp.Diagnostics)
 		if resp.Diagnostics.HasError() {
@@ -1393,6 +1436,84 @@ func (r neonProjectResource) ImportState(ctx context.Context, req resource.Impor
 	if resp.State.Raw.IsNull() {
 		resp.Diagnostics.AddError("project not found", "")
 	}
+}
+
+func (r neonProjectResource) updateDefaultDatabase(ctx context.Context, prior, plan neonProjectResourceModel) error {
+	if prior.Branch == nil {
+		return fmt.Errorf("cannot update default database: branch is not set")
+	}
+
+	projectID := prior.ID.ValueString()
+	branchID := prior.Branch.ID.ValueString()
+	databaseName := prior.DatabaseName.ValueString()
+	if projectID == "" || branchID == "" || databaseName == "" {
+		return fmt.Errorf("cannot update default database: project, branch, and database identifiers must be set")
+	}
+
+	cfg := neon.DatabaseUpdateRequest{}
+	if stringChanged(prior.DatabaseName, plan.DatabaseName) {
+		cfg.Database.Name = plan.DatabaseName.ValueStringPointer()
+	}
+	if stringChanged(prior.DatabaseUser, plan.DatabaseUser) {
+		roleName := plan.DatabaseUser.ValueString()
+		_, err := r.client.GetProjectBranchRole(projectID, branchID, roleName)
+		if err != nil {
+			var apiErr neon.Error
+			if !errors.As(err, &apiErr) || apiErr.HTTPCode != http.StatusNotFound {
+				return err
+			}
+
+			created, err := r.client.CreateProjectBranchRole(projectID, branchID, neon.RoleCreateRequest{
+				Role: neon.RoleCreateRequestRole{Name: roleName},
+			})
+			if err != nil {
+				return err
+			}
+			waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations)
+		}
+		cfg.Database.OwnerName = &roleName
+	}
+
+	updated, err := r.client.UpdateProjectBranchDatabase(projectID, branchID, databaseName, cfg)
+	if err != nil {
+		return err
+	}
+	waitUnfinishedOperations(ctx, r.client, updated.OperationsResponse.Operations)
+	return nil
+}
+
+func (r neonProjectResource) updateBranch(ctx context.Context, prior, plan *neonBranchResourceModel,
+	diagnostics *diag.Diagnostics) *neonBranchResourceModel {
+	schemaResp := resource.SchemaResponse{}
+	r.branchHandler.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
+	diagnostics.Append(schemaResp.Diagnostics...)
+	if diagnostics.HasError() {
+		return nil
+	}
+
+	updateReq := resource.UpdateRequest{
+		State: tfsdk.State{Schema: schemaResp.Schema},
+		Plan:  tfsdk.Plan{Schema: schemaResp.Schema},
+	}
+	diagnostics.Append(updateReq.State.Set(ctx, prior)...)
+	diagnostics.Append(updateReq.Plan.Set(ctx, plan)...)
+	if diagnostics.HasError() {
+		return nil
+	}
+
+	updateResp := resource.UpdateResponse{State: updateReq.State}
+	r.branchHandler.Update(ctx, updateReq, &updateResp)
+	diagnostics.Append(updateResp.Diagnostics...)
+	if diagnostics.HasError() {
+		return nil
+	}
+
+	newState := new(neonBranchResourceModel)
+	diagnostics.Append(updateResp.State.Get(ctx, newState)...)
+	if diagnostics.HasError() {
+		return nil
+	}
+	return newState
 }
 
 func (r neonProjectResource) updatePrimaryCompute(ctx context.Context, prior *neonEndpointResourceModel,

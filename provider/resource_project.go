@@ -13,8 +13,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -610,11 +612,17 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "Minimal value of the project-wide autoscaling limit.\nNote that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Float64{
+				float64planmodifier.UseStateForUnknown(),
+			},
 		},
 		"autoscaling_limit_max_cu": schema.Float64Attribute{
 			Description: "Maximal value of the project-wide autoscaling limit.\nNote that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Float64{
+				float64planmodifier.UseStateForUnknown(),
+			},
 		},
 		"suspend_timeout_seconds": schema.Int64Attribute{
 			Description: "Project-wide scale-to-zero idle timeout, in seconds, before the compute suspends." +
@@ -628,6 +636,9 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Computed:   true,
 			Default:    int64default.StaticInt64(0),
 			Validators: []validator.Int64{validateSuspendTimeout},
+			PlanModifiers: []planmodifier.Int64{
+				int64planmodifier.UseStateForUnknown(),
+			},
 		},
 		"compute_provisioner": schema.StringAttribute{
 			Description:   "Project-wide compute provisioner. `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.",
@@ -1282,7 +1293,31 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		cfg.Project.Settings.PreloadLibraries.UseDefaults = plan.EnabledLibrariesUseDefaults.ValueBoolPointer()
 	}
 
-	// TODO: add the request config inference
+	// attributes to modify project endpoints' defaults
+	if !plan.AutoscalingLimitMinCU.IsNull() && !plan.AutoscalingLimitMinCU.IsUnknown() &&
+		!plan.AutoscalingLimitMinCU.Equal(prior.AutoscalingLimitMinCU) {
+		if cfg.Project.DefaultEndpointSettings == nil {
+			cfg.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+		}
+		cfg.Project.DefaultEndpointSettings.AutoscalingLimitMinCu =
+			pointer(neon.ComputeUnit(plan.AutoscalingLimitMinCU.ValueFloat64()))
+	}
+	if !plan.AutoscalingLimitMaxCU.IsNull() && !plan.AutoscalingLimitMaxCU.IsUnknown() &&
+		!plan.AutoscalingLimitMaxCU.Equal(prior.AutoscalingLimitMaxCU) {
+		if cfg.Project.DefaultEndpointSettings == nil {
+			cfg.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+		}
+		cfg.Project.DefaultEndpointSettings.AutoscalingLimitMaxCu =
+			pointer(neon.ComputeUnit(plan.AutoscalingLimitMaxCU.ValueFloat64()))
+	}
+	if !plan.SuspendTimeoutSeconds.IsNull() && !plan.SuspendTimeoutSeconds.IsUnknown() &&
+		!plan.SuspendTimeoutSeconds.Equal(prior.SuspendTimeoutSeconds) {
+		if cfg.Project.DefaultEndpointSettings == nil {
+			cfg.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
+		}
+		cfg.Project.DefaultEndpointSettings.SuspendTimeoutSeconds =
+			pointer(neon.SuspendTimeoutSeconds(plan.SuspendTimeoutSeconds.ValueInt64()))
+	}
 
 	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
 		result, err := r.client.UpdateProject(prior.ID.ValueString(), cfg)

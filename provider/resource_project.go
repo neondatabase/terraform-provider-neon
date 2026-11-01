@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -426,23 +425,6 @@ func (r *neonProjectResource) ModifyPlan(ctx context.Context, req resource.Modif
 	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
 		return
 	}
-
-	// set omitted values to false
-	for _, pAttr := range []string{
-		"allowed_ips_protected_branches_only",
-		"enable_logical_replication",
-	} {
-		attrPath := path.Root(pAttr)
-		var config, state types.Bool
-		resp.Diagnostics.Append(req.Config.GetAttribute(ctx, attrPath, &config)...)
-		resp.Diagnostics.Append(req.State.GetAttribute(ctx, attrPath, &state)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		if config.IsNull() && !state.IsNull() && !state.IsUnknown() && state.ValueBool() {
-			resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, attrPath, types.BoolValue(false))...)
-		}
-	}
 }
 
 type boolReplacerFromTrue struct{}
@@ -585,16 +567,25 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "Apply the allow-list to the protected branches only.\nNote that the feature is available to the Neon Scale plans only.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Bool{
+				setUnknownBool(false),
+			},
 		},
 		"block_public_connections": schema.BoolAttribute{
 			Description: "Block connections from public internet. This supersedes the AllowedIPs list.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Bool{
+				setUnknownBool(false),
+			},
 		},
 		"block_vpc_connections": schema.BoolAttribute{
 			Description: "Block connections that use VPC endpoints.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Bool{
+				setUnknownBool(false),
+			},
 		},
 		"enable_logical_replication": schema.BoolAttribute{
 			Description: "Sets wal_level=logical for all compute endpoints in this project.\nAll active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication\n**Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.\n\n**Warning**: Once enabled, logical replication cannot be disabled.",
@@ -665,6 +656,9 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Bool{
+				setUnknownBool(false),
+			},
 		},
 		"default_branch_id": schema.StringAttribute{
 			Description:        "Default branch ID.",
@@ -813,6 +807,117 @@ Note that this resource manages five resources:
 - Default role: https://neon.com/docs/reference/glossary#postgres-role
 `,
 		Attributes: attrs,
+	}
+}
+
+func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
+
+	var state neonProjectResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var project neon.Project
+	var defaultBranch neon.Branch
+	var defaultEndpoint neon.Endpoint
+	var defaultDatabase neon.Database
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+		// read the project details
+		result, err := r.client.GetProject(state.ID.ValueString())
+		if err != nil {
+			return err
+		}
+		project = result.Project
+
+		// read the default branch details
+		var cursor *string
+		for {
+			res, err := r.client.ListProjectBranches(project.ID, nil,
+				&neon.ListProjectBranchesSortByCreatedAt, cursor, &neon.SortOrderParamAsc,
+				nil, nil)
+			if err != nil {
+				return err
+			}
+
+			if res.CursorPaginationResponse.Pagination != nil {
+				cursor = res.CursorPaginationResponse.Pagination.Next
+			} else {
+				cursor = nil
+			}
+
+			for _, br := range res.Branches {
+				if br.Default {
+					defaultBranch = br
+					cursor = nil
+					break
+				}
+			}
+
+			if cursor == nil {
+				break
+			}
+		}
+
+		if defaultBranch.ID == "" {
+			return nil
+		}
+
+		var errs = make(chan error, 2)
+		// read default endpoint
+		go func() {
+			resEndpoints, err := r.client.ListProjectEndpoints(project.ID)
+			if err != nil {
+				errs <- err
+				return
+			}
+			defaultEndpoint = findDefaultEndpoint(resEndpoints.Endpoints, defaultBranch.ID)
+			errs <- nil
+		}()
+
+		// read default database
+		go func() {
+			resDatabases, err := r.client.ListProjectBranchDatabases(project.ID, defaultBranch.ID)
+			if err != nil {
+				errs <- err
+				return
+			}
+			defaultDatabase = findDefaultDatabase(resDatabases.Databases, defaultBranch.ID)
+			errs <- nil
+		}()
+
+		for i := 0; i < cap(errs); i++ {
+			if e := <-errs; e != nil {
+				return e
+			}
+		}
+
+		return nil
+	}, ctx, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error {
+			return nil
+		},
+	})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if project.ID == "" {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	state.inferAttr(ctx, project, defaultBranch, defaultEndpoint, defaultDatabase, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 }
 
@@ -1022,117 +1127,6 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 }
 
-func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	if r.client == nil {
-		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
-		return
-	}
-
-	var state neonProjectResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	var project neon.Project
-	var defaultBranch neon.Branch
-	var defaultEndpoint neon.Endpoint
-	var defaultDatabase neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
-		// read the project details
-		result, err := r.client.GetProject(state.ID.ValueString())
-		if err != nil {
-			return err
-		}
-		project = result.Project
-
-		// read the default branch details
-		var cursor *string
-		for {
-			res, err := r.client.ListProjectBranches(project.ID, nil,
-				&neon.ListProjectBranchesSortByCreatedAt, cursor, &neon.SortOrderParamAsc,
-				nil, nil)
-			if err != nil {
-				return err
-			}
-
-			if res.CursorPaginationResponse.Pagination != nil {
-				cursor = res.CursorPaginationResponse.Pagination.Next
-			} else {
-				cursor = nil
-			}
-
-			for _, br := range res.Branches {
-				if br.Default {
-					defaultBranch = br
-					cursor = nil
-					break
-				}
-			}
-
-			if cursor == nil {
-				break
-			}
-		}
-
-		if defaultBranch.ID == "" {
-			return nil
-		}
-
-		var errs = make(chan error, 2)
-		// read default endpoint
-		go func() {
-			resEndpoints, err := r.client.ListProjectEndpoints(project.ID)
-			if err != nil {
-				errs <- err
-				return
-			}
-			defaultEndpoint = findDefaultEndpoint(resEndpoints.Endpoints, defaultBranch.ID)
-			errs <- nil
-		}()
-
-		// read default database
-		go func() {
-			resDatabases, err := r.client.ListProjectBranchDatabases(project.ID, defaultBranch.ID)
-			if err != nil {
-				errs <- err
-				return
-			}
-			defaultDatabase = findDefaultDatabase(resDatabases.Databases, defaultBranch.ID)
-			errs <- nil
-		}()
-
-		for i := 0; i < cap(errs); i++ {
-			if e := <-errs; e != nil {
-				return e
-			}
-		}
-
-		return nil
-	}, ctx, map[int]func(context.Context) error{
-		http.StatusNotFound: func(_ context.Context) error {
-			return nil
-		},
-	})...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	if project.ID == "" {
-		resp.State.RemoveResource(ctx)
-		return
-	}
-
-	state.inferAttr(ctx, project, defaultBranch, defaultEndpoint, defaultDatabase, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-}
-
 func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	if r.client == nil {
 		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
@@ -1154,6 +1148,8 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	if !plan.HistoryRetentionSeconds.Equal(prior.HistoryRetentionSeconds) {
 		cfg.Project.HistoryRetentionSeconds = plan.HistoryRetentionSeconds.ValueInt32Pointer()
 	}
+
+	// attributes of the cfg.Project.Settings
 	if !plan.EnableLogicalReplication.IsUnknown() &&
 		!plan.EnableLogicalReplication.Equal(prior.EnableLogicalReplication) {
 		if cfg.Project.Settings == nil {
@@ -1168,30 +1164,20 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		cfg.Project.Settings.Hipaa = plan.Hipaa.ValueBoolPointer()
 	}
-
-	var updateMaintenanceWindow bool
-	if plan.MaintenanceWindow != nil {
-		if prior.MaintenanceWindow != nil {
-			if !plan.MaintenanceWindow.Weekdays.Equal(prior.MaintenanceWindow.Weekdays) ||
-				!plan.MaintenanceWindow.StartTime.Equal(prior.MaintenanceWindow.StartTime) ||
-				!plan.MaintenanceWindow.EndTime.Equal(prior.MaintenanceWindow.EndTime) {
-				updateMaintenanceWindow = true
-			}
-		} else {
-			updateMaintenanceWindow = true
-		}
-	}
-
-	if updateMaintenanceWindow {
+	if !plan.BlockPublicConnections.IsUnknown() &&
+		!plan.BlockPublicConnections.Equal(prior.BlockPublicConnections) {
 		if cfg.Project.Settings == nil {
 			cfg.Project.Settings = &neon.ProjectSettingsData{}
 		}
-		cfg.Project.Settings.MaintenanceWindow = plan.maintenanceWindow(ctx, &resp.Diagnostics)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+		cfg.Project.Settings.BlockPublicConnections = plan.BlockPublicConnections.ValueBoolPointer()
 	}
-
+	if !plan.BlockVPCConnections.IsUnknown() &&
+		!plan.BlockVPCConnections.Equal(prior.BlockVPCConnections) {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.BlockVpcConnections = plan.BlockVPCConnections.ValueBoolPointer()
+	}
 	if !plan.AllowedIPs.Equal(prior.AllowedIPs) {
 		allowedIPs := []string{}
 
@@ -1210,7 +1196,6 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		cfg.Project.Settings.AllowedIps.Ips = allowedIPs
 	}
-
 	if !plan.AllowedIPsProtectedBranchesOnly.IsUnknown() &&
 		!plan.AllowedIPsProtectedBranchesOnly.Equal(prior.AllowedIPsProtectedBranchesOnly) {
 		if cfg.Project.Settings == nil {
@@ -1220,6 +1205,81 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			cfg.Project.Settings.AllowedIps = &neon.AllowedIps{}
 		}
 		cfg.Project.Settings.AllowedIps.ProtectedBranchesOnly = plan.AllowedIPsProtectedBranchesOnly.ValueBoolPointer()
+	}
+
+	var updateMaintenanceWindow bool
+	if plan.MaintenanceWindow != nil {
+		if prior.MaintenanceWindow != nil {
+			if !plan.MaintenanceWindow.Weekdays.Equal(prior.MaintenanceWindow.Weekdays) ||
+				!plan.MaintenanceWindow.StartTime.Equal(prior.MaintenanceWindow.StartTime) ||
+				!plan.MaintenanceWindow.EndTime.Equal(prior.MaintenanceWindow.EndTime) {
+				updateMaintenanceWindow = true
+			}
+		} else {
+			updateMaintenanceWindow = true
+		}
+	}
+	if updateMaintenanceWindow {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.MaintenanceWindow = plan.maintenanceWindow(ctx, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	var updateQuota bool
+	if plan.Quota != nil {
+		if prior.Quota != nil {
+			if !plan.Quota.ActiveTimeSeconds.Equal(prior.Quota.ActiveTimeSeconds) ||
+				!plan.Quota.ComputeTimeSeconds.Equal(prior.Quota.ComputeTimeSeconds) ||
+				!plan.Quota.DataTransferBytes.Equal(prior.Quota.DataTransferBytes) ||
+				!plan.Quota.LogicalSizeBytes.Equal(prior.Quota.LogicalSizeBytes) ||
+				!plan.Quota.WrittenDataBytes.Equal(prior.Quota.WrittenDataBytes) {
+				updateQuota = true
+			}
+		} else {
+			updateQuota = true
+		}
+	}
+	if updateQuota {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.Quota = plan.quota(ctx, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if !plan.EnabledLibraries.Equal(prior.EnabledLibraries) {
+		preloadedLibs := []string{}
+
+		if !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() {
+			resp.Diagnostics.Append(plan.EnabledLibraries.ElementsAs(ctx, &preloadedLibs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		if cfg.Project.Settings.PreloadLibraries == nil {
+			cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
+		}
+		cfg.Project.Settings.PreloadLibraries.EnabledLibraries = preloadedLibs
+	}
+	if !plan.EnabledLibrariesUseDefaults.IsUnknown() &&
+		!plan.EnabledLibrariesUseDefaults.Equal(prior.EnabledLibrariesUseDefaults) {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		if cfg.Project.Settings.PreloadLibraries == nil {
+			cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
+		}
+		cfg.Project.Settings.PreloadLibraries.UseDefaults = plan.EnabledLibrariesUseDefaults.ValueBoolPointer()
 	}
 
 	// TODO: add the request config inference

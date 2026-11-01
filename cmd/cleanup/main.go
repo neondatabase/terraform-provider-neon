@@ -80,6 +80,9 @@ func main() {
 			break
 		}
 		cursorProjects = &p.PaginationResponse.Pagination.Cursor
+		if cursorProjects == nil {
+			break
+		}
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
@@ -119,7 +120,7 @@ type neonProjectResourceModel struct {
 	PrimaryCompute    *neonEndpointResourceModel `tfsdk:"primary_compute"`
 
 	// 	TODO: add pgSettings (?) verify for bug in API behaviour
-	// 	TODO: add autit level
+	// 	TODO: add audit level
 
 	// TODO: delete after the off. release: it's here for BW compatibility only
 	DefaultBranchID types.String `tfsdk:"default_branch_id"`
@@ -152,6 +153,19 @@ func (v neonProjectResourceModel) maintenanceWindow(ctx context.Context, diagnos
 		o.Weekdays = append(o.Weekdays, int(el))
 	}
 	return o
+}
+
+func (v neonProjectResourceModel) quota(_ context.Context, diagnostics *diag.Diagnostics) *neon.ProjectQuota {
+	if v.Quota == nil {
+		return nil
+	}
+	return &neon.ProjectQuota{
+		ActiveTimeSeconds:  v.Quota.ActiveTimeSeconds.ValueInt64Pointer(),
+		ComputeTimeSeconds: v.Quota.ComputeTimeSeconds.ValueInt64Pointer(),
+		DataTransferBytes:  v.Quota.DataTransferBytes.ValueInt64Pointer(),
+		LogicalSizeBytes:   v.Quota.LogicalSizeBytes.ValueInt64Pointer(),
+		WrittenDataBytes:   v.Quota.WrittenDataBytes.ValueInt64Pointer(),
+	}
 }
 
 func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.Project, branch neon.Branch,
@@ -484,12 +498,33 @@ func setUnknownBool(v bool) planmodifier.Bool {
 	return setterIfUnknown{v: v}
 }
 
+type validatorNonEmptyString struct{}
+
+func (v validatorNonEmptyString) Description(_ context.Context) string {
+	return "Checks if the string is empty"
+}
+
+func (v validatorNonEmptyString) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v validatorNonEmptyString) ValidateString(_ context.Context, req validator.StringRequest,
+	resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if req.ConfigValue.ValueString() == "" {
+		resp.Diagnostics.AddError("Invalid value", "String cannot be empty")
+	}
+}
+
+var validateNonEmptyString = validatorNonEmptyString{}
+
 func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	attrs := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
-			Description:   "Project ID.",
-			Computed:      true,
-			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			Description: "Project ID.",
+			Computed:    true,
 		},
 		"org_id": schema.StringAttribute{
 			Description: "Identifier of the organisation to which this project belongs.",
@@ -504,6 +539,9 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "Project name.",
 			Optional:    true,
 			Computed:    true,
+			Validators: []validator.String{
+				validateNonEmptyString,
+			},
 		},
 		"region_id": schema.StringAttribute{
 			Description: "Deployment region: https://neon.com/docs/introduction/regions",
@@ -522,13 +560,16 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 				int32planmodifier.UseStateForUnknown(),
 				int32planmodifier.RequiresReplace(),
 			},
-			// 	TODO: add validator
 		},
 		"store_password": schema.BoolAttribute{
 			Description: "Whether or not passwords are stored for roles in the Neon project.\nStoring passwords facilitates access to Neon features that require authorization.",
 			Optional:    true,
 			Computed:    true,
 			Default:     booldefault.StaticBool(true),
+			PlanModifiers: []planmodifier.Bool{
+				boolplanmodifier.UseStateForUnknown(),
+				boolplanmodifier.RequiresReplace(),
+			},
 		},
 		"history_retention_seconds": schema.Int32Attribute{
 			Description: "The number of seconds to retain the point-in-time restore (PITR) backup history for this project.\nDefault: 1 day, see https://neon.com/docs/reference/glossary#point-in-time-restore.",
@@ -810,6 +851,108 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		cfg.Project.Provisioner = pointer(neon.Provisioner(state.ComputeProvisioner.ValueString()))
 	}
 
+	// attributes of the cfg.Project.Settings
+	if !state.EnableLogicalReplication.IsUnknown() && !state.EnableLogicalReplication.IsNull() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.EnableLogicalReplication = state.EnableLogicalReplication.ValueBoolPointer()
+	}
+	if !state.BlockPublicConnections.IsUnknown() && !state.BlockPublicConnections.IsNull() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.BlockPublicConnections = state.BlockPublicConnections.ValueBoolPointer()
+	}
+	if !state.BlockVPCConnections.IsUnknown() && !state.BlockVPCConnections.IsNull() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.BlockVpcConnections = state.BlockVPCConnections.ValueBoolPointer()
+	}
+	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.BlockVpcConnections = state.Hipaa.ValueBoolPointer()
+	}
+	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.BlockVpcConnections = state.Hipaa.ValueBoolPointer()
+	}
+	if !state.AllowedIPs.IsNull() && !state.AllowedIPs.IsUnknown() {
+		var allowedIps []string
+		resp.Diagnostics.Append(state.AllowedIPs.ElementsAs(ctx, &allowedIps, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if len(allowedIps) > 0 {
+			if cfg.Project.Settings == nil {
+				cfg.Project.Settings = &neon.ProjectSettingsData{}
+			}
+			if cfg.Project.Settings.AllowedIps == nil {
+				cfg.Project.Settings.AllowedIps = &neon.AllowedIps{}
+			}
+			cfg.Project.Settings.AllowedIps.Ips = allowedIps
+		}
+	}
+	if !state.AllowedIPsProtectedBranchesOnly.IsNull() && !state.AllowedIPsProtectedBranchesOnly.IsUnknown() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		if cfg.Project.Settings.AllowedIps == nil {
+			cfg.Project.Settings.AllowedIps = &neon.AllowedIps{}
+		}
+		cfg.Project.Settings.AllowedIps.ProtectedBranchesOnly = state.AllowedIPsProtectedBranchesOnly.ValueBoolPointer()
+	}
+	if state.MaintenanceWindow != nil {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.MaintenanceWindow = state.maintenanceWindow(ctx, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if !state.EnabledLibraries.IsNull() && !state.EnabledLibraries.IsUnknown() {
+		var enabledLibs []string
+		resp.Diagnostics.Append(state.EnabledLibraries.ElementsAs(ctx, &enabledLibs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		if len(enabledLibs) > 0 {
+			if cfg.Project.Settings == nil {
+				cfg.Project.Settings = &neon.ProjectSettingsData{}
+			}
+			if cfg.Project.Settings.PreloadLibraries == nil {
+				cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
+			}
+			cfg.Project.Settings.PreloadLibraries.EnabledLibraries = enabledLibs
+		}
+	}
+	if !state.EnabledLibrariesUseDefaults.IsNull() && !state.EnabledLibrariesUseDefaults.IsUnknown() {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		if cfg.Project.Settings.PreloadLibraries == nil {
+			cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
+		}
+		cfg.Project.Settings.PreloadLibraries.UseDefaults = state.EnabledLibrariesUseDefaults.ValueBoolPointer()
+	}
+	if state.Quota != nil {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.Quota = state.quota(ctx, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	if !state.AutoscalingLimitMinCU.IsNull() && !state.AutoscalingLimitMinCU.IsUnknown() {
 		if cfg.Project.DefaultEndpointSettings == nil {
 			cfg.Project.DefaultEndpointSettings = &neon.DefaultEndpointSettings{}
@@ -831,50 +974,7 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		cfg.Project.DefaultEndpointSettings.SuspendTimeoutSeconds =
 			pointer(neon.SuspendTimeoutSeconds(state.SuspendTimeoutSeconds.ValueInt64()))
 	}
-	if !state.EnableLogicalReplication.IsUnknown() && !state.EnableLogicalReplication.IsNull() {
-		if cfg.Project.Settings == nil {
-			cfg.Project.Settings = &neon.ProjectSettingsData{}
-		}
-		cfg.Project.Settings.EnableLogicalReplication = state.EnableLogicalReplication.ValueBoolPointer()
-	}
 
-	if state.MaintenanceWindow != nil {
-		if cfg.Project.Settings == nil {
-			cfg.Project.Settings = &neon.ProjectSettingsData{}
-		}
-		cfg.Project.Settings.MaintenanceWindow = state.maintenanceWindow(ctx, &resp.Diagnostics)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-	}
-
-	if !state.AllowedIPs.IsNull() && !state.AllowedIPs.IsUnknown() {
-		var allowedIps []string
-		resp.Diagnostics.Append(state.AllowedIPs.ElementsAs(ctx, &allowedIps, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		if len(allowedIps) > 0 {
-			if cfg.Project.Settings == nil {
-				cfg.Project.Settings = &neon.ProjectSettingsData{}
-			}
-			if cfg.Project.Settings.AllowedIps == nil {
-				cfg.Project.Settings.AllowedIps = &neon.AllowedIps{}
-			}
-			cfg.Project.Settings.AllowedIps.Ips = allowedIps
-		}
-	}
-
-	if !state.AllowedIPsProtectedBranchesOnly.IsNull() && !state.AllowedIPsProtectedBranchesOnly.IsUnknown() {
-		if cfg.Project.Settings == nil {
-			cfg.Project.Settings = &neon.ProjectSettingsData{}
-		}
-		if cfg.Project.Settings.AllowedIps == nil {
-			cfg.Project.Settings.AllowedIps = &neon.AllowedIps{}
-		}
-		cfg.Project.Settings.AllowedIps.ProtectedBranchesOnly = state.AllowedIPsProtectedBranchesOnly.ValueBoolPointer()
-	}
 	var project neon.Project
 	var defaultBranch neon.Branch
 	var endpoints []neon.Endpoint

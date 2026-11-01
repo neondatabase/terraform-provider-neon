@@ -510,6 +510,7 @@ func TestProject(t *testing.T) {
 
 	t.Run("shall create a project w/ custom enable_logical_replication and update it", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
+		var projectID string
 		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
@@ -517,10 +518,9 @@ func TestProject(t *testing.T) {
 					{
 						Config: fmt.Sprintf(`resource "neon_project" "this" {
 							name   = %q
-							enable_logical_replication = true
 						}`, projectName),
 						Check: resource.ComposeTestCheckFunc(
-							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "true"),
+							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
 						),
 					},
@@ -529,18 +529,251 @@ func TestProject(t *testing.T) {
 							name   = %q
 							enable_logical_replication = false
 						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID != projectID {
+									return fmt.Errorf("project was replaced instead of update in-place")
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+							enable_logical_replication = true
+						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "true"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID != projectID {
+									return fmt.Errorf("project was replaced instead of update in-place")
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+							enable_logical_replication = false
+						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID == projectID {
+									return fmt.Errorf("project was not replaced as expected")
+								}
+								return nil
+							},
 						),
 					},
 					{
 						Config: fmt.Sprintf(`resource "neon_project" "this" {
 							name   = %q
 						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID != projectID {
+									return fmt.Errorf("project was replaced instead of update in-place")
+								}
+								return nil
+							},
+						),
+					},
+				},
+			})
+	})
+
+	t.Run("shall create a project w/ custom hipaa and update it", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		var projectID string
+		resource.Test(
+			t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+						}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								flag := false
+								p, err := client.UpdateProject(r.Primary.ID, neon.ProjectUpdateRequest{
+									Project: neon.ProjectUpdateRequestProject{
+										Settings: &neon.ProjectSettingsData{Hipaa: &flag},
+									},
+								})
+								waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
+								if err != nil && assert.Contains(t, err.(*neon.Error).Message, "hipaa") {
+									t.Skip(fmt.Sprintf("org %s HIPAA compliance is not supported",
+										*p.Project.OrgID))
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+							hipaa = false
+						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID != projectID {
+									return fmt.Errorf("project was replaced instead of update in-place")
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+							hipaa = true
+						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "true"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID != projectID {
+									return fmt.Errorf("project was replaced instead of update in-place")
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+							hipaa = false
+						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID == projectID {
+									return fmt.Errorf("project was not replaced as expected")
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+							name   = %q
+						}`, projectName),
+						PreConfig: func() {
+							p, err := readProjectInfo(client, projectName)
+							if err != nil {
+								panic(err)
+							}
+							projectID = p.ID
+						},
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
+							verify,
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								if r.Primary.ID != projectID {
+									return fmt.Errorf("project was replaced instead of update in-place")
+								}
+								return nil
+							},
 						),
 					},
 				},

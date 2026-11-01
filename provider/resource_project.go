@@ -13,8 +13,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -430,17 +431,74 @@ func (r *neonProjectResource) ModifyPlan(ctx context.Context, req resource.Modif
 	}
 }
 
+type boolReplacerFromTrue struct{}
+
+func (v boolReplacerFromTrue) Description(_ context.Context) string {
+	return "Force replacement if the attribute is changed from true to false explicitly, or implicitly (attr. is removed from the manifest)."
+}
+
+func (v boolReplacerFromTrue) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v boolReplacerFromTrue) PlanModifyBool(_ context.Context, req planmodifier.BoolRequest,
+	resp *planmodifier.BoolResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	if req.StateValue.IsNull() || req.StateValue.IsUnknown() || !req.StateValue.ValueBool() {
+		return
+	}
+	if req.ConfigValue.IsUnknown() || (!req.ConfigValue.IsNull() && req.ConfigValue.ValueBool()) {
+		return
+	}
+
+	resp.RequiresReplace = true
+}
+
+var requiresReplaceFromTrue = boolReplacerFromTrue{}
+
+type setterIfUnknown struct {
+	v bool
+}
+
+func (v setterIfUnknown) Description(_ context.Context) string {
+	return fmt.Sprintf(`Modifies unknown value to "%v"`, v.v)
+}
+
+func (v setterIfUnknown) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v setterIfUnknown) PlanModifyBool(_ context.Context, req planmodifier.BoolRequest, resp *planmodifier.BoolResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	if req.ConfigValue.IsNull() && !req.StateValue.IsNull() &&
+		!req.StateValue.IsUnknown() && req.StateValue.ValueBool() != v.v {
+		resp.PlanValue = types.BoolValue(v.v)
+	}
+}
+
+func setUnknownBool(v bool) planmodifier.Bool {
+	return setterIfUnknown{v: v}
+}
+
 func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	attrs := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
-			Description: "Project ID.",
-			Computed:    true,
+			Description:   "Project ID.",
+			Computed:      true,
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		},
 		"org_id": schema.StringAttribute{
-			Description:   "Identifier of the organisation to which this project belongs.",
-			Computed:      true,
-			Optional:      true,
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			Description: "Identifier of the organisation to which this project belongs.",
+			Computed:    true,
+			Optional:    true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
+			},
 		},
 		"name": schema.StringAttribute{
 			Description: "Project name.",
@@ -448,16 +506,22 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Computed:    true,
 		},
 		"region_id": schema.StringAttribute{
-			Description:   "Deployment region: https://neon.com/docs/introduction/regions",
-			Optional:      true,
-			Computed:      true,
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			Description: "Deployment region: https://neon.com/docs/introduction/regions",
+			Optional:    true,
+			Computed:    true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
+			},
 		},
 		"pg_version": schema.Int32Attribute{
-			Description:   "Postgres version",
-			Optional:      true,
-			Computed:      true,
-			PlanModifiers: []planmodifier.Int32{int32planmodifier.RequiresReplace()},
+			Description: "Postgres version",
+			Optional:    true,
+			Computed:    true,
+			PlanModifiers: []planmodifier.Int32{
+				int32planmodifier.UseStateForUnknown(),
+				int32planmodifier.RequiresReplace(),
+			},
 			// 	TODO: add validator
 		},
 		"store_password": schema.BoolAttribute{
@@ -495,14 +559,20 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "Sets wal_level=logical for all compute endpoints in this project.\nAll active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication\n**Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.\n\n**Warning**: Once enabled, logical replication cannot be disabled.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Bool{
+				setUnknownBool(false),
+				requiresReplaceFromTrue,
+			},
 		},
 		"database_name": schema.StringAttribute{
 			Description: "Default database name.",
 			Computed:    true,
+			Optional:    true,
 		},
 		"database_user": schema.StringAttribute{
 			Description: "Default database role.",
 			Computed:    true,
+			Optional:    true,
 		},
 		"autoscaling_limit_min_cu": schema.Float64Attribute{
 			Description: "Minimal value of the project-wide autoscaling limit.\nNote that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.",
@@ -524,6 +594,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 				"See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configuration).",
 			Optional:   true,
 			Computed:   true,
+			Default:    int64default.StaticInt64(0),
 			Validators: []validator.Int64{validateSuspendTimeout},
 		},
 		"compute_provisioner": schema.StringAttribute{
@@ -535,10 +606,13 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Validators:    []validator.String{validateComputeProvisioner},
 		},
 		"hipaa": schema.BoolAttribute{
-			Description:   "Enable HIPAA compliance for the project.\nNote that HIPAA must be configured for the organization first.\n\n**Warning**: Once enabled, HIPAA cannot be disabled.",
-			Computed:      true,
-			Optional:      true,
-			PlanModifiers: []planmodifier.Bool{boolplanmodifier.RequiresReplace()},
+			Description: "Enable HIPAA compliance for the project.\nNote that HIPAA must be configured for the organization first.\n\n**Warning**: Once enabled, HIPAA cannot be disabled.",
+			Computed:    true,
+			Optional:    true,
+			PlanModifiers: []planmodifier.Bool{
+				setUnknownBool(false),
+				requiresReplaceFromTrue,
+			},
 		},
 		"enabled_libraries": schema.ListAttribute{
 			Description: "Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints.",
@@ -608,17 +682,26 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Optional:    true,
 			Computed:    true,
 			Attributes:  projectBranchSchemaAttributes,
+			PlanModifiers: []planmodifier.Object{
+				objectplanmodifier.UseStateForUnknown(),
+			},
 		},
 		"primary_compute": schema.SingleNestedAttribute{
 			Description: "Primary read-write compute resource provisioned with the project.",
 			Optional:    true,
 			Computed:    true,
 			Attributes:  projectEndpointSchemaAttributes,
+			PlanModifiers: []planmodifier.Object{
+				objectplanmodifier.UseStateForUnknown(),
+			},
 		},
 		"quota": schema.SingleNestedAttribute{
 			Description: "Per-project consumption quota. If the quota is exceeded, all active computes\nare automatically suspended and it will not be possible to start them with\nan API method call or incoming proxy connections. The only exception is\nlogical_size_bytes, which is applied on per-branch basis, i.e., only the\ncompute on the branch that exceeds the logical_size quota will be suspended.\n\nQuotas are enforced based on per-project consumption metrics with the same names,\nwhich are reset at the end of each billing period (the first day of the month).\nLogical size is also an exception in this case, as it represents the total size\nof data stored in a branch, so it is not reset.\n\nThe zero value per attributed means 'unlimited'.",
 			Optional:    true,
 			Computed:    true,
+			PlanModifiers: []planmodifier.Object{
+				objectplanmodifier.UseStateForUnknown(),
+			},
 			Attributes: map[string]schema.Attribute{
 				"active_time_seconds": schema.Int64Attribute{
 					Description: "The total amount of wall-clock time allowed to be spent by the project's compute endpoints.",
@@ -651,7 +734,10 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "A time period during which Neon may perform maintenance on the project's infrastructure. During this time, the project's compute endpoints may be unavailable and existing connections can be interrupted.",
 			Optional:    true,
 			Computed:    true,
-			Validators:  []validator.Object{&validatorMaintenanceWindow{}},
+			PlanModifiers: []planmodifier.Object{
+				objectplanmodifier.UseStateForUnknown(),
+			},
+			Validators: []validator.Object{&validatorMaintenanceWindow{}},
 			Attributes: map[string]schema.Attribute{
 				"weekdays": schema.ListAttribute{
 					Description: "A list of weekdays when the maintenance window is active. Encoded as ints, where 1 - Monday, and 7 - Sunday.",
@@ -975,6 +1061,13 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		cfg.Project.Settings.EnableLogicalReplication = plan.EnableLogicalReplication.ValueBoolPointer()
 	}
+	if !plan.Hipaa.IsUnknown() &&
+		!plan.Hipaa.Equal(prior.Hipaa) {
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		}
+		cfg.Project.Settings.Hipaa = plan.Hipaa.ValueBoolPointer()
+	}
 
 	var updateMaintenanceWindow bool
 	if plan.MaintenanceWindow != nil {
@@ -1032,7 +1125,7 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	// TODO: add the request config inference
 
 	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
-		result, err := r.client.UpdateProject(plan.ID.ValueString(), cfg)
+		result, err := r.client.UpdateProject(prior.ID.ValueString(), cfg)
 		if err != nil {
 			return err
 		}
@@ -1050,10 +1143,13 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	readResp := resource.ReadResponse{State: req.State}
+	r.Read(ctx, resource.ReadRequest{State: req.State}, &readResp)
+	resp.Diagnostics.Append(readResp.Diagnostics...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.State = readResp.State
 }
 
 func (r neonProjectResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

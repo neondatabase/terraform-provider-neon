@@ -661,7 +661,7 @@ func TestProject(t *testing.T) {
 									},
 								})
 								waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
-								if err != nil && assert.Contains(t, err.(*neon.Error).Message, "hipaa") {
+								if err != nil && assert.Contains(t, err.(*neon.Error).Details[0].Message, "hipaa") {
 									t.Skip(fmt.Sprintf("org %s HIPAA compliance is not supported",
 										*p.Project.OrgID))
 								}

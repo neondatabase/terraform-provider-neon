@@ -3,12 +3,22 @@
 page_title: "neon_project Data Source - terraform-provider-neon"
 subcategory: ""
 description: |-
-  Fetch Project.
+  Neon Project.
+  Note that this resource manages five resources:
+  Project: https://neon.com/docs/reference/glossary#projectRoot branch: https://neon.com/docs/reference/glossary#root-branchPrimary compute with the default read-write endpoint: https://neon.com/docs/reference/glossary#computeDefault database: https://neon.com/docs/reference/glossary#databaseDefault role: https://neon.com/docs/reference/glossary#postgres-role
 ---
 
 # neon_project (Data Source)
 
-Fetch Project.
+Neon Project.
+
+Note that this resource manages five resources:
+
+- Project: https://neon.com/docs/reference/glossary#project
+- Root branch: https://neon.com/docs/reference/glossary#root-branch
+- Primary compute with the default read-write endpoint: https://neon.com/docs/reference/glossary#compute
+- Default database: https://neon.com/docs/reference/glossary#database
+- Default role: https://neon.com/docs/reference/glossary#postgres-role
 
 
 
@@ -21,12 +31,136 @@ Fetch Project.
 
 ### Read-Only
 
-- `connection_uri` (String, Sensitive) Default connection uri. **Note** that it contains access credentials.
-- `connection_uri_pooler` (String, Sensitive) Default connection uri with the traffic via pooler. **Note** that it contains access credentials.
-- `database_host` (String) Default database host.
-- `database_host_pooler` (String) Default endpoint host via pooler.
+- `allowed_ips` (List of String) A list of IP addresses that are allowed to connect to the endpoints.
+Note that the feature is available to the Neon Scale plans only. Details: https://neon.com/docs/manage/projects#configure-ip-allow
+- `allowed_ips_protected_branches_only` (Boolean) Apply the allow-list to the protected branches only.
+Note that the feature is available to the Neon Scale plans only.
+- `autoscaling_limit_max_cu` (Number) Maximal value of the project-wide autoscaling limit.
+Note that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.
+- `autoscaling_limit_min_cu` (Number) Minimal value of the project-wide autoscaling limit.
+Note that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.
+- `block_public_connections` (Boolean) Block connections from public internet. This supersedes the AllowedIPs list.
+- `block_vpc_connections` (Boolean) Block connections that use VPC endpoints.
+- `branch` (Attributes) Main branch provisioned with the project. (see [below for nested schema](#nestedatt--branch))
+- `compute_provisioner` (String) Project-wide compute provisioner. `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.
+- `database_host` (String, Deprecated) The hostname of the default compute endpoint.
+- `database_host_pooler` (String, Deprecated) The hostname of the default compute endpoint accessible through the connection pool (pgbouncer).
 - `database_name` (String) Default database name.
-- `database_password` (String, Sensitive) Default database access password.
 - `database_user` (String) Default database role.
-- `default_branch_id` (String) Default branch ID.
-- `name` (String) Project Name.
+- `default_branch_id` (String, Deprecated) Default branch ID.
+- `default_branch_protected` (Boolean, Deprecated) Set default branch as protected. **Note** that the default value is false.
+- `default_endpoint_id` (String, Deprecated) Default endpoint ID.
+- `enable_logical_replication` (Boolean) Sets wal_level=logical for all compute endpoints in this project.
+All active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication
+**Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.
+
+**Warning**: Once enabled, logical replication cannot be disabled.
+- `enabled_libraries` (List of String) Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints.
+- `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
+- `hipaa` (Boolean) Enable HIPAA compliance for the project.
+Note that HIPAA must be configured for the organization first.
+
+**Warning**: Once enabled, HIPAA cannot be disabled.
+- `history_retention_seconds` (Number) The number of seconds to retain the point-in-time restore (PITR) backup history for this project.
+Default: 1 day, see https://neon.com/docs/reference/glossary#point-in-time-restore.
+- `maintenance_window` (Attributes) A time period during which Neon may perform maintenance on the project's infrastructure. During this time, the project's compute endpoints may be unavailable and existing connections can be interrupted. (see [below for nested schema](#nestedatt--maintenance_window))
+- `name` (String) Project name.
+- `org_id` (String) Identifier of the organisation to which this project belongs.
+- `pg_version` (Number) Postgres version
+- `primary_compute` (Attributes) Primary read-write compute resource provisioned with the project. (see [below for nested schema](#nestedatt--primary_compute))
+- `quota` (Attributes) Per-project consumption quota. If the quota is exceeded, all active computes
+are automatically suspended and it will not be possible to start them with
+an API method call or incoming proxy connections. The only exception is
+logical_size_bytes, which is applied on per-branch basis, i.e., only the
+compute on the branch that exceeds the logical_size quota will be suspended.
+
+Quotas are enforced based on per-project consumption metrics with the same names,
+which are reset at the end of each billing period (the first day of the month).
+Logical size is also an exception in this case, as it represents the total size
+of data stored in a branch, so it is not reset.
+
+The zero value per attributed means 'unlimited'. (see [below for nested schema](#nestedatt--quota))
+- `region_id` (String) Deployment region: https://neon.com/docs/introduction/regions
+- `store_password` (Boolean) Whether or not passwords are stored for roles in the Neon project.
+Storing passwords facilitates access to Neon features that require authorization.
+- `suspend_timeout_seconds` (Number) Project-wide scale-to-zero idle timeout, in seconds, before the compute suspends.
+Note that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.
+   - `0` means the plan default (`300` sec.) applies;
+   - `-1` means scale-to-zero is disabled (never suspends), can be set only on paid plans;
+   - `604800` sec. (1 week) is the maximum.
+   - `60` sec. (1 minute) is the minimum.
+See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configuration).
+
+<a id="nestedatt--branch"></a>
+### Nested Schema for `branch`
+
+Read-Only:
+
+- `id` (String) Branch ID.
+- `logical_size` (Number) Branch logical size in MB.
+- `name` (String) The branch name.
+- `parent_id` (String) The ID of the branch to check out.
+- `parent_lsn` (String) Log Sequence Number (LSN) horizon for the data to be present in the new branch.
+See details: https://neon.tech/docs/reference/glossary/#lsn
+**Conflicts with parent_timestamp**.
+- `parent_timestamp` (Number) Log Sequence Number (LSN) horizon for the data to be present in the new branch.
+See details: https://neon.tech/docs/reference/glossary/#lsn
+**Conflicts with parent_lsn**.
+- `project_id` (String) Project ID
+- `protected` (Boolean) Set whether the branch is protected.
+
+
+<a id="nestedatt--maintenance_window"></a>
+### Nested Schema for `maintenance_window`
+
+Read-Only:
+
+- `end_time` (String) End time of the maintenance window, in the format of "HH:MM". Uses UTC.
+- `start_time` (String) Start time of the maintenance window, in the format of "HH:MM". Uses UTC.
+- `weekdays` (List of Number) A list of weekdays when the maintenance window is active. Encoded as ints, where 1 - Monday, and 7 - Sunday.
+
+
+<a id="nestedatt--primary_compute"></a>
+### Nested Schema for `primary_compute`
+
+Read-Only:
+
+- `autoscaling_limit_max_cu` (Number) Maximum compute units for autoscaling.
+- `autoscaling_limit_min_cu` (Number) Minimum compute units for autoscaling.
+- `branch_id` (String) Branch ID.
+- `compute_provisioner` (String) Compute provisioner: `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.
+- `disabled` (Boolean) Whether to restrict connections to the compute endpoint.
+	Enabling this option schedules a suspend compute operation.
+	A disabled compute endpoint cannot be enabled by a connection or
+	console action. However, the compute endpoint is periodically
+	enabled by check_availability operations.
+- `enabled_libraries` (List of String) Names of shared preload libraries to enable for the project.
+- `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
+- `host` (String) The hostname of the compute endpoint.
+- `host_pooler` (String) The hostname of the compute endpoint accessible through the connection pool (pgbouncer).
+- `id` (String) Endpoint ID.
+- `name` (String) Name of the compute endpoint.
+- `passwordless_access` (Boolean) When true, the endpoint allows passwordless access.
+- `project_id` (String) Project ID.
+- `region_id` (String) Cloud region where the resource's Postgres compute and storage reside.
+Find the list here: https://neon.com/docs/introduction/regions.
+Alternatively, use the data source `neon_active_regions`.
+- `suspend_timeout_seconds` (Number) Scale-to-zero idle timeout, in seconds, before the compute suspends.
+   - `0` means the plan default (`300` sec.) applies;
+   - `-1` means scale-to-zero is disabled (never suspends), can be set only on paid plans;
+   - `604800` sec. (1 week) is the maximum.
+   - `60` sec. (1 minute) is the minimum.
+See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configuration).
+- `type` (String) Compute endpoint type.
+
+
+<a id="nestedatt--quota"></a>
+### Nested Schema for `quota`
+
+Read-Only:
+
+- `active_time_seconds` (Number) The total amount of wall-clock time allowed to be spent by the project's compute endpoints.
+- `compute_time_seconds` (Number) The total amount of CPU seconds allowed to be spent by the project's compute endpoints.
+- `data_transfer_bytes` (Number) Total amount of data transferred from all of a project's branches using the proxy.
+- `logical_size_bytes` (Number) Limit on the logical size of every project's branch.
+- `written_data_bytes` (Number) Total amount of data written to all of a project's branches.

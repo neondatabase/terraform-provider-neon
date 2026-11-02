@@ -45,7 +45,7 @@ resource "neon_branch" "child" {
 
 ### Required
 
-- `project_id` (String) The Neon project ID
+- `project_id` (String) Project ID
 
 ### Optional
 
@@ -61,7 +61,7 @@ See details: https://neon.tech/docs/reference/glossary/#lsn
 
 ### Read-Only
 
-- `id` (String) The Neon branch ID.
+- `id` (String) Branch ID.
 - `logical_size` (Number) Branch logical size in MB.
 
 

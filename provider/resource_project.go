@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -157,7 +156,7 @@ func (v neonProjectResourceModel) maintenanceWindow(ctx context.Context, diagnos
 	return o
 }
 
-func (v neonProjectResourceModel) quota(_ context.Context, diagnostics *diag.Diagnostics) *neon.ProjectQuota {
+func (v neonProjectResourceModel) quota(_ context.Context, _ *diag.Diagnostics) *neon.ProjectQuota {
 	if v.Quota == nil {
 		return nil
 	}
@@ -603,11 +602,17 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description: "Default database name.",
 			Computed:    true,
 			Optional:    true,
+			Validators: []validator.String{
+				validateNonEmptyString,
+			},
 		},
 		"database_user": schema.StringAttribute{
 			Description: "Default database role.",
 			Computed:    true,
 			Optional:    true,
+			Validators: []validator.String{
+				validateNonEmptyString,
+			},
 		},
 		"autoscaling_limit_min_cu": schema.Float64Attribute{
 			Description: "Minimal value of the project-wide autoscaling limit.\nNote that it is not retrospectively applicable, i.e., existing compute resources are not affected by this configuration.",
@@ -1149,7 +1154,8 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		}
 	}
 
-	if branchSettings != nil && state.Branch != nil && defaultBranch.ID != "" {
+	// set custom config for the default branch
+	if branchSettings != nil && defaultBranch.ID != "" {
 		state.Branch = r.updateBranch(ctx, state.Branch, branchSettings, &resp.Diagnostics)
 		if resp.Diagnostics.HasError() {
 			return
@@ -1180,7 +1186,8 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	if !prior.Name.Equal(plan.Name) && plan.Name.ValueString() != "" {
 		cfg.Project.Name = plan.Name.ValueStringPointer()
 	}
-	if !plan.HistoryRetentionSeconds.Equal(prior.HistoryRetentionSeconds) {
+	if !plan.HistoryRetentionSeconds.Equal(prior.HistoryRetentionSeconds) &&
+		!prior.HistoryRetentionSeconds.IsNull() && !prior.HistoryRetentionSeconds.IsUnknown() {
 		cfg.Project.HistoryRetentionSeconds = plan.HistoryRetentionSeconds.ValueInt32Pointer()
 	}
 
@@ -1388,6 +1395,17 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 	resp.State = readResp.State
+
+	// if config does not include allowed_ips attr, preserve the empty list in the state
+	if config.AllowedIPs.IsNull() && plan.AllowedIPs.IsNull() {
+		var state neonProjectResourceModel
+		resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.AllowedIPs = types.ListNull(types.StringType)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	}
 }
 
 func (r neonProjectResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -1458,18 +1476,7 @@ func (r neonProjectResource) updateDefaultDatabase(ctx context.Context, prior, p
 		roleName := plan.DatabaseUser.ValueString()
 		_, err := r.client.GetProjectBranchRole(projectID, branchID, roleName)
 		if err != nil {
-			var apiErr neon.Error
-			if !errors.As(err, &apiErr) || apiErr.HTTPCode != http.StatusNotFound {
-				return err
-			}
-
-			created, err := r.client.CreateProjectBranchRole(projectID, branchID, neon.RoleCreateRequest{
-				Role: neon.RoleCreateRequestRole{Name: roleName},
-			})
-			if err != nil {
-				return err
-			}
-			waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations)
+			return err
 		}
 		cfg.Database.OwnerName = &roleName
 	}

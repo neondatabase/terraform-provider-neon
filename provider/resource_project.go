@@ -992,17 +992,11 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		}
 		cfg.Project.Settings.BlockVpcConnections = state.BlockVPCConnections.ValueBoolPointer()
 	}
-	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() {
+	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() && !state.Hipaa.ValueBool() {
 		if cfg.Project.Settings == nil {
 			cfg.Project.Settings = &neon.ProjectSettingsData{}
 		}
-		cfg.Project.Settings.BlockVpcConnections = state.Hipaa.ValueBoolPointer()
-	}
-	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() {
-		if cfg.Project.Settings == nil {
-			cfg.Project.Settings = &neon.ProjectSettingsData{}
-		}
-		cfg.Project.Settings.BlockVpcConnections = state.Hipaa.ValueBoolPointer()
+		cfg.Project.Settings.Hipaa = state.Hipaa.ValueBoolPointer()
 	}
 	if !state.AllowedIPs.IsNull() && !state.AllowedIPs.IsUnknown() {
 		var allowedIps []string

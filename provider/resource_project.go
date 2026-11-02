@@ -563,7 +563,6 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 		"allowed_ips": schema.ListAttribute{
 			Description: "A list of IP addresses that are allowed to connect to the endpoints.\nNote that the feature is available to the Neon Scale plans only. Details: https://neon.com/docs/manage/projects#configure-ip-allow",
 			Optional:    true,
-			Computed:    true,
 			ElementType: types.StringType,
 		},
 		"allowed_ips_protected_branches_only": schema.BoolAttribute{
@@ -1215,7 +1214,21 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		cfg.Project.Settings.BlockVpcConnections = plan.BlockVPCConnections.ValueBoolPointer()
 	}
-	if !plan.AllowedIPs.Equal(prior.AllowedIPs) {
+	priorHasAllowedIPs := !prior.AllowedIPs.IsNull() && !prior.AllowedIPs.IsUnknown() &&
+		len(prior.AllowedIPs.Elements()) > 0
+	planHasAllowedIPs := !plan.AllowedIPs.IsNull() && !plan.AllowedIPs.IsUnknown() &&
+		len(plan.AllowedIPs.Elements()) > 0
+
+	updateAllowedIPs := false
+	switch {
+	case priorHasAllowedIPs:
+		updateAllowedIPs = plan.AllowedIPs.IsUnknown() ||
+			config.AllowedIPs.IsNull() || config.AllowedIPs.IsUnknown() ||
+			!plan.AllowedIPs.Equal(prior.AllowedIPs)
+	case planHasAllowedIPs:
+		updateAllowedIPs = true
+	}
+	if updateAllowedIPs {
 		allowedIPs := []string{}
 
 		if !plan.AllowedIPs.IsNull() && !plan.AllowedIPs.IsUnknown() {
@@ -1349,16 +1362,18 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			pointer(neon.SuspendTimeoutSeconds(plan.SuspendTimeoutSeconds.ValueInt64()))
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
-		result, err := r.client.UpdateProject(prior.ID.ValueString(), cfg)
-		if err != nil {
-			return err
+	if cfg.Project != (neon.ProjectUpdateRequestProject{}) {
+		resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+			result, err := r.client.UpdateProject(prior.ID.ValueString(), cfg)
+			if err != nil {
+				return err
+			}
+			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+			return nil
+		}, ctx)...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
-		return nil
-	}, ctx)...)
-	if resp.Diagnostics.HasError() {
-		return
 	}
 
 	if stringChanged(prior.DatabaseName, plan.DatabaseName) ||

@@ -563,6 +563,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 		"allowed_ips": schema.ListAttribute{
 			Description: "A list of IP addresses that are allowed to connect to the endpoints.\nNote that the feature is available to the Neon Scale plans only. Details: https://neon.com/docs/manage/projects#configure-ip-allow",
 			Optional:    true,
+			Computed:    true,
 			ElementType: types.StringType,
 		},
 		"allowed_ips_protected_branches_only": schema.BoolAttribute{
@@ -1181,7 +1182,7 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		cfg.Project.Name = plan.Name.ValueStringPointer()
 	}
 	if !plan.HistoryRetentionSeconds.Equal(prior.HistoryRetentionSeconds) &&
-		!prior.HistoryRetentionSeconds.IsNull() && !prior.HistoryRetentionSeconds.IsUnknown() {
+		!plan.HistoryRetentionSeconds.IsNull() && !plan.HistoryRetentionSeconds.IsUnknown() {
 		cfg.Project.HistoryRetentionSeconds = plan.HistoryRetentionSeconds.ValueInt32Pointer()
 	}
 
@@ -1299,14 +1300,18 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			}
 		}
 
-		if cfg.Project.Settings == nil {
-			cfg.Project.Settings = &neon.ProjectSettingsData{}
+		if (prior.EnabledLibraries.IsNull() || prior.EnabledLibraries.IsUnknown()) &&
+			!config.EnabledLibraries.IsUnknown() && !config.EnabledLibraries.IsNull() {
+			if cfg.Project.Settings == nil {
+				cfg.Project.Settings = &neon.ProjectSettingsData{}
+			}
+			if cfg.Project.Settings.PreloadLibraries == nil {
+				cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
+			}
+			cfg.Project.Settings.PreloadLibraries.EnabledLibraries = preloadedLibs
 		}
-		if cfg.Project.Settings.PreloadLibraries == nil {
-			cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
-		}
-		cfg.Project.Settings.PreloadLibraries.EnabledLibraries = preloadedLibs
 	}
+
 	if !plan.EnabledLibrariesUseDefaults.IsUnknown() &&
 		!plan.EnabledLibrariesUseDefaults.Equal(prior.EnabledLibrariesUseDefaults) {
 		if cfg.Project.Settings == nil {

@@ -1295,7 +1295,7 @@ func TestProjectAllowedIPs(t *testing.T) {
 			name      				  = %q
 		}`, projectName),
 						Check: resource.ComposeTestCheckFunc(
-							resource.TestCheckNoResourceAttr("neon_project.this", "allowed_ips"),
+							resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.#", "0"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
 							func(_ *terraform.State) error {

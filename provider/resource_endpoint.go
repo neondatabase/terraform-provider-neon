@@ -9,6 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -147,27 +151,38 @@ func (r *neonEndpointResource) Schema(_ context.Context, _ resource.SchemaReques
 				Computed:    true,
 			},
 			"project_id": schema.StringAttribute{
-				Description:   "Project ID.",
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description: "Project ID.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"branch_id": schema.StringAttribute{
-				Description:   "Branch ID.",
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Description: "Branch ID.",
+				Required:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"region_id": schema.StringAttribute{
 				MarkdownDescription: `Cloud region where the resource's Postgres compute and storage reside.
 Find the list here: https://neon.com/docs/introduction/regions.
 Alternatively, use the data source ` + "`neon_active_regions`.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Optional: true,
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Description: "Name of the compute endpoint.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"type": schema.StringAttribute{
 				Description: "Compute endpoint type.",
@@ -180,11 +195,17 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				Description: "Minimum compute units for autoscaling.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Float64{
+					float64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"autoscaling_limit_max_cu": schema.Float64Attribute{
 				Description: "Maximum compute units for autoscaling.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Float64{
+					float64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"suspend_timeout_seconds": schema.Int64Attribute{
 				MarkdownDescription: "Scale-to-zero idle timeout, in seconds, before the compute suspends.\n" +
@@ -196,6 +217,9 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				Validators: []validator.Int64{validateSuspendTimeout},
 				Optional:   true,
 				Computed:   true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"compute_provisioner": schema.StringAttribute{
 				Description: "Compute provisioner: `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.",
@@ -212,22 +236,34 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 	enabled by check_availability operations.`,
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enabled_libraries": schema.ListAttribute{
 				Description: "Names of shared preload libraries to enable for the project.",
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enabled_libraries_use_defaults": schema.BoolAttribute{
 				Description: "When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"passwordless_access": schema.BoolAttribute{
 				Description: "When true, the endpoint allows passwordless access.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"host": schema.StringAttribute{
 				Description: "The hostname of the compute endpoint.",
@@ -538,27 +574,44 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 		cfg.Provisioner = pointer(neon.Provisioner(plan.ComputeProvisioner.ValueString()))
 	}
 
-	if !plan.EnabledLibraries.IsUnknown() &&
-		!plan.EnabledLibraries.IsNull() &&
-		!prior.EnabledLibraries.Equal(plan.EnabledLibraries) {
+	priorHasEnabledLibraries := !prior.EnabledLibraries.IsNull() && !prior.EnabledLibraries.IsUnknown() &&
+		len(prior.EnabledLibraries.Elements()) > 0
+	planHasEnabledLibraries := !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() &&
+		len(plan.EnabledLibraries.Elements()) > 0
+	updateEnabledLibraries := false
+	switch {
+	case priorHasEnabledLibraries:
+		updateEnabledLibraries = plan.EnabledLibraries.IsUnknown() ||
+			!plan.EnabledLibraries.Equal(prior.EnabledLibraries)
+	case planHasEnabledLibraries:
+		updateEnabledLibraries = true
+	}
+	if updateEnabledLibraries {
+		preloadedLibs := []string{}
+
+		if !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() {
+			resp.Diagnostics.Append(plan.EnabledLibraries.ElementsAs(ctx, &preloadedLibs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
 		if cfg.Settings == nil {
-			cfg.Settings = new(neon.EndpointSettingsData)
+			cfg.Settings = &neon.EndpointSettingsData{}
 		}
-		cfg.Settings.PreloadLibraries = &neon.PreloadLibraries{
-			EnabledLibraries: plan.enabledLibraries(ctx, &resp.Diagnostics),
+		if cfg.Settings.PreloadLibraries == nil {
+			cfg.Settings.PreloadLibraries = &neon.PreloadLibraries{}
 		}
-		if resp.Diagnostics.HasError() {
-			return
-		}
+		cfg.Settings.PreloadLibraries.EnabledLibraries = preloadedLibs
 	}
 
 	if !prior.EnabledLibrariesUseDefaults.Equal(plan.EnabledLibrariesUseDefaults) &&
 		!plan.EnabledLibrariesUseDefaults.IsUnknown() {
 		if cfg.Settings == nil {
-			cfg.Settings = new(neon.EndpointSettingsData)
+			cfg.Settings = &neon.EndpointSettingsData{}
 		}
 		if cfg.Settings.PreloadLibraries == nil {
-			cfg.Settings.PreloadLibraries = new(neon.PreloadLibraries)
+			cfg.Settings.PreloadLibraries = &neon.PreloadLibraries{}
 		}
 		cfg.Settings.PreloadLibraries.UseDefaults = plan.EnabledLibrariesUseDefaults.ValueBoolPointer()
 
@@ -574,26 +627,46 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 		}
 	}
 
-	var endpoint neon.Endpoint
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
-		result, err := r.client.UpdateProjectEndpoint(
-			prior.ProjectID.ValueString(),
-			prior.ID.ValueString(),
-			neon.EndpointUpdateRequest{Endpoint: cfg},
-		)
-		if err != nil {
-			return err
+	if cfg != (neon.EndpointUpdateRequestEndpoint{}) {
+		var endpoint neon.Endpoint
+		resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+			result, err := r.client.UpdateProjectEndpoint(
+				prior.ProjectID.ValueString(),
+				prior.ID.ValueString(),
+				neon.EndpointUpdateRequest{Endpoint: cfg},
+			)
+			if err != nil {
+				return err
+			}
+			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+			endpoint = result.EndpointResponse.Endpoint
+			return nil
+		}, ctx)...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
-		endpoint = result.EndpointResponse.Endpoint
-		return nil
-	}, ctx)...)
+
+		plan.inferAttr(ctx, endpoint, &resp.Diagnostics)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	}
+
+	readResp := resource.ReadResponse{State: req.State}
+	r.Read(ctx, resource.ReadRequest{State: req.State}, &readResp)
+	resp.Diagnostics.Append(readResp.Diagnostics...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.State = readResp.State
 
-	plan.inferAttr(ctx, endpoint, &resp.Diagnostics)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if plan.EnabledLibraries.IsNull() {
+		var state neonEndpointResourceModel
+		resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.EnabledLibraries = types.ListNull(types.StringType)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	}
 }
 
 func (r *neonEndpointResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

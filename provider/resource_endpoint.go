@@ -710,8 +710,9 @@ func (r *neonEndpointResource) ImportState(ctx context.Context, req resource.Imp
 	}
 
 	state := neonEndpointResourceModel{
-		ID:        types.StringValue(els[1]),
-		ProjectID: types.StringValue(els[0]),
+		ID:               types.StringValue(els[1]),
+		ProjectID:        types.StringValue(els[0]),
+		EnabledLibraries: types.ListNull(types.StringType),
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	if resp.Diagnostics.HasError() {

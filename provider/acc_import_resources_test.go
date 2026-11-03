@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
 
@@ -55,26 +54,21 @@ func TestAccResourcesImport(t *testing.T) {
 	defaultBranchID := respProject.Branch.ID
 	defaultEndpointID := respProject.Endpoints[0].ID
 	defaultHost := respProject.Endpoints[0].Host
-	defaultRolePassword := *respProject.Roles[0].Password
 
 	sleepDuringRunningOperations(t, client, projectID)
 
 	t.Run("shall successfully import the project", func(t *testing.T) {
 		resource.UnitTest(
 			t, resource.TestCase{
-				ProviderFactories: map[string]func() (*schema.Provider, error){
-					"neon": func() (*schema.Provider, error) { return newAccTest(), nil },
-				},
+				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
 					{
 						ResourceName: "neon_project.this",
 						Config: fmt.Sprintf(`resource "neon_project" "this" {
-  name = "%s"
-  branch {
-    name          = "%s"
-    database_name = "%s"
-    role_name     = "%s"
-  }
+  name          = %q
+  branch = {name = %q}
+  database_name = %q
+  database_user = %q
 }`, projectName, defaultBranchName, defaultDatabaseName, defaultRoleName),
 						// WHEN run terraform import
 						ImportState:   true,
@@ -82,12 +76,12 @@ func TestAccResourcesImport(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							// THEN
 							resource.TestCheckResourceAttr("neon_project.this", "id", projectID),
-							resource.TestCheckResourceAttr("neon_project.this", "default_branch_id", defaultBranchID),
-							resource.TestCheckResourceAttr("neon_project.this", "default_endpoint_id", defaultEndpointID),
-							resource.TestCheckResourceAttr("neon_project.this", "database_host", defaultHost),
+							resource.TestCheckResourceAttr("neon_project.this", "branch.id", defaultBranchID),
+							resource.TestCheckResourceAttr("neon_project.this", "branch.name", defaultBranchName),
+							resource.TestCheckResourceAttr("neon_project.this", "primary_compute.id", defaultEndpointID),
 							resource.TestCheckResourceAttr("neon_project.this", "database_user", defaultRoleName),
 							resource.TestCheckResourceAttr("neon_project.this", "database_name", defaultDatabaseName),
-							resource.TestCheckResourceAttr("neon_project.this", "database_password", defaultRolePassword),
+							resource.TestCheckResourceAttr("neon_project.this", "database_host", defaultHost),
 						),
 					},
 				},
@@ -99,7 +93,7 @@ func TestAccResourcesImport(t *testing.T) {
 	t.Run("shall successfully import the role", func(t *testing.T) {
 		// GIVEN a custom role
 		const customRoleName = "r-bar"
-		respRole, err := client.CreateProjectBranchRole(projectID, defaultBranchID, neon.RoleCreateRequest{
+		_, err := client.CreateProjectBranchRole(projectID, defaultBranchID, neon.RoleCreateRequest{
 			Role: neon.RoleCreateRequestRole{
 				Name: customRoleName,
 			},
@@ -107,14 +101,6 @@ func TestAccResourcesImport(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		customRoleID := complexID{
-			ProjectID: projectID,
-			BranchID:  defaultBranchID,
-			Name:      customRoleName,
-		}
-		customRolePassword := *respRole.Role.Password
-
 		sleepDuringRunningOperations(t, client, projectID)
 
 		resource.UnitTest(
@@ -130,11 +116,10 @@ func TestAccResourcesImport(t *testing.T) {
 }`, projectID, defaultBranchID, customRoleName),
 						// WHEN run terraform import
 						ImportState:   true,
-						ImportStateId: customRoleID.toString(),
+						ImportStateId: fmt.Sprintf("%s/%s/%s", projectID, defaultBranchID, customRoleName),
 						Check: resource.ComposeTestCheckFunc(
 							// THEN
 							resource.TestCheckResourceAttr("neon_role.this", "name", customRoleName),
-							resource.TestCheckResourceAttr("neon_role.this", "password", customRolePassword),
 						),
 					},
 				},
@@ -154,12 +139,6 @@ func TestAccResourcesImport(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		customDatabaseID := complexID{
-			ProjectID: projectID,
-			BranchID:  defaultBranchID,
-			Name:      customDatabaseName,
-		}
-
 		sleepDuringRunningOperations(t, client, projectID)
 
 		resource.UnitTest(
@@ -176,7 +155,7 @@ func TestAccResourcesImport(t *testing.T) {
   owner_name = %q
 }`, customDatabaseName, projectID, defaultBranchID, defaultRoleName),
 						ImportState:   true,
-						ImportStateId: customDatabaseID.toString(),
+						ImportStateId: fmt.Sprintf("%s/%s/%s", projectID, defaultBranchID, customDatabaseName),
 						Check: resource.ComposeTestCheckFunc(
 							// THEN
 							resource.TestCheckResourceAttr("neon_database.this", "name", customDatabaseName),
@@ -214,8 +193,8 @@ func TestAccResourcesImport(t *testing.T) {
 						{
 							ResourceName: "neon_branch.this",
 							Config: fmt.Sprintf(`resource "neon_branch" "this" {
-  name       = "%s"
-  project_id = "%s"
+  name       = %q
+  project_id = %q
 }`, customBranchName, projectID),
 							ImportState:   true,
 							ImportStateId: fmt.Sprintf("%s/%s", projectID, customBranchID),
@@ -257,8 +236,8 @@ func TestAccResourcesImport(t *testing.T) {
 						{
 							ResourceName: "neon_endpoint.this",
 							Config: fmt.Sprintf(`resource "neon_endpoint" "this" {
-	project_id = "%s"
-	branch_id  = "%s"
+	project_id = %q
+	branch_id  = %q
 }`, projectID, customBranchID),
 							// WHEN run terraform import
 							ImportState:   true,

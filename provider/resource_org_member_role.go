@@ -158,7 +158,7 @@ func (r *neonOrgMemberRoleResource) setRole(ctx context.Context, plan tfsdk.Plan
 		return
 	}
 
-	diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		_, err := r.client.UpdateOrganizationMember(
 			model.OrgID.ValueString(),
 			model.MemberID.ValueString(),
@@ -189,7 +189,7 @@ func (r *neonOrgMemberRoleResource) Read(ctx context.Context, req resource.ReadR
 	}
 
 	var member neon.Member
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 		var err error
 		member, err = r.client.GetOrganizationMember(state.OrgID.ValueString(), state.MemberID.ValueString())
 		return err

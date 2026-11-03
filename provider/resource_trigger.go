@@ -210,7 +210,7 @@ func (r *neonTriggerResource) Create(ctx context.Context, req resource.CreateReq
 	cfg := buildTriggerCreateRequest(&plan)
 
 	var result neon.TriggerResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateProjectBranchTrigger(
 			plan.ProjectID.ValueString(),
@@ -240,7 +240,7 @@ func (r *neonTriggerResource) Read(ctx context.Context, req resource.ReadRequest
 	}
 
 	var result neon.TriggersListResponse
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		var err error
 		result, err = r.client.ListProjectBranchTriggers(
 			state.ProjectID.ValueString(),
@@ -288,7 +288,7 @@ func (r *neonTriggerResource) Update(ctx context.Context, req resource.UpdateReq
 	cfg := buildTriggerUpdateRequest(&plan)
 
 	var result neon.TriggerResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.UpdateProjectBranchTrigger(
 			plan.ProjectID.ValueString(),
@@ -318,7 +318,7 @@ func (r *neonTriggerResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		return r.client.DeleteProjectBranchTrigger(
 			state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),

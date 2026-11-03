@@ -56,24 +56,14 @@ func (r *delay) Do(ctx context.Context, fn func(context.Context) error,
 }
 
 // TODO: refactor ctx to be the arg 0.
-func (r *delay) RetryFramework(fn func(context.Context) error, ctx context.Context) diag.Diagnostics {
-	return frameworkDiagnostics(r.Do(ctx, fn, nil))
+func (r *delay) Retry(fn func(context.Context) error, ctx context.Context) diag.Diagnostics {
+	return newDiagnostics(r.Do(ctx, fn, nil))
 }
 
 // TODO: refactor ctx to be the arg 0.
-func (r *delay) RetryWithFallbackFramework(fn func(context.Context) error, ctx context.Context,
+func (r *delay) RetryWithFallback(fn func(context.Context) error, ctx context.Context,
 	fallbacks map[int]func(context.Context) error) diag.Diagnostics {
-	return frameworkDiagnostics(r.Do(ctx, fn, fallbacks))
-}
-
-func frameworkDiagnostics(err error) diag.Diagnostics {
-	if err == nil {
-		return nil
-	}
-
-	var diags diag.Diagnostics
-	diags.AddError("Neon API request failed", err.Error())
-	return diags
+	return newDiagnostics(r.Do(ctx, fn, fallbacks))
 }
 
 var projectReadiness = delay{

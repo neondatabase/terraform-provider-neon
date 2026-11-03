@@ -95,7 +95,7 @@ func (r *apiKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	var result neon.ApiKeyCreateResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateApiKey(neon.ApiKeyCreateRequest{KeyName: state.Name.ValueString()})
 		return err
@@ -122,7 +122,7 @@ func (r *apiKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 	}
 
 	var keys []neon.ApiKeysListResponseItem
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		keys, err = r.client.ListApiKeys()
 		return err
@@ -166,7 +166,7 @@ func (r *apiKeyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		_, err := r.client.RevokeApiKey(id)
 		return err
 	}, ctx)...)

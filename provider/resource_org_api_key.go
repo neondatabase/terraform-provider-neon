@@ -115,7 +115,7 @@ func (r *orgAPIKeyResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	var result neon.OrgApiKeyCreateResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateOrgApiKey(state.OrgID.ValueString(), createRequest)
 		return err
@@ -142,7 +142,7 @@ func (r *orgAPIKeyResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	var keys []neon.OrgApiKeysListResponseItem
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		keys, err = r.client.ListOrgApiKeys(state.OrgID.ValueString())
 		return err
@@ -185,7 +185,7 @@ func (r *orgAPIKeyResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		_, err := r.client.RevokeOrgApiKey(state.OrgID.ValueString(), id)
 		return err
 	}, ctx)...)

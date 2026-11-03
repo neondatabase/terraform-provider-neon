@@ -841,7 +841,7 @@ func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest,
 	var defaultBranch neon.Branch
 	var defaultEndpoint neon.Endpoint
 	var defaultDatabase neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		// read the project details
 		result, err := r.client.GetProject(state.ID.ValueString())
 		if err != nil {
@@ -1108,7 +1108,7 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 	var defaultBranch neon.Branch
 	var endpoints []neon.Endpoint
 	var databases []neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 		result, err := r.client.CreateProject(cfg)
 		if err != nil {
 			return err
@@ -1371,7 +1371,7 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	if cfg.Project != (neon.ProjectUpdateRequestProject{}) {
-		resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+		resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 			result, err := r.client.UpdateProject(prior.ID.ValueString(), cfg)
 			if err != nil {
 				return err
@@ -1386,7 +1386,7 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	if stringChanged(prior.DatabaseName, plan.DatabaseName) ||
 		stringChanged(prior.DatabaseUser, plan.DatabaseUser) {
-		resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+		resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 			return r.updateDefaultDatabase(ctx, prior, plan)
 		}, ctx)...)
 		if resp.Diagnostics.HasError() {
@@ -1452,7 +1452,7 @@ func (r neonProjectResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		_, err := r.client.DeleteProject(state.ID.ValueString())
 		return err
 	}, ctx, map[int]func(context.Context) error{

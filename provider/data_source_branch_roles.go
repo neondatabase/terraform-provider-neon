@@ -105,7 +105,7 @@ func (d *neonBranchRolesDataSource) Read(ctx context.Context, req datasource.Rea
 	}
 
 	var result neon.RolesResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = d.client.ListProjectBranchRoles(data.ProjectID.ValueString(), data.BranchID.ValueString())
 		return err

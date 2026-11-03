@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	schemaDataSource "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	schemaResource "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
@@ -479,4 +480,14 @@ func newReadOnlyDataSourceNestedBlockContents(
 	}
 
 	return attributes, blocks
+}
+
+func newDiagnostics(err error) diag.Diagnostics {
+	if err == nil {
+		return nil
+	}
+
+	var diags diag.Diagnostics
+	diags.AddError("Neon API request failed", err.Error())
+	return diags
 }

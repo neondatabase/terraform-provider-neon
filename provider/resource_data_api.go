@@ -172,7 +172,7 @@ func (r *neonDataAPIResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	var result neon.DataAPICreateResponse
 	projectID, branchID, databaseName := plan.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(context.Context) error {
 		var err error
 		result, err = r.client.CreateProjectBranchDataAPI(projectID, branchID, databaseName, &cfg)
 		return err
@@ -232,7 +232,7 @@ func (r *neonDataAPIResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 	projectID, branchID, databaseName := plan.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(context.Context) error {
 		_, err := r.client.UpdateProjectBranchDataAPI(projectID, branchID, databaseName, &cfg)
 		return err
 	}, ctx)...)
@@ -263,7 +263,7 @@ func (r *neonDataAPIResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 	projectID, branchID, databaseName := state.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(context.Context) error {
 		_, err := r.client.DeleteProjectBranchDataAPI(projectID, branchID, databaseName)
 		return err
 	}, ctx, map[int]func(context.Context) error{http.StatusNotFound: func(context.Context) error { return nil }})...)
@@ -287,9 +287,9 @@ func (r *neonDataAPIResource) get(ctx context.Context, model *neonDataAPIModel, 
 		return err
 	}
 	if tolerateNotFound {
-		diagnostics.Append(projectReadiness.RetryWithFallbackFramework(call, ctx, map[int]func(context.Context) error{http.StatusNotFound: func(context.Context) error { found = false; return nil }})...)
+		diagnostics.Append(projectReadiness.RetryWithFallback(call, ctx, map[int]func(context.Context) error{http.StatusNotFound: func(context.Context) error { found = false; return nil }})...)
 	} else {
-		diagnostics.Append(projectReadiness.RetryFramework(call, ctx)...)
+		diagnostics.Append(projectReadiness.Retry(call, ctx)...)
 	}
 	return result, found
 }

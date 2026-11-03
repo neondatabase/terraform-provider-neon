@@ -113,7 +113,7 @@ func (r neonDatabase) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	var db neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		re, err := r.client.CreateProjectBranchDatabase(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			cfg)
 		if err != nil {
@@ -144,7 +144,7 @@ func (r neonDatabase) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	var db neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		dbResp, err := r.client.GetProjectBranchDatabase(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Name.ValueString())
 		db = dbResp.Database
@@ -196,7 +196,7 @@ func (r neonDatabase) Update(ctx context.Context, req resource.UpdateRequest, re
 	}
 
 	var db neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		dbResp, err := r.client.UpdateProjectBranchDatabase(state.ProjectID.ValueString(),
 			state.BranchID.ValueString(), state.Name.ValueString(), cfg)
 		waitUnfinishedOperations(ctx, r.client, dbResp.OperationsResponse.Operations)
@@ -237,7 +237,7 @@ func (r neonDatabase) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		re, err := r.client.DeleteProjectBranchDatabase(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Name.ValueString())
 		if err != nil {
@@ -274,7 +274,7 @@ func (r neonDatabase) ImportState(ctx context.Context, req resource.ImportStateR
 	}
 
 	var db neon.Database
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 		dbResp, err := r.client.GetProjectBranchDatabase(projectID, branchID, databaseName)
 		db = dbResp.Database
 		return err

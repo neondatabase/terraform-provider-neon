@@ -144,7 +144,7 @@ func (d *neonBranchEndpointsDataSource) Read(ctx context.Context, req datasource
 	}
 
 	var result neon.EndpointsResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = d.client.ListProjectBranchEndpoints(data.ProjectID.ValueString(), data.BranchID.ValueString())
 		return err

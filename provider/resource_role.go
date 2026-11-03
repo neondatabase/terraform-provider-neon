@@ -116,7 +116,7 @@ func (r neonRole) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 
 	var role neon.Role
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		re, err := r.client.CreateProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(), cfg)
 		if err != nil {
 			return err
@@ -146,7 +146,7 @@ func (r neonRole) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	}
 
 	var role neon.Role
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		roleResp, err := r.client.GetProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Name.ValueString())
 		role = roleResp.Role
@@ -189,7 +189,7 @@ func (r neonRole) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
 		re, err := r.client.DeleteProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Name.ValueString())
 		if err != nil {

@@ -105,7 +105,7 @@ func (d *neonActiveRegions) Read(ctx context.Context, req datasource.ReadRequest
 	}
 
 	var r neon.ActiveRegionsResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 		var err error
 		r, err = d.client.GetActiveRegions(data.OrgID.ValueStringPointer())
 		return err

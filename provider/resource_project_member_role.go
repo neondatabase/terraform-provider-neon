@@ -199,7 +199,7 @@ func (r *neonProjectMemberRoleResource) setRole(ctx context.Context, plan tfsdk.
 	}
 
 	var selfDemotion = true
-	diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		_, err := r.client.SetProjectMemberRole(
 			model.ProjectID.ValueString(),
 			model.MemberID.ValueString(),
@@ -259,7 +259,7 @@ func (r *neonProjectMemberRoleResource) Delete(ctx context.Context, req resource
 	}
 
 	selfLockOut := true
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		_, err := r.client.RemoveProjectMemberRole(state.ProjectID.ValueString(), state.MemberID.ValueString(),
 			&selfLockOut)
 		return err

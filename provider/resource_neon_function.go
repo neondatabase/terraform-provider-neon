@@ -195,7 +195,7 @@ func (r *neonFunctionResource) ImportState(ctx context.Context, req resource.Imp
 
 	var fn neon.NeonFunction
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallbackFramework(
+		projectReadiness.RetryWithFallback(
 			func(ctx context.Context) error {
 				rsp, err := r.client.GetProjectBranchFunction(projectID, branchID, slug)
 				if err != nil {
@@ -266,7 +266,7 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 	runtime := plan.Runtime.ValueString()
 
 	resp.Diagnostics.Append(
-		projectReadiness.RetryFramework(
+		projectReadiness.Retry(
 			func(ctx context.Context) error {
 				_, err := r.client.CreateProjectBranchFunctionDeployment(
 					plan.ProjectID.ValueString(),
@@ -286,7 +286,7 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 
 	var fn neon.NeonFunction
 	resp.Diagnostics.Append(
-		projectReadiness.RetryFramework(
+		projectReadiness.Retry(
 			func(ctx context.Context) error {
 				rsp, err := r.client.GetProjectBranchFunction(
 					plan.ProjectID.ValueString(),
@@ -327,7 +327,7 @@ func (r *neonFunctionResource) Read(ctx context.Context, req resource.ReadReques
 
 	var fn neon.NeonFunction
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallbackFramework(
+		projectReadiness.RetryWithFallback(
 			func(ctx context.Context) error {
 				rsp, err := r.client.GetProjectBranchFunction(
 					state.ProjectID.ValueString(),
@@ -379,7 +379,7 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 	// modifiers, so the framework will not call Update when those change.
 	var fn neon.NeonFunction
 	resp.Diagnostics.Append(
-		projectReadiness.RetryFramework(
+		projectReadiness.Retry(
 			func(ctx context.Context) error {
 				rsp, err := r.client.UpdateProjectBranchFunction(
 					state.ProjectID.ValueString(),
@@ -418,7 +418,7 @@ func (r *neonFunctionResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallbackFramework(
+		projectReadiness.RetryWithFallback(
 			func(ctx context.Context) error {
 				return r.client.DeleteProjectBranchFunction(
 					state.ProjectID.ValueString(),

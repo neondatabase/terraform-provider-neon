@@ -139,7 +139,7 @@ func (r *neonOrgSpendingLimitResource) Create(
 	}
 
 	var result neon.SpendingLimitResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.SetOrganizationSpendingLimit(
 			plan.OrgID.ValueString(),
@@ -175,7 +175,7 @@ func (r *neonOrgSpendingLimitResource) Read(
 	}
 
 	var result neon.SpendingLimitResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.GetOrganizationSpendingLimit(state.OrgID.ValueString())
 		return err
@@ -211,7 +211,7 @@ func (r *neonOrgSpendingLimitResource) Update(
 	}
 
 	var result neon.SpendingLimitResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.SetOrganizationSpendingLimit(
 			plan.OrgID.ValueString(),
@@ -246,7 +246,7 @@ func (r *neonOrgSpendingLimitResource) Delete(
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		_, err := r.client.DeleteOrganizationSpendingLimit(state.OrgID.ValueString())
 		return err
 	}, ctx)...)

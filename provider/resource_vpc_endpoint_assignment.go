@@ -102,7 +102,7 @@ func (r neonVPCEndpointAssignment) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		return r.client.AssignOrganizationVPCEndpoint(state.OrgID.ValueString(), state.RegionID.ValueString(),
 			state.VPCEndpointID.ValueString(), neon.VPCEndpointAssignment{Label: state.Label.ValueString()})
 	}, ctx)...)
@@ -128,7 +128,7 @@ func (r neonVPCEndpointAssignment) Read(ctx context.Context, req resource.ReadRe
 	}
 
 	var endpoint neon.VPCEndpointDetails
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		var err error
 		endpoint, err = r.client.GetOrganizationVPCEndpointDetails(state.OrgID.ValueString(), state.RegionID.ValueString(),
 			state.VPCEndpointID.ValueString())
@@ -165,7 +165,7 @@ func (r neonVPCEndpointAssignment) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		return r.client.AssignOrganizationVPCEndpoint(state.OrgID.ValueString(), state.RegionID.ValueString(),
 			state.VPCEndpointID.ValueString(), neon.VPCEndpointAssignment{Label: state.Label.ValueString()})
 	}, ctx)...)
@@ -190,7 +190,7 @@ func (r neonVPCEndpointAssignment) Delete(ctx context.Context, req resource.Dele
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		return r.client.DeleteOrganizationVPCEndpoint(state.OrgID.ValueString(), state.RegionID.ValueString(),
 			state.VPCEndpointID.ValueString())
 	}, ctx, map[int]func(context.Context) error{
@@ -219,7 +219,7 @@ func (r neonVPCEndpointAssignment) ImportState(ctx context.Context, req resource
 	}
 
 	var endpoint neon.VPCEndpointDetails
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		endpoint, err = r.client.GetOrganizationVPCEndpointDetails(els[0], els[1], els[2])
 		return err

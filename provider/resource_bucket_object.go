@@ -373,7 +373,7 @@ func (r *neonBucketObjectResource) Delete(ctx context.Context, req resource.Dele
 	if state.IsDirectory.ValueBool() {
 		key = folderObjectKey(key)
 	}
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		return r.client.sdk.DeleteProjectBranchBucketObject(
 			state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),
@@ -430,7 +430,7 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 	state.ETag = types.StringValue(meta.Etag)
 
 	var presignResp neon.PresignResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
 		var err error
 		presignResp, err = r.client.sdk.PresignProjectBranchBucketObject(state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),

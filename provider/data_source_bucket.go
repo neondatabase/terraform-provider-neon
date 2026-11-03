@@ -99,7 +99,7 @@ func (d *neonBucketDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	branchID := data.BranchID.ValueString()
 
 	var storage neon.BranchStorage
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		storage, err = d.client.GetProjectBranchStorage(projectID, branchID)
 		return err

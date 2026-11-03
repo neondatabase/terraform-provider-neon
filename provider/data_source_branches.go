@@ -117,11 +117,11 @@ func (d *neonBranchesDataSource) Read(ctx context.Context, req datasource.ReadRe
 	sortOrder := neon.SortOrderParamAsc
 	for {
 		if err := ctx.Err(); err != nil {
-			resp.Diagnostics.Append(frameworkDiagnostics(err)...)
+			resp.Diagnostics.Append(newDiagnostics(err)...)
 			return
 		}
 		var result neon.ListProjectBranchesRespObj
-		resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+		resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 			var err error
 			result, err = d.client.ListProjectBranches(
 				data.ProjectID.ValueString(), search, &sortBy, cursor, &sortOrder, nil, nil,

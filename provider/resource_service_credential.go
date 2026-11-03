@@ -181,7 +181,7 @@ func (r *neonServiceCredentialResource) ImportState(ctx context.Context, req res
 	}
 
 	var result neon.ListCredentialsResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.ListCredentials(projectID, branchID)
 		return err
@@ -217,7 +217,7 @@ func (r *neonServiceCredentialResource) ImportState(ctx context.Context, req res
 	var secret neon.CredentialSecret
 	var revealNotFound bool
 	var revealUnavailable bool
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		var err error
 		secret, err = r.client.RevealCredential(
 			state.ProjectID.ValueString(),
@@ -295,7 +295,7 @@ func (r *neonServiceCredentialResource) Create(ctx context.Context, req resource
 	}
 
 	var result neon.CreateCredentialResponse
-	resp.Diagnostics.Append(projectReadiness.RetryFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateCredential(
 			state.ProjectID.ValueString(),
@@ -327,7 +327,7 @@ func (r *neonServiceCredentialResource) Read(ctx context.Context, req resource.R
 	}
 
 	var result neon.ListCredentialsResponse
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		var err error
 		result, err = r.client.ListCredentials(
 			state.ProjectID.ValueString(),
@@ -366,7 +366,7 @@ func (r *neonServiceCredentialResource) Read(ctx context.Context, req resource.R
 	var secret neon.CredentialSecret
 	var revealNotFound bool
 	var revealUnavailable bool
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		var err error
 		secret, err = r.client.RevealCredential(
 			state.ProjectID.ValueString(),
@@ -443,7 +443,7 @@ func (r *neonServiceCredentialResource) Delete(ctx context.Context, req resource
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallbackFramework(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
 		return r.client.RevokeCredential(
 			state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),

@@ -197,7 +197,7 @@ func (r *neonSnapshotResource) Create(ctx context.Context, req resource.CreateRe
 
 	var created neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.RetryFramework(
+		projectReadiness.Retry(
 			func(ctx context.Context) error {
 				rsp, err := r.client.CreateSnapshot(
 					plan.ProjectID.ValueString(),
@@ -248,7 +248,7 @@ func (r *neonSnapshotResource) Read(ctx context.Context, req resource.ReadReques
 	// loop should be replaced with a single GetSnapshot call.
 	var found *neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallbackFramework(
+		projectReadiness.RetryWithFallback(
 			func(ctx context.Context) error {
 				rsp, err := r.client.ListSnapshots(state.ProjectID.ValueString())
 				if err != nil {
@@ -336,7 +336,7 @@ func (r *neonSnapshotResource) Update(ctx context.Context, req resource.UpdateRe
 
 	var updated neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.RetryFramework(
+		projectReadiness.Retry(
 			func(ctx context.Context) error {
 				rsp, err := r.client.UpdateSnapshot(
 					state.ProjectID.ValueString(),
@@ -372,7 +372,7 @@ func (r *neonSnapshotResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallbackFramework(
+		projectReadiness.RetryWithFallback(
 			func(ctx context.Context) error {
 				_, err := r.client.DeleteSnapshot(
 					state.ProjectID.ValueString(),

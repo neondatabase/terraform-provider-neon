@@ -21,7 +21,7 @@ import (
 
 func dataAPITestResource(t *testing.T) resource.Resource {
 	t.Helper()
-	for _, factory := range (&frameworkProvider{}).Resources(context.Background()) {
+	for _, factory := range (&Provider{}).Resources(context.Background()) {
 		r := factory()
 		var metadata resource.MetadataResponse
 		r.Metadata(context.Background(), resource.MetadataRequest{}, &metadata)

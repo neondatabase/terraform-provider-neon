@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
@@ -31,18 +30,13 @@ func main() {
 	flag.BoolVar(&debugMode, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	muxServer, err := provider.NewServer(version)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	opts := &plugin.ServeOpts{
 		Debug: debugMode,
 
 		ProviderAddr: "registry.terraform.io/" + provider.Name,
 
 		GRPCProviderV6Func: func() tfprotov6.ProviderServer {
-			return muxServer
+			return provider.NewServer(version)
 		},
 	}
 

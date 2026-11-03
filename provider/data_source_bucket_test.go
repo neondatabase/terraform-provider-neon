@@ -17,7 +17,7 @@ import (
 )
 
 func TestBucketDataSourceRegisteredWithFrameworkProvider(t *testing.T) {
-	p := &frameworkProvider{}
+	p := &Provider{}
 	dataSources := p.DataSources(context.Background())
 
 	var found datasource.DataSource
@@ -199,7 +199,7 @@ func TestBucketDataSourceReadWithoutConfigure(t *testing.T) {
 
 func TestBucketDataSourceConfigureWithConfiguredProvider(t *testing.T) {
 	ctx := context.Background()
-	p := &frameworkProvider{version: "test"}
+	p := &Provider{version: "test"}
 	var schemaResp frameworkprovider.SchemaResponse
 	p.Schema(ctx, frameworkprovider.SchemaRequest{}, &schemaResp)
 	var configureResp frameworkprovider.ConfigureResponse

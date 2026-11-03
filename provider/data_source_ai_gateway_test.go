@@ -13,7 +13,7 @@ import (
 )
 
 func TestAIGatewayDataSourceRegisteredWithFrameworkProvider(t *testing.T) {
-	p := &frameworkProvider{}
+	p := &Provider{}
 	dataSources := p.DataSources(context.Background())
 
 	var found datasource.DataSource

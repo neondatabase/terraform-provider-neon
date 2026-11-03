@@ -40,7 +40,7 @@ func TestBranchBackupSchedule(t *testing.T) {
 
 resource "neon_branch_backup_schedule" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   schedule = [
     {
       frequency         = "weekly"
@@ -105,7 +105,7 @@ resource "neon_branch_backup_schedule" "this" {
 
 resource "neon_branch_backup_schedule" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   schedule = [
     {
       frequency         = "monthly"

@@ -123,7 +123,7 @@ func TestEndpoint(t *testing.T) {
 					
 					resource "neon_endpoint" "this" {
 						project_id = neon_project.this.id
-						branch_id  = neon_project.this.default_branch_id
+						branch_id  = neon_project.this.branch.id
 						region_id  = neon_project.this.region_id
 						type       = "read_only"
 					}
@@ -154,7 +154,7 @@ func TestEndpoint(t *testing.T) {
 					
 										resource "neon_endpoint" "this" {
 											project_id = neon_project.this.id
-											branch_id  = neon_project.this.default_branch_id
+											branch_id  = neon_project.this.branch.id
 											region_id  = neon_project.this.region_id
 											type       = "read_only"
 											name       = %q
@@ -171,7 +171,7 @@ func TestEndpoint(t *testing.T) {
 					
 										resource "neon_endpoint" "this" {
 											project_id = neon_project.this.id
-											branch_id  = neon_project.this.default_branch_id
+											branch_id  = neon_project.this.branch.id
 											region_id  = neon_project.this.region_id
 											type       = "read_only"
 					
@@ -195,7 +195,7 @@ func TestEndpoint(t *testing.T) {
 					
 										resource "neon_endpoint" "this" {
 											project_id = neon_project.this.id
-											branch_id  = neon_project.this.default_branch_id
+											branch_id  = neon_project.this.branch.id
 											region_id  = neon_project.this.region_id
 											type       = "read_only"
 											disabled   = true
@@ -215,7 +215,7 @@ func TestEndpoint(t *testing.T) {
 					
 										resource "neon_endpoint" "this" {
 											project_id = neon_project.this.id
-											branch_id  = neon_project.this.default_branch_id
+											branch_id  = neon_project.this.branch.id
 											region_id  = neon_project.this.region_id
 											type       = "read_only"
 										}
@@ -232,7 +232,7 @@ func TestEndpoint(t *testing.T) {
 					
 					resource "neon_endpoint" "this" {
 						project_id        = neon_project.this.id
-						branch_id         = neon_project.this.default_branch_id
+						branch_id         = neon_project.this.branch.id
 						region_id         = neon_project.this.region_id
 						type              = "read_only"
 						enabled_libraries = ["uuid-ossp"]
@@ -254,7 +254,7 @@ func TestEndpoint(t *testing.T) {
 
 					resource "neon_endpoint" "this" {
 						project_id                     = neon_project.this.id
-						branch_id                      = neon_project.this.default_branch_id
+						branch_id                      = neon_project.this.branch.id
 						region_id                      = neon_project.this.region_id
 						type                           = "read_only"
 						enabled_libraries              = ["uuid-ossp"]
@@ -277,7 +277,7 @@ func TestEndpoint(t *testing.T) {
 
 					resource "neon_endpoint" "this" {
 						project_id                     = neon_project.this.id
-						branch_id                      = neon_project.this.default_branch_id
+						branch_id                      = neon_project.this.branch.id
 						region_id                      = neon_project.this.region_id
 						type                           = "read_only"
 					}
@@ -345,7 +345,7 @@ func TestEndpoint(t *testing.T) {
 }
 	resource "neon_endpoint" "this" {
 		project_id = neon_project.this.id
-		branch_id  = neon_project.this.default_branch_id
+		branch_id  = neon_project.this.branch.id
 		region_id  = neon_project.this.region_id
 		type       = "read_only"
 		%s
@@ -609,7 +609,7 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 							resource "neon_project" "this" { name = "%s" }
 							resource "neon_endpoint" "this" {
 								project_id = neon_project.this.id
-								branch_id  = neon_project.this.default_branch_id
+								branch_id  = neon_project.this.branch.id
 								type       = "%s"
 							}
 						`, projectName, endpointTypeReadOnly),
@@ -636,7 +636,7 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 		config := fmt.Sprintf(`resource "neon_project" "this" { name = "%s" }
 resource "neon_endpoint" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	type       = "%s"
 }`, projectName, endpointTypeReadOnly)
 		resource.Test(
@@ -673,7 +673,7 @@ resource "neon_endpoint" "this" {
 							resource "neon_project" "this" { name = "%s" }
 							resource "neon_endpoint" "this" {
 								project_id = neon_project.this.id
-								branch_id  = neon_project.this.default_branch_id
+								branch_id  = neon_project.this.branch.id
 								type       = "%s"
 								disabled   = false
 							}
@@ -688,7 +688,7 @@ resource "neon_endpoint" "this" {
 							resource "neon_project" "this" { name = "%s" }
 							resource "neon_endpoint" "this" {
 								project_id = neon_project.this.id
-								branch_id  = neon_project.this.default_branch_id
+								branch_id  = neon_project.this.branch.id
 								type       = "%s"
 								disabled   = true
 							}
@@ -733,7 +733,7 @@ resource "neon_endpoint" "this" {
 			resource "neon_project" "this" { name = "%s" }
 			resource "neon_endpoint" "this" {
 				project_id = neon_project.this.id
-				branch_id  = neon_project.this.default_branch_id
+				branch_id  = neon_project.this.branch.id
 				type       = "%s"
 			}
 		`, projectName, endpointTypeReadOnly)

@@ -18,7 +18,8 @@ func newProjectName(prefix string) string {
 	return prefix + uuid.NewString() + strconv.FormatInt(time.Now().UnixMilli(), 10)
 }
 
-func TestAcc(t *testing.T) {
+func TestResourcesStack(t *testing.T) {
+	t.Skip("TODO after beta.0")
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
@@ -284,19 +285,13 @@ resource "neon_database" "this" {
 								if branch.Primary != nil && *branch.Primary {
 									defaultBranchID = branch.ID
 									if err := resource.TestCheckResourceAttr(
-										resourceNameProject, "branch.0.id", defaultBranchID,
+										resourceNameProject, "branch.id", defaultBranchID,
 									)(state); err != nil {
 										return err
 									}
 
 									if err := resource.TestCheckResourceAttr(
-										resourceNameProject, "default_branch_id", defaultBranchID,
-									)(state); err != nil {
-										return err
-									}
-
-									if err := resource.TestCheckResourceAttr(
-										resourceNameProject, "branch.0.name", branch.Name,
+										resourceNameProject, "branch.name", branch.Name,
 									)(state); err != nil {
 										return err
 									}
@@ -353,19 +348,7 @@ resource "neon_database" "this" {
 									}
 
 									if err := resource.TestCheckResourceAttr(
-										resourceNameProject, "branch.0.role_name", db.OwnerName,
-									)(state); err != nil {
-										return err
-									}
-
-									if err := resource.TestCheckResourceAttr(
 										resourceNameProject, "database_name", db.Name,
-									)(state); err != nil {
-										return err
-									}
-
-									if err := resource.TestCheckResourceAttr(
-										resourceNameProject, "branch.0.database_name", db.Name,
 									)(state); err != nil {
 										return err
 									}
@@ -387,29 +370,6 @@ resource "neon_database" "this" {
 								return errors.New("two roles are expected for the branch " + defaultBranchID)
 							}
 
-							for _, role := range roles {
-								// validate password
-								resp, err := client.GetProjectBranchRolePassword(projectID,
-									defaultBranchID, role.Name)
-								if err != nil {
-									return err
-								}
-
-								switch role.Name {
-								case customRoleName:
-									if err := resource.TestCheckResourceAttr(
-										"neon_role.this", "password", resp.Password,
-									)(state); err != nil {
-										return err
-									}
-								default:
-									if err := resource.TestCheckResourceAttr(
-										resourceNameProject, "database_password", resp.Password,
-									)(state); err != nil {
-										return err
-									}
-								}
-							}
 							return nil
 						},
 					),

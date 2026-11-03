@@ -42,8 +42,8 @@ ephemeral "neon_connection_uri" "this" {
 	project_id  = neon_project.this.id
 	database    = neon_project.this.database_name
 	role        = neon_project.this.database_user
-	branch_id   = neon_project.this.default_branch_id
-	endpoint_id = neon_project.this.default_endpoint_id
+	branch_id   = neon_project.this.branch.id
+	endpoint_id = neon_project.this.primary_compute.id
     lifecycle {
 		postcondition {
 			condition     = self.uri != "" && replace(self.uri_pooler, "-pooler", "") == self.uri
@@ -84,7 +84,7 @@ ephemeral "neon_connection_uri" "this" {
 	project_id  = neon_project.this.id
 	database    = neon_project.this.database_name
 	role        = neon_project.this.database_user
-	branch_id   = neon_project.this.default_branch_id
+	branch_id = neon_project.this.branch.id
     lifecycle {
 		postcondition {
 			condition     = self.uri != "" && replace(self.uri_pooler, "-pooler", "") == self.uri
@@ -105,7 +105,7 @@ ephemeral "neon_connection_uri" "this" {
 	project_id  = neon_project.this.id
 	database    = neon_project.this.database_name
 	role        = neon_project.this.database_user
-	endpoint_id = neon_project.this.default_endpoint_id
+	endpoint_id = neon_project.this.primary_compute.id
     lifecycle {
 		postcondition {
 			condition     = self.uri != "" && replace(self.uri_pooler, "-pooler", "") == self.uri

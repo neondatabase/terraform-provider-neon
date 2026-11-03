@@ -45,7 +45,7 @@ func TestBucket(t *testing.T) {
 
 resource "neon_bucket" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = "foo"
 }
 `, projectName),
@@ -103,7 +103,7 @@ resource "neon_bucket" "this" {
 
 resource "neon_bucket" "this" {
   project_id   = neon_project.this.id
-  branch_id    = neon_project.this.default_branch_id
+  branch_id    = neon_project.this.branch.id
   name         = "foo"
   access_level = "public_read"
 }
@@ -348,7 +348,7 @@ resource "neon_bucket" "this" {
 
 resource "neon_bucket" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = "foo"
 }
 `, projectName)
@@ -411,7 +411,7 @@ resource "neon_bucket" "this" {
 
 resource "neon_bucket" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = "foo"
 }
 `, projectName),
@@ -424,7 +424,7 @@ resource "neon_bucket" "this" {
 
 resource "neon_bucket" "this" {
   project_id   = neon_project.this.id
-  branch_id    = neon_project.this.default_branch_id
+  branch_id    = neon_project.this.branch.id
   name         = "foo"
   access_level = "public_read"
 }
@@ -440,7 +440,7 @@ resource "neon_bucket" "this" {
 
 resource "neon_bucket" "this" {
   project_id   = neon_project.this.id
-  branch_id    = neon_project.this.default_branch_id
+  branch_id    = neon_project.this.branch.id
   name         = "foo"
   access_level = "public_read"
 }

@@ -70,7 +70,7 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "test"
 }`, projectName),
 						Check: resource.ComposeTestCheckFunc(
@@ -96,7 +96,7 @@ resource "neon_role" "this" {
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "test"
 }`, projectName)
 		resource.Test(
@@ -138,7 +138,7 @@ resource "neon_role" "this" {
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id 
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "foo"
 }`, projectName),
 						Check: resource.ComposeTestCheckFunc(
@@ -152,7 +152,7 @@ resource "neon_role" "this" {
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id 
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "bar"
 }`, projectName),
 						PreConfig: func() {
@@ -212,7 +212,7 @@ resource "neon_role" "this" {
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "test"
 }`, projectName)
 		resource.Test(

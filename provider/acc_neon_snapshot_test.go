@@ -174,7 +174,7 @@ func newSnapshotConfig(projectName, orgID, snapshotName, expiresAt string) strin
 
 resource "neon_snapshot" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = %q
 %s  depends_on = [neon_project.this]
 }

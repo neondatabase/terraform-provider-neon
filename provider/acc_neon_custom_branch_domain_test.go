@@ -44,7 +44,7 @@ func TestCustomBranchDomain(t *testing.T) {
 
 resource "neon_function" "this" {
 	project_id    = neon_project.this.id
-	branch_id     = neon_project.this.default_branch_id
+	branch_id     = neon_project.this.branch.id
 	slug          = %q
 	name          = %q
 	runtime       = "nodejs24"
@@ -53,7 +53,7 @@ resource "neon_function" "this" {
 
 resource "neon_custom_branch_domain" "this" {
 	project_id  = neon_project.this.id
-	branch_id   = neon_project.this.default_branch_id
+	branch_id   = neon_project.this.branch.id
 	entity_type = "function"
 	entity_id   = neon_function.this.slug
 	domain      = %q
@@ -71,7 +71,7 @@ resource "neon_custom_branch_domain" "this" {
 					pr, ok := state.RootModule().Resources["neon_project.this"]
 					assert.Truef(t, ok, "neon_project.this not found")
 					projectID := pr.Primary.Attributes["id"]
-					branchID := pr.Primary.Attributes["default_branch_id"]
+					branchID := pr.Primary.Attributes["branch.id"]
 					resource.TestCheckResourceAttr("neon_custom_branch_domain.this",
 						"project_id", projectID)
 					resource.TestCheckResourceAttr("neon_custom_branch_domain.this",

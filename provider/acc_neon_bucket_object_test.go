@@ -418,13 +418,13 @@ func bucketObjectConfig(projectName, key, input string) string {
 
 resource "neon_bucket" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = "objects"
 }
 
 resource "neon_bucket_object" "this" {
   project_id  = neon_project.this.id
-  branch_id   = neon_project.this.default_branch_id
+  branch_id   = neon_project.this.branch.id
   bucket      = neon_bucket.this.name
   key         = %q
   %s

@@ -175,7 +175,7 @@ func triggerScheduleConfig(projectName, orgID, triggerName, fnSlug, cron string)
 
 resource "neon_trigger" "this" {
   project_id     = neon_project.this.id
-  branch_id      = neon_project.this.default_branch_id
+  branch_id      = neon_project.this.branch.id
   name           = %q
   type           = "schedule"
   function_slug  = %q
@@ -193,13 +193,13 @@ func triggerStorageConfig(projectName, orgID, triggerName, fnSlug, bucket, prefi
 
 resource "neon_bucket" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = %q
 }
 
 resource "neon_trigger" "this" {
   project_id     = neon_project.this.id
-  branch_id      = neon_project.this.default_branch_id
+  branch_id      = neon_project.this.branch.id
   name           = %q
   type           = "storage_object_created"
   function_slug  = %q

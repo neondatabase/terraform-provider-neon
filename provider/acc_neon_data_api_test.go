@@ -112,13 +112,13 @@ func newDataAPIConfig(projectName, orgID, databaseName, options string) string {
 }
 resource "neon_database" "replacement" {
  project_id = neon_project.this.id
- branch_id = neon_project.this.default_branch_id
+ branch_id = neon_project.this.branch.id
  owner_name = neon_project.this.database_user
  name = "replacementdb"
 }
 resource "neon_data_api" "this" {
  project_id = neon_project.this.id
- branch_id = neon_project.this.default_branch_id
+ branch_id = neon_project.this.branch.id
  database_name = %q
  depends_on = [neon_database.replacement]
  %s

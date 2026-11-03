@@ -41,13 +41,13 @@ resource "neon_project" "this" {
 
 resource "neon_role" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "foo"
 }
 
 ephemeral "neon_role" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = neon_role.this.name
     lifecycle {
 		postcondition {
@@ -75,7 +75,7 @@ resource "neon_project" "this" {
 
 ephemeral "neon_role" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	name       = "missing"
 }
 `, projectName),

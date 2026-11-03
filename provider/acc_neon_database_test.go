@@ -75,13 +75,13 @@ then update the database name, then update the database owner_name`, func(t *tes
 resource "neon_role" "this" {
 	name       = "r-custom"
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 }
 
 resource "neon_database" "this" {
 	name       = %q
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	owner_name = %s
 }
 `, projectName, dbName, ownerName)
@@ -142,7 +142,7 @@ resource "neon_database" "this" {
 			config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	owner_name = neon_project.this.database_user
 	name       = "test"
 }`, projectName)
@@ -201,7 +201,7 @@ resource "neon_database" "this" {
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	owner_name = neon_project.this.database_user
 	name       = "test"
 }`, projectName)
@@ -234,7 +234,7 @@ resource "neon_database" "this" {
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	owner_name = neon_project.this.database_user
 	name       = "foo"
 }`, projectName),
@@ -249,7 +249,7 @@ resource "neon_database" "this" {
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	owner_name = neon_project.this.database_user
 	name       = "bar"
 }`, projectName),
@@ -299,7 +299,7 @@ resource "neon_database" "this" {
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
 	project_id = neon_project.this.id
-	branch_id  = neon_project.this.default_branch_id
+	branch_id  = neon_project.this.branch.id
 	owner_name = neon_project.this.database_user
 	name       = "test"
 }`, projectName)

@@ -249,7 +249,7 @@ func serviceCredentialConfig(projectName, credentialName string) string {
 
 resource "neon_service_credential" "this" {
   project_id = neon_project.this.id
-  branch_id  = neon_project.this.default_branch_id
+  branch_id  = neon_project.this.branch.id
   name       = %q
   scopes     = ["functions:invoke"]
 }

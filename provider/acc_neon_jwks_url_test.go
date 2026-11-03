@@ -185,7 +185,7 @@ locals {
 resource "neon_role" "_" {
 	for_each = toset(local.role_names)
 	project_id = neon_project._.id
-	branch_id  = neon_project._.default_branch_id
+	branch_id  = neon_project._.branch.id
 	name       = each.value
 }
 resource "neon_jwks_url" "_" {

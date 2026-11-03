@@ -15,7 +15,7 @@ import (
 // newAIGatewayConfig returns the HCL for a TestStep: a Neon project plus a
 // neon_ai_gateway data source. branchIDExpr is inserted raw into the HCL, so
 // callers pass either a Terraform expression (e.g.
-// `neon_project.this.default_branch_id`) for the happy path or a quoted
+// `neon_project.this.branch.id`) for the happy path or a quoted
 // UUID literal for the unavailable-scenario TestStep.
 func newAIGatewayConfig(projectName, orgID, branchIDExpr string) string {
 	return fmt.Sprintf(`resource "neon_project" "this" {
@@ -59,14 +59,14 @@ func TestAIGatewayDataSource(t *testing.T) {
 				// base URL via the SDK; state is compared with a direct
 				// GetProjectBranchAiGateway call to confirm the framework
 				// data source actually received the SDK client.
-				Config: newAIGatewayConfig(projectName, orgID, "neon_project.this.default_branch_id"),
+				Config: newAIGatewayConfig(projectName, orgID, "neon_project.this.branch.id"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.neon_ai_gateway.this", "id"),
 					resource.TestCheckResourceAttrSet("data.neon_ai_gateway.this", "base_url"),
 					func(state *terraform.State) error {
 						project := state.RootModule().Resources["neon_project.this"]
 						gatewayState := state.RootModule().Resources["data.neon_ai_gateway.this"]
-						gateway, err := client.GetProjectBranchAiGateway(project.Primary.ID, project.Primary.Attributes["default_branch_id"])
+						gateway, err := client.GetProjectBranchAiGateway(project.Primary.ID, project.Primary.Attributes["branch.id"])
 						if err != nil {
 							return err
 						}

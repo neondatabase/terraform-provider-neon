@@ -52,7 +52,7 @@ func TestFunction(t *testing.T) {
 
 resource "neon_function" "this" {
   project_id    = neon_project.this.id
-  branch_id     = neon_project.this.default_branch_id
+  branch_id     = neon_project.this.branch.id
   slug          = "hello"
   runtime       = "nodejs24"
   name          = %q
@@ -138,7 +138,7 @@ resource "neon_function" "this" {
 
 resource "neon_function" "this" {
   project_id    = neon_project.this.id
-  branch_id     = neon_project.this.default_branch_id
+  branch_id     = neon_project.this.branch.id
   slug          = "hello"
   runtime       = "nodejs24"
   name          = "hello"
@@ -187,7 +187,7 @@ resource "neon_function" "this" {
 
 resource "neon_function" "this" {
   project_id    = neon_project.this.id
-  branch_id     = neon_project.this.default_branch_id
+  branch_id     = neon_project.this.branch.id
   slug          = %q
   runtime       = "nodejs24"
   name          = %q

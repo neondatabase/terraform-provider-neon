@@ -20,14 +20,6 @@ func pointer[V t](v V) *V {
 	return &v
 }
 
-type complexID struct {
-	ProjectID, BranchID, Name string
-}
-
-func (v complexID) toString() string {
-	return v.ProjectID + "/" + v.BranchID + "/" + v.Name
-}
-
 func stringChanged(prior, planned types.String) bool {
 	if prior.IsUnknown() || planned.IsUnknown() || prior.IsNull() || planned.IsNull() {
 		return false

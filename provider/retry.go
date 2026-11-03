@@ -6,48 +6,14 @@ import (
 	"strconv"
 	"time"
 
-	frameworkdiag "github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
 
 type delay struct {
 	delay  time.Duration
 	maxCnt uint8
-}
-
-func (r *delay) Retry(
-	fn func(context.Context, *schema.ResourceData, interface{}) error,
-	ctx context.Context, d *schema.ResourceData, meta interface{},
-) diag.Diagnostics {
-	var i uint8
-	var err error
-	for i < r.maxCnt {
-		tflog.Debug(ctx, "API call attempt "+strconv.Itoa(int(i)))
-
-		switch e := fn(ctx, d, meta).(type) {
-		case nil:
-			return nil
-		case neon.Error:
-			tflog.Debug(ctx, "API call error code: "+strconv.Itoa(e.HTTPCode))
-			switch e.HTTPCode {
-			case 200:
-				return nil
-			case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusLocked:
-				tflog.Debug(ctx, "API call delay "+strconv.FormatInt(r.delay.Milliseconds(), 10)+" ms.")
-				err = e
-				i++
-				time.Sleep(r.delay)
-			default:
-				return diag.FromErr(e)
-			}
-		default:
-			return diag.FromErr(e)
-		}
-	}
-	return diag.FromErr(err)
 }
 
 func (r *delay) Do(ctx context.Context, fn func(context.Context) error,
@@ -90,63 +56,24 @@ func (r *delay) Do(ctx context.Context, fn func(context.Context) error,
 }
 
 // TODO: refactor ctx to be the arg 0.
-func (r *delay) RetryFramework(fn func(context.Context) error, ctx context.Context) frameworkdiag.Diagnostics {
+func (r *delay) RetryFramework(fn func(context.Context) error, ctx context.Context) diag.Diagnostics {
 	return frameworkDiagnostics(r.Do(ctx, fn, nil))
 }
 
 // TODO: refactor ctx to be the arg 0.
 func (r *delay) RetryWithFallbackFramework(fn func(context.Context) error, ctx context.Context,
-	fallbacks map[int]func(context.Context) error) frameworkdiag.Diagnostics {
+	fallbacks map[int]func(context.Context) error) diag.Diagnostics {
 	return frameworkDiagnostics(r.Do(ctx, fn, fallbacks))
 }
 
-func frameworkDiagnostics(err error) frameworkdiag.Diagnostics {
+func frameworkDiagnostics(err error) diag.Diagnostics {
 	if err == nil {
 		return nil
 	}
 
-	var diags frameworkdiag.Diagnostics
+	var diags diag.Diagnostics
 	diags.AddError("Neon API request failed", err.Error())
 	return diags
-}
-
-type FallbackFn func(context.Context, *schema.ResourceData, interface{}) error
-
-func (r *delay) RetryWithFallback(
-	fn func(context.Context, *schema.ResourceData, interface{}) error,
-	ctx context.Context, d *schema.ResourceData, meta interface{},
-	fallbacks map[int]FallbackFn,
-) diag.Diagnostics {
-	var i uint8
-	var err error
-	for i < r.maxCnt {
-		tflog.Debug(ctx, "API call attempt "+strconv.Itoa(int(i)))
-
-		switch e := fn(ctx, d, meta).(type) {
-		case nil:
-			return nil
-		case neon.Error:
-			tflog.Debug(ctx, "API call error code: "+strconv.Itoa(e.HTTPCode))
-			switch e.HTTPCode {
-			case 200:
-				return nil
-			case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusLocked:
-				tflog.Debug(ctx, "API call delay "+strconv.FormatInt(r.delay.Milliseconds(), 10)+" ms.")
-				err = e
-				i++
-				time.Sleep(r.delay)
-			default:
-				if fallback, ok := fallbacks[e.HTTPCode]; ok {
-					tflog.Debug(ctx, "API call fallback for error code: "+strconv.Itoa(e.HTTPCode))
-					return r.Retry(fallback, ctx, d, meta)
-				}
-				return diag.FromErr(e)
-			}
-		default:
-			return diag.FromErr(e)
-		}
-	}
-	return diag.FromErr(err)
 }
 
 var projectReadiness = delay{

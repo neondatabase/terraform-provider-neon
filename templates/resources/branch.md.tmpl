@@ -8,6 +8,10 @@ description: |-
 
 {{ .Description }}
 
+The computed `default` output reports the API default-branch designation.
+`primary` is deprecated; use `default` instead.
+When the API omits `primary` or returns JSON `null`, its Terraform value is `null`; explicit true and false remain unchanged.
+
 ## Example Usage
 
 {{ tffile "examples/resources/neon_branch/resource.tf" }}

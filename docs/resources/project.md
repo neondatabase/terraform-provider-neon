@@ -213,21 +213,19 @@ See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configur
 
 Optional:
 
-- `name` (String) The branch name.
-- `parent_id` (String) The ID of the branch to check out.
-- `parent_lsn` (String) Log Sequence Number (LSN) horizon for the data to be present in the new branch.
-See details: https://neon.tech/docs/reference/glossary/#lsn
-**Conflicts with parent_timestamp**.
-- `parent_timestamp` (Number) Log Sequence Number (LSN) horizon for the data to be present in the new branch.
-See details: https://neon.tech/docs/reference/glossary/#lsn
-**Conflicts with parent_lsn**.
-- `protected` (Boolean) Set whether the branch is protected.
+- `name` (String) Branch name.
+- `parent_id` (String) Parent branch ID.
+- `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
+- `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.
+- `protected` (Boolean) Protected branch flag.
 
 Read-Only:
 
+- `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
-- `logical_size` (Number) Branch logical size in MB.
-- `project_id` (String) Project ID
+- `logical_size` (Number) Branch logical size in bytes.
+- `primary` (Boolean, Deprecated) Primary branch flag.
+- `project_id` (String) Project ID.
 
 
 <a id="nestedatt--maintenance_window"></a>

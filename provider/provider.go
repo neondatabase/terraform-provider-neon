@@ -43,9 +43,7 @@ var p = &schema.Provider{
 			DefaultFunc: schema.EnvDefaultFunc("NEON_API_KEY", ""),
 		},
 	},
-	DataSourcesMap: map[string]*schema.Resource{
-		"neon_branches": dataSourceBranches(),
-	},
+	DataSourcesMap: map[string]*schema.Resource{},
 }
 
 // New returns the provider.
@@ -190,6 +188,7 @@ func (p *frameworkProvider) DataSources(_ context.Context) []func() datasource.D
 		NewBranchRolesDataSource,
 		NewBranchEndpointsDataSource,
 		NewProjectDataSource,
+		NewBranchesDataSource,
 	}
 }
 

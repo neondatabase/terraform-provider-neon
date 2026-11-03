@@ -53,10 +53,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `neon_endpoint`.
 
 - Migrated the following data sources from Terraform Plugin SDK v2 to Terraform Plugin Framework:
+  - `neon_branches`;
   - `neon_branch_roles`;
   - `neon_branch_endpoints`.
 
-- Changed the resource `neon_endpoint` by renaming the attribute `host_pooling` to `host_pooler`. 
+- Changed the resource `neon_endpoint` by renaming the attribute `host_pooling` to `host_pooler`.
 
 - Updated dependencies:
   - Neon Go SDK: [v0.27.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.22.0...v0.27.0)

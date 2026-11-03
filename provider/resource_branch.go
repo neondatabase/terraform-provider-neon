@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -69,19 +71,28 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Branch ID.",
 			},
 			"project_id": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-				Description:   "Project ID",
+				Required: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
+				},
+				Description: "Project ID",
 			},
 			"name": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The branch name.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"parent_id": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The ID of the branch to check out.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"parent_lsn": schema.StringAttribute{
 				Optional: true,
@@ -89,6 +100,9 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: `Log Sequence Number (LSN) horizon for the data to be present in the new branch.
 See details: https://neon.tech/docs/reference/glossary/#lsn
 **Conflicts with parent_timestamp**.`,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"parent_timestamp": schema.Int64Attribute{
 				Optional:   true,
@@ -97,6 +111,9 @@ See details: https://neon.tech/docs/reference/glossary/#lsn
 				Description: `Log Sequence Number (LSN) horizon for the data to be present in the new branch.
 See details: https://neon.tech/docs/reference/glossary/#lsn
 **Conflicts with parent_lsn**.`,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"logical_size": schema.Int64Attribute{
 				Computed:    true,
@@ -106,6 +123,9 @@ See details: https://neon.tech/docs/reference/glossary/#lsn
 				Optional:    true,
 				Computed:    true,
 				Description: "Set whether the branch is protected.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}

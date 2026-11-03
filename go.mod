@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.9.0
 	github.com/hashicorp/terraform-plugin-mux v0.18.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.36.1
-	github.com/kislerdm/neon-sdk-go v0.35.0
+	github.com/kislerdm/neon-sdk-go v0.36.0
 	github.com/stretchr/testify v1.12.1
 )
 

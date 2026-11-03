@@ -478,9 +478,7 @@ func (v setterIfUnknown) PlanModifyBool(_ context.Context, req planmodifier.Bool
 	}
 }
 
-func setUnknownBool(v bool) planmodifier.Bool {
-	return setterIfUnknown{v: v}
-}
+var setFalseIfUnknown = setterIfUnknown{v: false}
 
 type validatorNonEmptyString struct{}
 
@@ -570,7 +568,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setUnknownBool(false),
+				setFalseIfUnknown,
 			},
 		},
 		"block_public_connections": schema.BoolAttribute{
@@ -578,7 +576,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setUnknownBool(false),
+				setFalseIfUnknown,
 			},
 		},
 		"block_vpc_connections": schema.BoolAttribute{
@@ -586,7 +584,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setUnknownBool(false),
+				setFalseIfUnknown,
 			},
 		},
 		"enable_logical_replication": schema.BoolAttribute{
@@ -594,7 +592,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setUnknownBool(false),
+				setFalseIfUnknown,
 				requiresReplaceFromTrue,
 			},
 		},
@@ -659,7 +657,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Computed:    true,
 			Optional:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setUnknownBool(false),
+				setFalseIfUnknown,
 				requiresReplaceFromTrue,
 			},
 		},
@@ -674,7 +672,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setUnknownBool(false),
+				setFalseIfUnknown,
 			},
 		},
 		"default_branch_id": schema.StringAttribute{

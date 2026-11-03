@@ -155,7 +155,7 @@ func (r *neonCustomBranchDomain) Create(ctx context.Context, req resource.Create
 	}
 
 	var respData neon.CustomDomain
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		var err error
 		respData, err = r.client.RegisterProjectBranchCustomDomain(plan.ProjectID.ValueString(), plan.BranchID.ValueString(),
 			neon.CustomDomainRegisterRequest{
@@ -165,7 +165,7 @@ func (r *neonCustomBranchDomain) Create(ctx context.Context, req resource.Create
 			},
 		)
 		return err
-	}, ctx)...)
+	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -280,10 +280,10 @@ func (r *neonCustomBranchDomain) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		return r.client.DeleteProjectBranchCustomDomain(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Domain.ValueString())
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {

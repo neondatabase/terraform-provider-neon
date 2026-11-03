@@ -99,10 +99,10 @@ func (r neonVPCEndpointRestriction) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		return r.client.AssignProjectVPCEndpoint(state.ProjectID.ValueString(), state.VPCEndpointID.ValueString(),
 			neon.VPCEndpointAssignment{Label: state.Label.ValueString()})
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -124,11 +124,11 @@ func (r neonVPCEndpointRestriction) Read(ctx context.Context, req resource.ReadR
 	}
 
 	var endpoints []neon.VPCEndpoint
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		re, err := r.client.ListProjectVPCEndpoints(state.ProjectID.ValueString())
 		endpoints = re.Endpoints
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {
@@ -177,9 +177,9 @@ func (r neonVPCEndpointRestriction) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		return r.client.DeleteProjectVPCEndpoint(state.ProjectID.ValueString(), state.VPCEndpointID.ValueString())
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound:            func(_ context.Context) error { return nil },
 		http.StatusUnprocessableEntity: func(_ context.Context) error { return nil },
 	})...)

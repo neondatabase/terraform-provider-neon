@@ -178,12 +178,12 @@ func (r *neonBucketResource) ImportState(ctx context.Context, req resource.Impor
 
 	var branchStorageResp neon.BranchStorage
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallback(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				var err error
 				branchStorageResp, err = r.client.GetProjectBranchStorage(projectID, branchID)
 				return err
-			}, ctx, map[int]func(context.Context) error{
+			}, map[int]func(context.Context) error{
 				http.StatusNotFound: func(_ context.Context) error {
 					resp.Diagnostics.AddError(
 						"Bucket Not Found",
@@ -200,7 +200,7 @@ func (r *neonBucketResource) ImportState(ctx context.Context, req resource.Impor
 
 	var result neon.BucketsListResponse
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(func(ctx context.Context) error {
+		projectReadiness.Retry(ctx, func(ctx context.Context) error {
 			var err error
 			result, err = r.client.ListProjectBranchBuckets(
 				projectID,
@@ -208,7 +208,7 @@ func (r *neonBucketResource) ImportState(ctx context.Context, req resource.Impor
 			)
 			return err
 
-		}, ctx)...,
+		}, nil)...,
 	)
 	if resp.Diagnostics.HasError() {
 		return
@@ -248,13 +248,13 @@ func (r *neonBucketResource) Create(ctx context.Context, req resource.CreateRequ
 
 	var branchStorageResp neon.BranchStorage
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				var err error
 				branchStorageResp, err = r.client.GetProjectBranchStorage(state.ProjectID.ValueString(),
 					state.BranchID.ValueString())
 				return err
-			}, ctx,
+			}, nil,
 		)...,
 	)
 	if resp.Diagnostics.HasError() {
@@ -274,7 +274,7 @@ func (r *neonBucketResource) Create(ctx context.Context, req resource.CreateRequ
 
 	var result neon.BucketResponse
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				result, err = r.client.CreateProjectBranchBucket(
 					state.ProjectID.ValueString(),
@@ -285,7 +285,7 @@ func (r *neonBucketResource) Create(ctx context.Context, req resource.CreateRequ
 					},
 				)
 				return err
-			}, ctx)...,
+			}, nil)...,
 	)
 	if resp.Diagnostics.HasError() {
 		return
@@ -309,13 +309,13 @@ func (r *neonBucketResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	var branchStorageResp neon.BranchStorage
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				var err error
 				branchStorageResp, err = r.client.GetProjectBranchStorage(state.ProjectID.ValueString(),
 					state.BranchID.ValueString())
 				return err
-			}, ctx,
+			}, nil,
 		)...,
 	)
 	if resp.Diagnostics.HasError() {
@@ -329,7 +329,7 @@ func (r *neonBucketResource) Read(ctx context.Context, req resource.ReadRequest,
 
 	var result neon.BucketsListResponse
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+		projectReadiness.Retry(ctx, func(ctx context.Context) error {
 			var err error
 			result, err = r.client.ListProjectBranchBuckets(
 				state.ProjectID.ValueString(),
@@ -337,7 +337,7 @@ func (r *neonBucketResource) Read(ctx context.Context, req resource.ReadRequest,
 			)
 			return err
 
-		}, ctx, map[int]func(context.Context) error{
+		}, map[int]func(context.Context) error{
 			http.StatusNotFound: func(_ context.Context) error {
 				return nil
 			},
@@ -379,13 +379,13 @@ func (r *neonBucketResource) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+		projectReadiness.Retry(ctx, func(ctx context.Context) error {
 			return r.client.DeleteProjectBranchBucket(
 				state.ProjectID.ValueString(),
 				state.BranchID.ValueString(),
 				state.Name.ValueString(),
 			)
-		}, ctx,
+		},
 			map[int]func(context.Context) error{
 				http.StatusNotFound: func(_ context.Context) error {
 					return nil

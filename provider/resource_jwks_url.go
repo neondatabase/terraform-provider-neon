@@ -166,14 +166,14 @@ func (r *jwksURLResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	var result neon.JWKSCreationOperation
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		var err error
 		result, err = r.client.AddProjectJWKS(state.ProjectID.ValueString(), cfg)
 		if err == nil {
 			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
 		}
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -196,11 +196,11 @@ func (r *jwksURLResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	var result neon.ProjectJWKSResponse
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		var err error
 		result, err = r.client.GetProjectJWKS(state.ProjectID.ValueString())
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -236,10 +236,10 @@ func (r *jwksURLResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		_, err := r.client.DeleteProjectJWKS(state.ProjectID.ValueString(), state.ID.ValueString())
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

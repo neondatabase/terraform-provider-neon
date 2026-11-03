@@ -197,7 +197,7 @@ func (r *neonSnapshotResource) Create(ctx context.Context, req resource.CreateRe
 
 	var created neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				rsp, err := r.client.CreateSnapshot(
 					plan.ProjectID.ValueString(),
@@ -209,7 +209,7 @@ func (r *neonSnapshotResource) Create(ctx context.Context, req resource.CreateRe
 				}
 				created = rsp.Snapshot
 				return nil
-			}, ctx,
+			}, nil,
 		)...,
 	)
 	if resp.Diagnostics.HasError() {
@@ -248,7 +248,7 @@ func (r *neonSnapshotResource) Read(ctx context.Context, req resource.ReadReques
 	// loop should be replaced with a single GetSnapshot call.
 	var found *neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallback(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				rsp, err := r.client.ListSnapshots(state.ProjectID.ValueString())
 				if err != nil {
@@ -269,7 +269,7 @@ func (r *neonSnapshotResource) Read(ctx context.Context, req resource.ReadReques
 				// detect absence in-process.
 				resp.State.RemoveResource(ctx)
 				return nil
-			}, ctx,
+			},
 			map[int]func(context.Context) error{
 				http.StatusNotFound: func(_ context.Context) error {
 					resp.State.RemoveResource(ctx)
@@ -336,7 +336,7 @@ func (r *neonSnapshotResource) Update(ctx context.Context, req resource.UpdateRe
 
 	var updated neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				rsp, err := r.client.UpdateSnapshot(
 					state.ProjectID.ValueString(),
@@ -348,7 +348,7 @@ func (r *neonSnapshotResource) Update(ctx context.Context, req resource.UpdateRe
 				}
 				updated = rsp.Snapshot
 				return nil
-			}, ctx,
+			}, nil,
 		)...,
 	)
 	if resp.Diagnostics.HasError() {
@@ -372,14 +372,14 @@ func (r *neonSnapshotResource) Delete(ctx context.Context, req resource.DeleteRe
 	}
 
 	resp.Diagnostics.Append(
-		projectReadiness.RetryWithFallback(
+		projectReadiness.Retry(ctx,
 			func(ctx context.Context) error {
 				_, err := r.client.DeleteSnapshot(
 					state.ProjectID.ValueString(),
 					state.SnapshotID.ValueString(),
 				)
 				return err
-			}, ctx,
+			},
 			map[int]func(context.Context) error{
 				http.StatusNotFound: func(_ context.Context) error {
 					return nil

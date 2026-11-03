@@ -55,13 +55,7 @@ func (r *delay) Do(ctx context.Context, fn func(context.Context) error,
 	return err
 }
 
-// TODO: refactor ctx to be the arg 0.
-func (r *delay) Retry(fn func(context.Context) error, ctx context.Context) diag.Diagnostics {
-	return newDiagnostics(r.Do(ctx, fn, nil))
-}
-
-// TODO: refactor ctx to be the arg 0.
-func (r *delay) RetryWithFallback(fn func(context.Context) error, ctx context.Context,
+func (r *delay) Retry(ctx context.Context, fn func(context.Context) error,
 	fallbacks map[int]func(context.Context) error) diag.Diagnostics {
 	return newDiagnostics(r.Do(ctx, fn, fallbacks))
 }

@@ -179,7 +179,7 @@ func (r *neonBranchResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	var branch neon.Branch
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		re, err := r.client.CreateProjectBranch(state.ProjectID.ValueString(), cfg)
 		if err != nil {
 			return err
@@ -187,7 +187,7 @@ func (r *neonBranchResource) Create(ctx context.Context, req resource.CreateRequ
 		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
 		branch = re.BranchResponse.Branch
 		return nil
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -209,11 +209,11 @@ func (r *neonBranchResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 
 	var branch neon.Branch
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		branchResp, err := r.client.GetProjectBranch(state.ProjectID.ValueString(), state.ID.ValueString())
 		branch = branchResp.BranchResponse.Branch
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil
@@ -261,12 +261,12 @@ func (r *neonBranchResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	var branch neon.Branch
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		branchResp, err := r.client.UpdateProjectBranch(state.ProjectID.ValueString(), state.ID.ValueString(), cfg)
 		waitUnfinishedOperations(ctx, r.client, branchResp.OperationsResponse.Operations)
 		branch = branchResp.BranchResponse.Branch
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil
@@ -301,14 +301,14 @@ func (r *neonBranchResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		re, err := r.client.DeleteProjectBranch(state.ProjectID.ValueString(), state.ID.ValueString())
 		if err != nil {
 			return err
 		}
 		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
 		return nil
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil
@@ -376,11 +376,11 @@ func (r *neonBranchResource) ImportState(ctx context.Context, req resource.Impor
 	}
 
 	var branch neon.Branch
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		branchResp, err := r.client.GetProjectBranch(projectID, branchID)
 		branch = branchResp.BranchResponse.Branch
 		return err
-	}, ctx)...)
+	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
 		resp.State.RemoveResource(ctx)

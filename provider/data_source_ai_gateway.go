@@ -89,11 +89,11 @@ func (d *neonAIGatewayDataSource) Read(ctx context.Context, req datasource.ReadR
 	branchID := data.BranchID.ValueString()
 
 	var gateway neon.BranchAiGateway
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		var err error
 		gateway, err = d.client.GetProjectBranchAiGateway(projectID, branchID)
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

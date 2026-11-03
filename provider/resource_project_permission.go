@@ -93,14 +93,14 @@ func (r *neonProjectPermission) Create(ctx context.Context, req resource.CreateR
 		Email: state.Grantee.ValueString(),
 	}
 
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		re, err := r.client.GrantPermissionToProject(state.ProjectID.ValueString(), cfg)
 		if err != nil {
 			return err
 		}
 		state.ID = types.StringValue(re.ID)
 		return nil
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -121,11 +121,11 @@ func (r *neonProjectPermission) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	var permissions []neon.ProjectPermission
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		re, err := r.client.ListProjectPermissions(state.ProjectID.ValueString())
 		permissions = re.ProjectPermissions
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil
@@ -166,10 +166,10 @@ func (r *neonProjectPermission) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		_, err := r.client.RevokePermissionFromProject(state.ProjectID.ValueString(), state.ID.ValueString())
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil
@@ -193,11 +193,11 @@ func (r *neonProjectPermission) ImportState(ctx context.Context, req resource.Im
 	projectID := els[0]
 	permissionID := els[1]
 	var permissions []neon.ProjectPermission
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		re, err := r.client.ListProjectPermissions(projectID)
 		permissions = re.ProjectPermissions
 		return err
-	}, ctx)...)
+	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
 		resp.State.RemoveResource(ctx)

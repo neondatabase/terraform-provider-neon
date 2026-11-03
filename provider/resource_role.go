@@ -116,7 +116,7 @@ func (r neonRole) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 
 	var role neon.Role
-	resp.Diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		re, err := r.client.CreateProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(), cfg)
 		if err != nil {
 			return err
@@ -124,7 +124,7 @@ func (r neonRole) Create(ctx context.Context, req resource.CreateRequest, resp *
 		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
 		role = re.RoleResponse.Role
 		return nil
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -146,12 +146,12 @@ func (r neonRole) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 	}
 
 	var role neon.Role
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		roleResp, err := r.client.GetProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Name.ValueString())
 		role = roleResp.Role
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil
@@ -189,7 +189,7 @@ func (r neonRole) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		re, err := r.client.DeleteProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			state.Name.ValueString())
 		if err != nil {
@@ -197,7 +197,7 @@ func (r neonRole) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		}
 		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
 		return nil
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 		http.StatusConflict: func(_ context.Context) error {
 			return nil

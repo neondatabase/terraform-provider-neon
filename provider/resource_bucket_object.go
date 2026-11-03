@@ -373,14 +373,14 @@ func (r *neonBucketObjectResource) Delete(ctx context.Context, req resource.Dele
 	if state.IsDirectory.ValueBool() {
 		key = folderObjectKey(key)
 	}
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		return r.client.sdk.DeleteProjectBranchBucketObject(
 			state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),
 			state.Bucket.ValueString(),
 			url.PathEscape(key),
 		)
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {
@@ -430,7 +430,7 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 	state.ETag = types.StringValue(meta.Etag)
 
 	var presignResp neon.PresignResponse
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		var err error
 		presignResp, err = r.client.sdk.PresignProjectBranchBucketObject(state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),
@@ -438,7 +438,7 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 			key, neon.PresignRequest{Operation: neon.PresignRequestOperationDownload},
 		)
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

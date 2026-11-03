@@ -172,11 +172,11 @@ func (r *neonDataAPIResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	var result neon.DataAPICreateResponse
 	projectID, branchID, databaseName := plan.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.Retry(func(context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
 		var err error
 		result, err = r.client.CreateProjectBranchDataAPI(projectID, branchID, databaseName, &cfg)
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -232,10 +232,10 @@ func (r *neonDataAPIResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 	projectID, branchID, databaseName := plan.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.Retry(func(context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
 		_, err := r.client.UpdateProjectBranchDataAPI(projectID, branchID, databaseName, &cfg)
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -263,10 +263,10 @@ func (r *neonDataAPIResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 	projectID, branchID, databaseName := state.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
 		_, err := r.client.DeleteProjectBranchDataAPI(projectID, branchID, databaseName)
 		return err
-	}, ctx, map[int]func(context.Context) error{http.StatusNotFound: func(context.Context) error { return nil }})...)
+	}, map[int]func(context.Context) error{http.StatusNotFound: func(context.Context) error { return nil }})...)
 }
 
 func (r *neonDataAPIResource) configured(diagnostics *diag.Diagnostics) bool {
@@ -286,11 +286,16 @@ func (r *neonDataAPIResource) get(ctx context.Context, model *neonDataAPIModel, 
 		result, err = r.client.GetProjectBranchDataAPI(projectID, branchID, databaseName)
 		return err
 	}
+	var fallbacks map[int]func(context.Context) error
 	if tolerateNotFound {
-		diagnostics.Append(projectReadiness.RetryWithFallback(call, ctx, map[int]func(context.Context) error{http.StatusNotFound: func(context.Context) error { found = false; return nil }})...)
-	} else {
-		diagnostics.Append(projectReadiness.Retry(call, ctx)...)
+		fallbacks = map[int]func(context.Context) error{
+			http.StatusNotFound: func(context.Context) error {
+				found = false
+				return nil
+			},
+		}
 	}
+	diagnostics.Append(projectReadiness.Retry(ctx, call, fallbacks)...)
 	return result, found
 }
 

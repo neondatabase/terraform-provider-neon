@@ -102,7 +102,7 @@ func (r *neonEphemeralConnectionURI) Open(ctx context.Context, req ephemeral.Ope
 
 	var uri string
 	var pooled bool
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		r, err := r.client.GetConnectionURI(
 			data.ProjectID.ValueString(),
 			data.BranchID.ValueStringPointer(),
@@ -115,7 +115,7 @@ func (r *neonEphemeralConnectionURI) Open(ctx context.Context, req ephemeral.Ope
 			uri = r.URI
 		}
 		return err
-	}, ctx)...)
+	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
 		return

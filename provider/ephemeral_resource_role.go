@@ -85,14 +85,14 @@ func (r *neonEphemeralRole) Open(ctx context.Context, req ephemeral.OpenRequest,
 	}
 
 	var pass string
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		roleResp, err := r.client.GetProjectBranchRolePassword(data.ProjectID.ValueString(), data.BranchID.ValueString(),
 			data.Name.ValueString())
 		if err == nil {
 			pass = roleResp.Password
 		}
 		return err
-	}, ctx)...)
+	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
 		return

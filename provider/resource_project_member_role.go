@@ -199,7 +199,7 @@ func (r *neonProjectMemberRoleResource) setRole(ctx context.Context, plan tfsdk.
 	}
 
 	var selfDemotion = true
-	diagnostics.Append(projectReadiness.Retry(func(_ context.Context) error {
+	diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		_, err := r.client.SetProjectMemberRole(
 			model.ProjectID.ValueString(),
 			model.MemberID.ValueString(),
@@ -207,7 +207,7 @@ func (r *neonProjectMemberRoleResource) setRole(ctx context.Context, plan tfsdk.
 			neon.SetProjectMemberRoleRequest{Role: role},
 		)
 		return err
-	}, ctx)...)
+	}, nil)...)
 	if diagnostics.HasError() {
 		return
 	}
@@ -259,11 +259,11 @@ func (r *neonProjectMemberRoleResource) Delete(ctx context.Context, req resource
 	}
 
 	selfLockOut := true
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		_, err := r.client.RemoveProjectMemberRole(state.ProjectID.ValueString(), state.MemberID.ValueString(),
 			&selfLockOut)
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {

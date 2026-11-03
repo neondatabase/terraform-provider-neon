@@ -443,7 +443,7 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	var endpoint neon.Endpoint
-	resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		result, err := r.client.CreateProjectEndpoint(
 			state.ProjectID.ValueString(),
 			neon.EndpointCreateRequest{Endpoint: cfg},
@@ -454,7 +454,7 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
 		endpoint = result.EndpointResponse.Endpoint
 		return nil
-	}, ctx)...)
+	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -495,13 +495,13 @@ func (r *neonEndpointResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	var endpoint neon.Endpoint
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(_ context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		result, err := r.client.GetProjectEndpoint(state.ProjectID.ValueString(), state.ID.ValueString())
 		if err == nil {
 			endpoint = result.Endpoint
 		}
 		return err
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {
@@ -629,7 +629,7 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 
 	if cfg != (neon.EndpointUpdateRequestEndpoint{}) {
 		var endpoint neon.Endpoint
-		resp.Diagnostics.Append(projectReadiness.Retry(func(ctx context.Context) error {
+		resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 			result, err := r.client.UpdateProjectEndpoint(
 				prior.ProjectID.ValueString(),
 				prior.ID.ValueString(),
@@ -641,7 +641,7 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
 			endpoint = result.EndpointResponse.Endpoint
 			return nil
-		}, ctx)...)
+		}, nil)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -681,14 +681,14 @@ func (r *neonEndpointResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	resp.Diagnostics.Append(projectReadiness.RetryWithFallback(func(ctx context.Context) error {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		result, err := r.client.DeleteProjectEndpoint(state.ProjectID.ValueString(), state.ID.ValueString())
 		if err != nil {
 			return err
 		}
 		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
 		return nil
-	}, ctx, map[int]func(context.Context) error{
+	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {

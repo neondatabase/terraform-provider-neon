@@ -1214,11 +1214,11 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		cfg.Project.Settings.BlockVpcConnections = plan.BlockVPCConnections.ValueBoolPointer()
 	}
+
 	priorHasAllowedIPs := !prior.AllowedIPs.IsNull() && !prior.AllowedIPs.IsUnknown() &&
 		len(prior.AllowedIPs.Elements()) > 0
 	planHasAllowedIPs := !plan.AllowedIPs.IsNull() && !plan.AllowedIPs.IsUnknown() &&
 		len(plan.AllowedIPs.Elements()) > 0
-
 	updateAllowedIPs := false
 	switch {
 	case priorHasAllowedIPs:
@@ -1303,7 +1303,20 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	if !plan.EnabledLibraries.Equal(prior.EnabledLibraries) {
+	priorHasEnabledLibraries := !prior.EnabledLibraries.IsNull() && !prior.EnabledLibraries.IsUnknown() &&
+		len(prior.EnabledLibraries.Elements()) > 0
+	planHasEnabledLibraries := !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() &&
+		len(plan.EnabledLibraries.Elements()) > 0
+	updateEnabledLibraries := false
+	switch {
+	case priorHasEnabledLibraries:
+		updateEnabledLibraries = plan.EnabledLibraries.IsUnknown() ||
+			config.EnabledLibraries.IsNull() || config.EnabledLibraries.IsUnknown() ||
+			!plan.EnabledLibraries.Equal(prior.EnabledLibraries)
+	case planHasEnabledLibraries:
+		updateEnabledLibraries = true
+	}
+	if updateEnabledLibraries {
 		preloadedLibs := []string{}
 
 		if !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() {
@@ -1313,16 +1326,13 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			}
 		}
 
-		if (prior.EnabledLibraries.IsNull() || prior.EnabledLibraries.IsUnknown()) &&
-			!config.EnabledLibraries.IsUnknown() && !config.EnabledLibraries.IsNull() {
-			if cfg.Project.Settings == nil {
-				cfg.Project.Settings = &neon.ProjectSettingsData{}
-			}
-			if cfg.Project.Settings.PreloadLibraries == nil {
-				cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
-			}
-			cfg.Project.Settings.PreloadLibraries.EnabledLibraries = preloadedLibs
+		if cfg.Project.Settings == nil {
+			cfg.Project.Settings = &neon.ProjectSettingsData{}
 		}
+		if cfg.Project.Settings.PreloadLibraries == nil {
+			cfg.Project.Settings.PreloadLibraries = &neon.PreloadLibraries{}
+		}
+		cfg.Project.Settings.PreloadLibraries.EnabledLibraries = preloadedLibs
 	}
 
 	if !plan.EnabledLibrariesUseDefaults.IsUnknown() &&
@@ -1418,6 +1428,16 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			return
 		}
 		state.AllowedIPs = types.ListNull(types.StringType)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	}
+
+	if config.EnabledLibraries.IsNull() && plan.EnabledLibraries.IsNull() {
+		var state neonProjectResourceModel
+		resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.EnabledLibraries = types.ListNull(types.StringType)
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	}
 }

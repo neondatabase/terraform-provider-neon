@@ -224,7 +224,6 @@ Read-Only:
 - `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
 - `logical_size` (Number) Branch logical size in bytes.
-- `primary` (Boolean, Deprecated) Primary branch flag.
 - `project_id` (String) Project ID.
 
 

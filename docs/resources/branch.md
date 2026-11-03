@@ -8,10 +8,6 @@ description: |-
 
 Project Branch. See details: https://neon.tech/docs/introduction/branching/
 
-The computed `default` output reports the API default-branch designation.
-`primary` is deprecated; use `default` instead.
-When the API omits `primary` or returns JSON `null`, its Terraform value is `null`; explicit true and false remain unchanged.
-
 ## Example Usage
 
 ```terraform
@@ -64,7 +60,6 @@ resource "neon_branch" "child" {
 - `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
 - `logical_size` (Number) Branch logical size in bytes.
-- `primary` (Boolean, Deprecated) Primary branch flag.
 
 
 

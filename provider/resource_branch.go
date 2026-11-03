@@ -36,7 +36,6 @@ type neonBranchResourceModel struct {
 	ParentTimestamp types.Int64  `tfsdk:"parent_timestamp"`
 	LogicalSize     types.Int64  `tfsdk:"logical_size"`
 	Protected       types.Bool   `tfsdk:"protected"`
-	Primary         types.Bool   `tfsdk:"primary"`
 	Default         types.Bool   `tfsdk:"default"`
 	// TODO: add annotations as map[string]any
 }
@@ -54,7 +53,6 @@ func (v *neonBranchResourceModel) inferAttr(branch neon.Branch) {
 	v.ParentTimestamp = types.Int64Value(parentTimestamp)
 	v.Protected = types.BoolValue(branch.Protected)
 	v.LogicalSize = types.Int64PointerValue(branch.LogicalSize)
-	v.Primary = types.BoolPointerValue(branch.Primary)
 	v.Default = types.BoolValue(branch.Default)
 }
 
@@ -126,11 +124,6 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
-			},
-			"primary": schema.BoolAttribute{
-				Computed:           true,
-				Description:        "Primary branch flag.",
-				DeprecationMessage: "Use default instead.",
 			},
 			"default": schema.BoolAttribute{
 				Computed:    true,

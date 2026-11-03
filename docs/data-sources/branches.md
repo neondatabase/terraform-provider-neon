@@ -7,14 +7,6 @@ description: |-
 # neon_branches (Data Source)
 
 Fetch Project Branches.
-Set `filter` to search partial branch names or IDs; unset, `null`, or empty values disable filtering.
-The API returns branches in ascending branch-name order, requested consistently across all pages.
-The `branches` collection and its nested fields, including `name`, are read-only.
-Each branch includes its API `project_id`, parent `parent_lsn`, and `parent_timestamp` in Unix seconds.
-`parent_timestamp` is zero when the API omits it, matching the branch resource.
-`parent_id`, `parent_lsn`, `logical_size`, and `primary` return Terraform `null` when the API omits them or returns JSON `null`.
-Explicit empty strings, zero, and false remain unchanged.
-`primary` is deprecated; use `default` instead.
 
 ## Example Usage
 
@@ -57,6 +49,5 @@ Read-Only:
 - `parent_id` (String) Parent branch ID.
 - `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
 - `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.
-- `primary` (Boolean, Deprecated) Primary branch flag.
 - `project_id` (String) Project ID.
 - `protected` (Boolean) Protected branch flag.

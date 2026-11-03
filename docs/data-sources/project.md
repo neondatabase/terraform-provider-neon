@@ -103,7 +103,6 @@ Read-Only:
 - `parent_id` (String) Parent branch ID.
 - `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
 - `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.
-- `primary` (Boolean, Deprecated) Primary branch flag.
 - `project_id` (String) Project ID.
 - `protected` (Boolean) Protected branch flag.
 

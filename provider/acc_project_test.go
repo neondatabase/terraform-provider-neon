@@ -662,8 +662,7 @@ func TestProject(t *testing.T) {
 								})
 								waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
 								if err != nil && assert.Contains(t, err.(*neon.Error).Details[0].Message, "hipaa") {
-									t.Skip(fmt.Sprintf("org %s HIPAA compliance is not supported",
-										*p.Project.OrgID))
+									t.Skipf("org %s HIPAA compliance is not supported", *p.Project.OrgID)
 								}
 								return nil
 							},
@@ -1181,6 +1180,168 @@ func TestProject(t *testing.T) {
 					},
 				})
 		})
+
+	t.Run("shall enable/disable default branch protection", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(
+			t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+	name   = %q
+	branch = {protected = true}
+}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "default_branch_protected", "true",
+							),
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "branch.protected", "true",
+							),
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "default_branch_protected", "true",
+							),
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								resp, err := client.ListProjectBranches(r.Primary.ID,
+									nil, nil, nil, nil, nil, nil)
+								if err != nil {
+									return err
+								}
+								for _, branch := range resp.Branches {
+									if branch.Default {
+										assert.Truef(t, branch.Protected, "default branch shall be protected")
+									}
+								}
+								return nil
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+	name   = %q
+	branch = {protected = false}
+}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "default_branch_protected", "false",
+							),
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "branch.protected", "false",
+							),
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "default_branch_protected", "false",
+							),
+							func(state *terraform.State) error {
+								r, ok := state.RootModule().Resources["neon_project.this"]
+								if !ok {
+									return fmt.Errorf("no project resource found")
+								}
+								resp, err := client.ListProjectBranches(r.Primary.ID,
+									nil, nil, nil, nil, nil, nil)
+								if err != nil {
+									return err
+								}
+								for _, branch := range resp.Branches {
+									if branch.Default {
+										assert.False(t, branch.Protected, "default branch shall not be protected")
+									}
+								}
+								return nil
+							},
+						),
+					},
+				},
+			})
+	})
+
+	t.Run("shall maintain default branch protection", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(
+			t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "branch.protected", "false",
+							),
+							resource.TestCheckResourceAttr(
+								"neon_project.this", "default_branch_protected", "false",
+							),
+						),
+					},
+					{
+						Config:   fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
+						PlanOnly: true,
+					},
+				},
+			})
+	})
+
+	t.Run("issue83", func(t *testing.T) {
+		// It's expected that the default database and role names will not be overwritten
+		// if custom database and role would be created using the default branch.
+		// See details: https://github.com/kislerdm/terraform-provider-neon/issues/83
+		projectName := newProjectName(projectNamePrefix)
+		resourceDefinition := fmt.Sprintf(`resource "neon_project" "this" {
+  name                = %q
+  region_id           = "aws-us-west-2"
+  pg_version          = "16"
+  compute_provisioner = "k8s-neonvm"
+
+  enable_logical_replication = false
+
+  history_retention_seconds = 604800 # 7 days
+
+  branch = {
+    name          = "main"
+    database_name = "do_not_use_neon_default"
+    role_name     = "main"
+  }
+
+  autoscaling_limit_min_cu = 0.25
+  autoscaling_limit_max_cu = 0.25
+  suspend_timeout_seconds  = 300
+}
+
+resource "neon_role" "this" {
+  project_id = neon_project.this.id
+  branch_id  = neon_project.this.branch.id
+
+  name = "app"
+}
+
+resource "neon_database" "this" {
+  name = "app"
+
+  project_id = neon_project.this.id
+  branch_id  = neon_project.this.branch.id
+  owner_name = neon_role.this.name
+}`, projectName)
+
+		resource.Test(
+			t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						ResourceName: "initial provisioning",
+						Config:       resourceDefinition,
+					},
+					{
+						ResourceName: "second plan",
+						Config:       resourceDefinition,
+						PlanOnly:     true,
+					},
+				},
+			},
+		)
+	})
 }
 
 func TestProjectAllowedIPs(t *testing.T) {

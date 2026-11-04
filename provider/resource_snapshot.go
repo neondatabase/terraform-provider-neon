@@ -157,7 +157,14 @@ func (r *neonSnapshotResource) ImportState(ctx context.Context, req resource.Imp
 		SnapshotID: types.StringValue(snapshotID),
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-	r.Read(ctx, resource.ReadRequest{State: resp.State}, &resource.ReadResponse{State: resp.State})
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	readResp := resource.ReadResponse{State: resp.State}
+	r.Read(ctx, resource.ReadRequest{State: resp.State}, &readResp)
+	resp.State = readResp.State
+	resp.Diagnostics.Append(readResp.Diagnostics...)
 }
 
 func (r *neonSnapshotResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

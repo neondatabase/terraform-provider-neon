@@ -162,7 +162,10 @@ func (r neonVPCEndpointRestriction) Update(ctx context.Context, req resource.Upd
 			Schema: req.Plan.Schema,
 		},
 	}
-	r.Create(ctx, request, &resource.CreateResponse{State: resp.State})
+	createResp := resource.CreateResponse{State: resp.State}
+	r.Create(ctx, request, &createResp)
+	resp.State = createResp.State
+	resp.Diagnostics.Append(createResp.Diagnostics...)
 }
 
 func (r neonVPCEndpointRestriction) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -201,11 +204,17 @@ func (r neonVPCEndpointRestriction) ImportState(ctx context.Context, req resourc
 	}
 
 	// seed the state using the import id string and read the remote resource
-	request := resource.ReadRequest{}
-	resp.Diagnostics.Append(request.State.Set(ctx, &neonVPCEndpointRestrictionResourceModel{
+	resp.Diagnostics.Append(resp.State.Set(ctx, &neonVPCEndpointRestrictionResourceModel{
 		ID:            types.StringValue(req.ID),
 		VPCEndpointID: types.StringValue(els[0]),
 		ProjectID:     types.StringValue(els[1]),
 	})...)
-	r.Read(ctx, request, &resource.ReadResponse{State: resp.State})
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	readResp := resource.ReadResponse{State: resp.State}
+	r.Read(ctx, resource.ReadRequest{State: resp.State}, &readResp)
+	resp.State = readResp.State
+	resp.Diagnostics.Append(readResp.Diagnostics...)
 }

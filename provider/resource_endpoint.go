@@ -28,6 +28,7 @@ var (
 )
 
 var _ resource.ResourceWithConfigure = (*neonEndpointResource)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonEndpointResource)(nil)
 var _ resource.ResourceWithImportState = (*neonEndpointResource)(nil)
 
 type neonEndpointResource struct {
@@ -144,6 +145,7 @@ func (r *neonEndpointResource) Metadata(_ context.Context, _ resource.MetadataRe
 
 func (r *neonEndpointResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     9,
 		Description: `Project Endpoint. See details: https://neon.tech/docs/manage/endpoints/`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -724,5 +726,12 @@ func (r *neonEndpointResource) ImportState(ctx context.Context, req resource.Imp
 	resp.Diagnostics.Append(readResp.Diagnostics...)
 	if resp.State.Raw.IsNull() {
 		resp.Diagnostics.AddError("endpoint not found", "")
+	}
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *neonEndpointResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		8: legacyStateUpgrader(r.Schema, nil),
 	}
 }

@@ -14,6 +14,7 @@ import (
 )
 
 var _ resource.Resource = (*apiKeyResource)(nil)
+var _ resource.ResourceWithUpgradeState = (*apiKeyResource)(nil)
 var _ resource.ResourceWithConfigure = (*apiKeyResource)(nil)
 
 type apiKeyResource struct {
@@ -36,6 +37,7 @@ func (r *apiKeyResource) Metadata(_ context.Context, _ resource.MetadataRequest,
 
 func (r *apiKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version: 2,
 		Description: `A key to access the Neon API.
 
 ~>**WARNING** The resource does not support import.`,
@@ -175,4 +177,11 @@ func (r *apiKeyResource) Delete(ctx context.Context, req resource.DeleteRequest,
 	}
 
 	resp.State.RemoveResource(ctx)
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *apiKeyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		1: legacyStateUpgrader(r.Schema, nil),
+	}
 }

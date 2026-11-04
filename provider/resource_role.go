@@ -15,6 +15,7 @@ import (
 )
 
 var _ resource.ResourceWithConfigure = (*neonRole)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonRole)(nil)
 var _ resource.ResourceWithImportState = (*neonRole)(nil)
 
 type neonRole struct {
@@ -66,6 +67,7 @@ func (r neonRole) Schema(_ context.Context, _ resource.SchemaRequest, resp *reso
 	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 
 	resp.Schema = schemaTFSDK.Schema{
+		Version: 8,
 		Description: `Project Role. **Note** that User and Role are synonymous terms in Neon. 
 See details: https://neon.tech/docs/manage/users/
 `,
@@ -242,5 +244,12 @@ func (r neonRole) ImportState(ctx context.Context, req resource.ImportStateReque
 		resp.Diagnostics.AddWarning("role not found",
 			fmt.Sprintf("role %q not found in the project/branch \"%s/%s\"", els[2], els[0], els[1]))
 		return
+	}
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r neonRole) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		7: legacyStateUpgrader(r.Schema, nil),
 	}
 }

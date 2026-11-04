@@ -121,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - [[#28](https://github.com/neondatabase/terraform-provider-neon/issues/28)] Migrated the provider to Terraform Plugin Framework from Terraform Plugin SDK v2.
+  State written by `kislerdm/neon` v0.18.0 is upgraded in place on the first plan; upgrade to v0.18.0 first when coming from an older version.
 - Changed the following attributes of the resource `neon_project`:
   - **[BREAKING]** `branch` is the nested attribute instead of block now:
   ```hcl

@@ -16,6 +16,7 @@ import (
 )
 
 var _ resource.Resource = (*jwksURLResource)(nil)
+var _ resource.ResourceWithUpgradeState = (*jwksURLResource)(nil)
 var _ resource.ResourceWithConfigure = (*jwksURLResource)(nil)
 
 type jwksURLResource struct {
@@ -43,6 +44,7 @@ func (r *jwksURLResource) Metadata(_ context.Context, _ resource.MetadataRequest
 func (r *jwksURLResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Project JWKS URL. See details: https://neon.com/docs/data-api/custom-authentication-providers\n\n~>**WARNING** The resource does not support import.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -260,5 +262,14 @@ func setJWKSModel(model *jwksURLResourceModel, value neon.JWKS, roleNames []stri
 	}
 	if value.JwtAudience != nil {
 		model.JWTAudience = types.StringValue(*value.JwtAudience)
+	}
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *jwksURLResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: legacyStateUpgrader(r.Schema, func(attrs map[string]any) {
+			legacyEmptyStringToNull(attrs, "branch_id", "jwt_audience")
+		}),
 	}
 }

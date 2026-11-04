@@ -15,6 +15,7 @@ import (
 )
 
 var _ resource.ResourceWithConfigure = (*neonProjectPermission)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonProjectPermission)(nil)
 var _ resource.ResourceWithImportState = (*neonProjectPermission)(nil)
 
 type neonProjectPermission struct {
@@ -57,6 +58,7 @@ func (r *neonProjectPermission) Schema(_ context.Context, _ resource.SchemaReque
 	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 
 	resp.Schema = schema.Schema{
+		Version:     2,
 		Description: `Project's access permission.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -217,4 +219,11 @@ func (r *neonProjectPermission) ImportState(ctx context.Context, req resource.Im
 
 	resp.Diagnostics.AddError("Permission Not Found",
 		fmt.Sprintf("Permission %q not found in the project %q", permissionID, projectID))
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *neonProjectPermission) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		1: legacyStateUpgrader(r.Schema, nil),
+	}
 }

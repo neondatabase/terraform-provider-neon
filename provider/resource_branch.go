@@ -20,6 +20,7 @@ import (
 )
 
 var _ resource.ResourceWithConfigure = (*neonBranchResource)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonBranchResource)(nil)
 var _ resource.ResourceWithModifyPlan = (*neonBranchResource)(nil)
 var _ resource.ResourceWithImportState = (*neonBranchResource)(nil)
 
@@ -66,6 +67,7 @@ func (r *neonBranchResource) Metadata(_ context.Context, _ resource.MetadataRequ
 
 func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     9,
 		Description: "Project Branch. See details: https://neon.tech/docs/introduction/branching/",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -424,4 +426,13 @@ var notNegativeInt64 = validatorNotNegativeInt64{}
 func isValidBranchID(s string) bool {
 	const prefix = "br-"
 	return strings.HasPrefix(s, prefix) && len(strings.TrimPrefix(s, prefix)) > 0
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *neonBranchResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		8: legacyStateUpgrader(r.Schema, func(attrs map[string]any) {
+			legacyYesNoToBool(attrs, "protected")
+		}),
+	}
 }

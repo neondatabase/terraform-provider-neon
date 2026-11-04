@@ -29,6 +29,7 @@ import (
 )
 
 var _ resource.ResourceWithConfigure = (*neonProjectResource)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonProjectResource)(nil)
 var _ resource.ResourceWithModifyPlan = (*neonProjectResource)(nil)
 var _ resource.ResourceWithImportState = (*neonProjectResource)(nil)
 
@@ -811,6 +812,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 	maps.Copy(attrs, blocks)
 
 	resp.Schema = schema.Schema{
+		Version: 12,
 		Description: `Neon Project.
 
 Note that this resource manages five resources:
@@ -1587,4 +1589,15 @@ func (r neonProjectResource) updatePrimaryCompute(ctx context.Context, prior *ne
 		return nil
 	}
 	return newState
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r neonProjectResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		11: legacyStateUpgrader(r.Schema, func(attrs map[string]any) {
+			unwrapLegacyBlocks(attrs, "branch", "primary_compute", "maintenance_window", "quota")
+			legacyYesNoToBool(attrs, "allowed_ips_protected_branches_only", "block_public_connections",
+				"block_vpc_connections", "enable_logical_replication", "hipaa", "store_password")
+		}),
+	}
 }

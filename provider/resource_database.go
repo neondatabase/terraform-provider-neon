@@ -15,6 +15,7 @@ import (
 )
 
 var _ resource.ResourceWithConfigure = (*neonDatabase)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonDatabase)(nil)
 var _ resource.ResourceWithImportState = (*neonDatabase)(nil)
 
 type neonDatabase struct {
@@ -65,6 +66,7 @@ func (r neonDatabase) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 
 	resp.Schema = schemaTFSDK.Schema{
+		Version:     8,
 		Description: `Project Database. See details: https://neon.tech/docs/manage/databases/`,
 		Attributes: map[string]schemaTFSDK.Attribute{
 			"id": schemaTFSDK.StringAttribute{
@@ -296,4 +298,11 @@ func (r neonDatabase) ImportState(ctx context.Context, req resource.ImportStateR
 	state.BranchID = typesTFSDK.StringValue(branchID)
 	state.inferAttr(db)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r neonDatabase) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		7: legacyStateUpgrader(r.Schema, nil),
+	}
 }

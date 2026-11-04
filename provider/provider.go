@@ -2,32 +2,22 @@ package provider
 
 import (
 	"context"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
-	frameworkprovider "github.com/hashicorp/terraform-plugin-framework/provider"
-	providerschema "github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
 	"github.com/neondatabase/terraform-provider-neon/provider/telemetry"
 )
 
 const Name = "neondatabase/neon"
-
-func init() {
-	rand.New(rand.NewSource(time.Now().Unix()))
-	// Set descriptions to support markdown syntax, this will be used in document generation
-	// and the language server.
-	schema.DescriptionKind = schema.StringMarkdown
-}
 
 type httpClient interface {
 	Do(r *http.Request) (*http.Response, error)
@@ -38,7 +28,7 @@ type providerAdapter struct {
 	httpClient httpClient
 }
 
-var _ frameworkprovider.ProviderWithEphemeralResources = (*Provider)(nil)
+var _ provider.ProviderWithEphemeralResources = (*Provider)(nil)
 
 type Provider struct {
 	version     string
@@ -49,15 +39,15 @@ type frameworkProviderConfigModel struct {
 	APIKey types.String `tfsdk:"api_key"`
 }
 
-func (p *Provider) Metadata(_ context.Context, _ frameworkprovider.MetadataRequest, resp *frameworkprovider.MetadataResponse) {
+func (p *Provider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "neon"
 	resp.Version = p.version
 }
 
-func (p *Provider) Schema(_ context.Context, _ frameworkprovider.SchemaRequest, resp *frameworkprovider.SchemaResponse) {
-	resp.Schema = providerschema.Schema{
-		Attributes: map[string]providerschema.Attribute{
-			"api_key": providerschema.StringAttribute{
+func (p *Provider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"api_key": schema.StringAttribute{
 				Optional:            true,
 				Sensitive:           true,
 				MarkdownDescription: "API access key. Default is read from the environment variable `NEON_API_KEY`.",
@@ -66,8 +56,8 @@ func (p *Provider) Schema(_ context.Context, _ frameworkprovider.SchemaRequest, 
 	}
 }
 
-func (p *Provider) Configure(ctx context.Context, req frameworkprovider.ConfigureRequest,
-	resp *frameworkprovider.ConfigureResponse) {
+func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
+	resp *provider.ConfigureResponse) {
 	if p.neonAdapter != nil {
 		resp.ResourceData = p.neonAdapter
 		resp.DataSourceData = p.neonAdapter

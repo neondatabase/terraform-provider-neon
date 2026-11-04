@@ -279,8 +279,9 @@ func (r *neonTriggerResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	var plan neonTriggerResourceModel
+	var plan, prior neonTriggerResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -293,7 +294,7 @@ func (r *neonTriggerResource) Update(ctx context.Context, req resource.UpdateReq
 		result, err = r.client.UpdateProjectBranchTrigger(
 			plan.ProjectID.ValueString(),
 			plan.BranchID.ValueString(),
-			neon.TriggerID(plan.TriggerID.ValueString()),
+			neon.TriggerID(prior.TriggerID.ValueString()),
 			cfg,
 		)
 		return err
@@ -393,6 +394,7 @@ func buildTriggerUpdateRequest(plan *neonTriggerResourceModel) neon.TriggerUpdat
 	cfg := neon.TriggerUpdateRequest{}
 
 	typ := plan.Type.ValueString()
+	cfg.Type = typ
 	switch typ {
 	case "schedule":
 		typeVal, _ := neon.NewScheduleTriggerUpdateRequestType("schedule")

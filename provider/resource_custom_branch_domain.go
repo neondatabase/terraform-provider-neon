@@ -202,6 +202,7 @@ func (r *neonCustomBranchDomain) Read(ctx context.Context, req resource.ReadRequ
 		state.EntityID = types.StringValue(domain.EntityID)
 		state.EntityType = types.StringValue(domain.EntityType)
 		state.CnameTarget = types.StringValue(domain.CnameTarget)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 
 	case errors.As(err, &domainNotFoundErr{}):
 		resp.Diagnostics.AddWarning(err.Error(), "")

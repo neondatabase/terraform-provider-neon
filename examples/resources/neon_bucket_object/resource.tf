@@ -5,7 +5,7 @@ resource "neon_project" "example" {
 
 resource "neon_bucket" "example" {
   project_id = neon_project.example.id
-  branch_id  = neon_project.example.default_branch_id
+  branch_id  = neon_project.example.branch.id
   name       = "foo"
 }
 

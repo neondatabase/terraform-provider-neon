@@ -6,7 +6,7 @@ resource "neon_project" "example" {
 # using ephemeral resource
 ephemeral "neon_role" "default" {
   project_id = neon_project.example.id
-  branch_id  = neon_project.example.default_branch_id
+  branch_id  = neon_project.example.branch.id
   name       = neon_project.example.database_user
   lifecycle {
     postcondition {
@@ -17,7 +17,7 @@ ephemeral "neon_role" "default" {
 }
 
 locals {
-  secret_name = "${neon_project.example.id}/${neon_project.example.default_branch_id}/${neon_project.example.database_user}"
+  secret_name = "${neon_project.example.id}/${neon_project.example.branch.id}/${neon_project.example.database_user}"
 }
 
 resource "aws_ssm_parameter" "default_neon_role_password" {

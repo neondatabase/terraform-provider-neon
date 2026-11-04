@@ -19,8 +19,8 @@ resource "neon_project" "example" {
 # using ephemeral resource
 ephemeral "neon_connection_uri" "default" {
   project_id  = neon_project.example.id
-  branch_id   = neon_project.example.default_branch_id
-  endpoint_id = neon_project.example.default_endpoint_id
+  branch_id   = neon_project.example.branch.id
+  endpoint_id = neon_project.example.primary_compute.id
   database    = neon_project.example.database_name
   role        = neon_project.example.database_user
   lifecycle {
@@ -32,7 +32,7 @@ ephemeral "neon_connection_uri" "default" {
 }
 
 locals {
-  secret_name = "${neon_project.example.id}/${neon_project.example.default_branch_id}/${neon_project.example.default_endpoint_id}/${neon_project.example.database_user}/${neon_project.example.database_name}"
+  secret_name = "${neon_project.example.id}/${neon_project.example.branch.id}/${neon_project.example.primary_compute.id}/${neon_project.example.database_user}/${neon_project.example.database_name}"
 }
 
 resource "aws_ssm_parameter" "default_neon_connection_uri" {

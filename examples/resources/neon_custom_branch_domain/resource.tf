@@ -5,7 +5,7 @@ resource "neon_project" "example" {
 
 resource "neon_function" "example" {
   project_id    = neon_project.example.id
-  branch_id     = neon_project.example.default_branch_id
+  branch_id     = neon_project.example.branch.id
   slug          = "hello"
   runtime       = "nodejs24"
   name          = "hello"
@@ -18,7 +18,7 @@ resource "neon_function" "example" {
 
 resource "neon_custom_branch_domain" "example" {
   project_id  = neon_project.example.id
-  branch_id   = neon_project.example.default_branch_id
+  branch_id   = neon_project.example.branch.id
   entity_type = "function"
   entity_id   = neon_function.example.slug
   domain      = "example.com"

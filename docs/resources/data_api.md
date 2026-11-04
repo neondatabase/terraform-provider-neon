@@ -19,7 +19,7 @@ resource "neon_project" "this" {
 
 resource "neon_data_api" "this" {
   project_id    = neon_project.this.id
-  branch_id     = neon_project.this.default_branch_id
+  branch_id     = neon_project.this.branch.id
   database_name = neon_project.this.database_name
 
   auth_provider = "neon_auth"

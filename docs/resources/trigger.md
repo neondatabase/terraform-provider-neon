@@ -21,7 +21,7 @@ resource "neon_project" "example" {
 # you need Terraform to manage ordering.
 resource "neon_trigger" "schedule" {
   project_id    = neon_project.example.id
-  branch_id     = neon_project.example.default_branch_id
+  branch_id     = neon_project.example.branch.id
   name          = "every-five-minutes"
   type          = "schedule"
   function_slug = "my-handler"
@@ -34,13 +34,13 @@ resource "neon_trigger" "schedule" {
 # uploaded to the bucket. Requires neon_bucket to exist.
 resource "neon_bucket" "example" {
   project_id = neon_project.example.id
-  branch_id  = neon_project.example.default_branch_id
+  branch_id  = neon_project.example.branch.id
   name       = "uploads"
 }
 
 resource "neon_trigger" "storage" {
   project_id    = neon_project.example.id
-  branch_id     = neon_project.example.default_branch_id
+  branch_id     = neon_project.example.branch.id
   name          = "on-upload"
   type          = "storage_object_created"
   function_slug = "my-handler"

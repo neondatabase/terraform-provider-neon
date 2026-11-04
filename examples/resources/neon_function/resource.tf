@@ -14,7 +14,7 @@ resource "local_file" "function_source" {
 # at plan time; in production, build the zip in your CI pipeline.
 resource "neon_function" "example" {
   project_id    = neon_project.example.id
-  branch_id     = neon_project.example.default_branch_id
+  branch_id     = neon_project.example.branch.id
   slug          = "hello"
   runtime       = "nodejs24"
   name          = "hello"

@@ -142,9 +142,6 @@ func TestBranchesDataSource(t *testing.T) {
 					branchesAddress, "branches.0.logical_size", "1048577",
 				),
 				resource.TestCheckResourceAttr(
-					branchesAddress, "branches.0.primary", "true",
-				),
-				resource.TestCheckResourceAttr(
 					branchesAddress, "branches.0.default", "true",
 				),
 				resource.TestCheckResourceAttr(
@@ -153,7 +150,6 @@ func TestBranchesDataSource(t *testing.T) {
 				resource.TestCheckOutput("null_parent_ids", ""),
 				resource.TestCheckOutput("null_parent_lsn_ids", ""),
 				resource.TestCheckOutput("null_size_ids", ""),
-				resource.TestCheckOutput("null_primary_ids", ""),
 			),
 		},
 		{
@@ -195,9 +191,6 @@ func TestBranchesDataSource(t *testing.T) {
 					branchesAddress, "branches.0.logical_size", "0",
 				),
 				resource.TestCheckResourceAttr(
-					branchesAddress, "branches.0.primary", "false",
-				),
-				resource.TestCheckResourceAttr(
 					branchesAddress, "branches.0.default", "false",
 				),
 				resource.TestCheckResourceAttr(
@@ -218,7 +211,6 @@ func TestBranchesDataSource(t *testing.T) {
 				resource.TestCheckOutput("null_parent_ids", "br-second-456"),
 				resource.TestCheckOutput("null_parent_lsn_ids", "br-second-456"),
 				resource.TestCheckOutput("null_size_ids", "br-second-456"),
-				resource.TestCheckOutput("null_primary_ids", "br-second-456"),
 				resource.TestCheckResourceAttr(
 					branchesAddress, "branches.1.default", "true",
 				),
@@ -262,7 +254,6 @@ func TestBranchesDataSource(t *testing.T) {
 						)
 						require.NoError(t, err)
 						require.Empty(t, response.Diagnostics)
-						var primary *tfprotov6.SchemaAttribute
 						for _, attribute := range response.DataSourceSchemas["neon_branches"].Block.Attributes {
 							if attribute.Name != "branches" {
 								continue
@@ -271,13 +262,8 @@ func TestBranchesDataSource(t *testing.T) {
 								require.True(t, field.Computed, field.Name)
 								require.False(t, field.Optional, field.Name)
 								require.False(t, field.Required, field.Name)
-								if field.Name == "primary" {
-									primary = field
-								}
 							}
 						}
-						require.NotNil(t, primary)
-						require.True(t, primary.Deprecated)
 					}
 					step := resource.TestStep{
 						Config: branchesDataSourceConfig(tt.projectID, ""),
@@ -649,9 +635,6 @@ func TestBranchesDataSourcePagination(t *testing.T) {
 						branchesAddress, "branches.2.logical_size", "1048577",
 					),
 					resource.TestCheckResourceAttr(
-						branchesAddress, "branches.2.primary", "false",
-					),
-					resource.TestCheckResourceAttr(
 						branchesAddress, "branches.2.default", "false",
 					),
 					resource.TestCheckResourceAttr(
@@ -737,10 +720,6 @@ output "null_parent_lsn_ids" {
 
 output "null_size_ids" {
   value = join(",", [for branch in data.neon_branches.this.branches : branch.id if branch.logical_size == null])
-}
-
-output "null_primary_ids" {
-  value = join(",", [for branch in data.neon_branches.this.branches : branch.id if branch.primary == null])
 }
 `, projectID, filterConfig)
 }

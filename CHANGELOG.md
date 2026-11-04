@@ -5,62 +5,187 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.19.0-beta.0] - 2026-11-03
 
 ### Added
 
 - Added the following resources:
-  - `neon_snapshot`;
-  - `neon_function`;
-  - `neon_trigger`;
-  - `neon_bucket`;
-  - `neon_bucket_object`;
-  - `neon_branch`;
-  - `neon_data_api`;
-  - `neon_service_credential`.
+  - [[#27](https://github.com/neondatabase/terraform-provider-neon/issues/27)] `neon_project_member_role`;
+  - [[#27](https://github.com/neondatabase/terraform-provider-neon/issues/27)] `neon_org_member_role`.
+  - [[#29](https://github.com/neondatabase/terraform-provider-neon/issues/29)] `neon_function`;
+  - [[#30](https://github.com/neondatabase/terraform-provider-neon/issues/30)] `neon_bucket`;
+  - [[#30](https://github.com/neondatabase/terraform-provider-neon/issues/30)] `neon_bucket_object`;
+  - [[#34](https://github.com/neondatabase/terraform-provider-neon/issues/34)] `neon_trigger`;
+  - [[#35](https://github.com/neondatabase/terraform-provider-neon/issues/35)] `neon_service_credential`;
+  - [[#36](https://github.com/neondatabase/terraform-provider-neon/issues/36)] `neon_custom_branch_domain`;
+  - [[#39](https://github.com/neondatabase/terraform-provider-neon/issues/39)] `neon_org_spending_limit`;
+  - [[#40](https://github.com/neondatabase/terraform-provider-neon/issues/40)] `neon_data_api`;
+  - [[#41](https://github.com/neondatabase/terraform-provider-neon/issues/41)] `neon_snapshot`;
 
 - Added the following data sources:
-  - `neon_ai_gateway`;
-  - `neon_bucket`;
+  - [[#43](https://github.com/neondatabase/terraform-provider-neon/issues/43)] `neon_active_regions`;
+  - [[#45](https://github.com/neondatabase/terraform-provider-neon/issues/45)] `neon_ai_gateway`;
+  - [[#46](https://github.com/neondatabase/terraform-provider-neon/issues/46)] `neon_bucket`.
 
 - [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] Added the following ephemeral resources:
   - `neon_role`;
   - `neon_connection_uri`.
 
-- Added the following attributes to the `neon_endpoint` resource:
+- Added the following attributes to the resource `neon_endpoint`:
   - `passwordless_access`;
   - `enabled_libraries`;
   - `enabled_libraries_use_defaults`.
 
-### Removed
+- Added the following attributes to the resource `neon_project`:
+  - `enabled_libraries`;
+  - `enabled_libraries_use_defaults`.
+  - `branch.project_id`;
+  - `branch.parent_id`;
+  - `branch.parent_lsn`;
+  - `branch.parent_timestamp`;
+  - `branch.logical_size`;
+  - `branch.protected`;
+  - `primary_compute.project_id`;
+  - `primary_compute.branch_id`;
+  - `primary_compute.region_id`;
+  - `primary_compute.type`;
+  - `primary_compute.compute_provisioner`;
+  - `primary_compute.disabled`;
+  - `primary_compute.enabled_libraries`;
+  - `primary_compute.enabled_libraries_use_defaults`;
+  - `primary_compute.passwordless_access`;
+  - `primary_compute.host`;
+  - `primary_compute.host_pooler`.
 
-- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attribute `password` from the `neon_role` resource.
-- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the data source `neon_branch_role_password`.
-- **[BREAKING]** Removed the attribute `proxy_host` from the resource `neon_endpoint`.
+- Added the attribute `filter` to the data source `neon_branches`.
+
+- Added the following attributes to the elements of the `branches` list in the data source `neon-branches`:
+  - `project_id`;
+  - `parent_lsn`;
+  - `parent_timestamp`;
+  - `protected`.
+
+- Added the following attribute to the data source `neon_project`:
+  - `allowed_ips`;
+  - `allowed_ips_protected_branches_only`;
+  - `autoscaling_limit_max_cu`;
+  - `autoscaling_limit_min_cu`;
+  - `block_public_connections`;
+  - `block_vpc_connections`;
+  - `compute_provisioner`;
+  - `default_branch_protected`;
+  - `default_endpoint_id`;
+  - `enable_logical_replication`;
+  - `hipaa`;
+  - `history_retention_seconds`;
+  - `org_id`;
+  - `pg_version`;
+  - `region_id`;
+  - `store_password`;
+  - `suspend_timeout_seconds`;
+  - `enabled_libraries`;
+  - `enabled_libraries_use_defaults`;
+  - `branch.id`;
+  - `branch.name`;
+  - `branch.project_id`;
+  - `branch.parent_id`;
+  - `branch.parent_lsn`;
+  - `branch.parent_timestamp`;
+  - `branch.logical_size`;
+  - `branch.protected`;
+  - `maintenance_window.end_time`;
+  - `maintenance_window.start_time`;
+  - `maintenance_window.weekdays`;
+  - `primary_compute.autoscaling_limit_max_cu`;
+  - `primary_compute.autoscaling_limit_min_cu`;
+  - `primary_compute.id`;
+  - `primary_compute.name`;
+  - `primary_compute.suspend_timeout_seconds`;
+  - `primary_compute.project_id`;
+  - `primary_compute.branch_id`;
+  - `primary_compute.region_id`;
+  - `primary_compute.type`;
+  - `primary_compute.compute_provisioner`;
+  - `primary_compute.disabled`;
+  - `primary_compute.enabled_libraries`;
+  - `primary_compute.enabled_libraries_use_defaults`;
+  - `primary_compute.passwordless_access`;
+  - `primary_compute.host`;
+  - `primary_compute.host_pooler`;
+  - `quota.active_time_seconds`;
+  - `quota.compute_time_seconds`;
+  - `quota.data_transfer_bytes`;
+  - `quota.logical_size_bytes`;
+  - `quota.written_data_bytes`.
 
 ### Changed
 
-- Migrated the following resources from Terraform Plugin SDK v2 to Terraform Plugin Framework:
-  - `neon_branch`;
-  - `neon_api_key`;
-  - `neon_role`;
-  - `neon_database`;
-  - `neon_project_permission`;
-  - `neon_jwks_url`;
-  - `neon_vpc_endpoint_assignment`;
-  - `neon_vpc_endpoint_restriction`;
-  - `neon_org_api_key`;
-  - `neon_endpoint`.
-
-- Migrated the following data sources from Terraform Plugin SDK v2 to Terraform Plugin Framework:
-  - `neon_branches`;
-  - `neon_branch_roles`;
-  - `neon_branch_endpoints`.
-
-- Changed the resource `neon_endpoint` by renaming the attribute `host_pooling` to `host_pooler`.
+- [[#28](https://github.com/neondatabase/terraform-provider-neon/issues/28)] Migrated the provider to Terraform Plugin Framework from Terraform Plugin SDK v2.
+- Changed the following attributes of the resource `neon_project`:
+  - **[BREAKING]** `branch` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    branch = {
+      // default branch' attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `primary_compute` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    primary_compute = {
+    // primary compute's attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `maintenance_window` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    maintenance_window = {
+      // maintenance window attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `quota` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    quota = {
+      // quota attributes go here
+    }
+  }
+  ```
 
 - Updated dependencies:
-  - Neon Go SDK: [v0.27.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.22.0...v0.27.0)
+  - github.com/hashicorp/terraform-plugin-docs: [v0.25.0](https://github.com/hashicorp/terraform-plugin-docs/compare/v0.21.0...v0.25.0)
+  - github.com/hashicorp/terraform-plugin-framework: [v1.19.0](https://github.com/hashicorp/terraform-plugin-framework/compare/v1.14.1...v1.19.0)
+  - github.com/hashicorp/terraform-plugin-go: [v0.31.0](https://github.com/hashicorp/terraform-plugin-go/compare/v0.26.0...v0.31.0)
+  - github.com/hashicorp/terraform-plugin-log: [v0.11.0](https://github.com/hashicorp/terraform-plugin-log/compare/v0.9.0...v0.11.0)
+  - github.com/hashicorp/terraform-plugin-sdk/v2: [v2.40.1](https://github.com/hashicorp/terraform-plugin-sdk/v2/compare/v2.36.1...v2.40.1)
+  - Neon Go SDK: [v0.36.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.22.0...v0.36.0)
+
+### Deprecated
+
+- Deprecated the following fields of the resource `neon_project`: 
+  - `default_branch_id`: use `branch.id` instead;
+  - `default_endpoint_id`: use `primary_compute.id` instead;
+  - `default_branch_protected`: use `branch.protected` instead;
+  - `database_host`: use `primary_compuate._host` instead;
+  - `database_host_pooler`: use `primary_compuate._host_pooler` instead.
+
+### Removed
+
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attribute `password` from the resource `neon_role`.
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the data source `neon_branch_role_password`.
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attributes `connection_uri`, `connection_uri_pooler` and `database_password` from the resource and data-source `neon_project`.
+- **[BREAKING]** Removed the attributes `database_name`, `role_name` from the nested attribute `branch` of the resource `neon_project`.
+- **[BREAKING]** Removed the attributes `proxy_host` and `pg_settings` from the resource `neon_endpoint`. Note that `pg_settings` is removed temporarily until the Neon API is fixed.
+- **[BREAKING]** Removed the attributes `primary` from the element of the `branches` list in the data-source `neon_branches`.
+
+### Fixed
+
+- [[#52](https://github.com/neondatabase/terraform-provider-neon/issues/52)] Fixed silent removal of the `neon_project` resource from the state if the API returns the status code 422, e.g., when the project contains protected branches.
+- [[#59](https://github.com/neondatabase/terraform-provider-neon/issues/59)] Fixed the provider's attribute `api_key` security flag.
+- [[#60](https://github.com/neondatabase/terraform-provider-neon/issues/60)] Fixed state management of the project's `maintenance_window`.
 
 ## [v0.18.0] - 2026-09-12
 

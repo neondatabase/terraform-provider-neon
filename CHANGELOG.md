@@ -170,8 +170,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `default_branch_id`: use `branch.id` instead;
   - `default_endpoint_id`: use `primary_compute.id` instead;
   - `default_branch_protected`: use `branch.protected` instead;
-  - `database_host`: use `primary_compuate._host` instead;
-  - `database_host_pooler`: use `primary_compuate._host_pooler` instead.
+  - `database_host`: use `primary_compute.host` instead;
+  - `database_host_pooler`: use `primary_compute.host_pooler` instead.
 
 ### Removed
 

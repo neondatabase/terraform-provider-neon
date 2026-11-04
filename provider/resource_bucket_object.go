@@ -115,14 +115,14 @@ func (r *neonBucketObjectResource) Schema(_ context.Context, _ resource.SchemaRe
 				Optional:  true,
 				Sensitive: true,
 				Description: `The content of the object. 
-Note that it's not persisted in the Terraform state.
+Note that the value is stored in the Terraform plan and state; use "source" to keep file contents out of them.
 It **conflicts** with "content_base64", "source".`,
 			},
 			"content_base64": schema.StringAttribute{
 				Optional:  true,
 				Sensitive: true,
 				Description: `The base64-encoded content of the object. 
-Note that it's not persisted in the Terraform state. 
+Note that the value is stored in the Terraform plan and state; use "source" to keep file contents out of them.
 It **conflicts** with "content" and "source".`,
 			},
 			"source": schema.StringAttribute{
@@ -186,6 +186,11 @@ func (r *neonBucketObjectResource) ModifyPlan(ctx context.Context, req resource.
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &planned)...)
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Values supplied by other resources are unknown until apply; Terraform plans again then with known values.
+	if config.Content.IsUnknown() || config.ContentBase64.IsUnknown() || config.Source.IsUnknown() {
 		return
 	}
 
@@ -484,11 +489,11 @@ func upload(ctx context.Context, sdk *neon.Client, httpClient httpClient, conten
 	}
 
 	httpResp, err := httpClient.Do(httpReq)
-	defer func() { _ = httpResp.Body.Close() }()
 	if err != nil {
 		return "", 0, "",
 			fmt.Errorf("unable to upload object %q to bucket %s/%s/%s: %w", key, projectID, branchID, bucket, err)
 	}
+	defer func() { _ = httpResp.Body.Close() }()
 	if httpResp.StatusCode < 200 || httpResp.StatusCode > 299 {
 		respBody, _ := io.ReadAll(io.LimitReader(httpResp.Body, 4096))
 		return "", 0, "",

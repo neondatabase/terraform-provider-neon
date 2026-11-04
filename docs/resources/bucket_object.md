@@ -85,10 +85,10 @@ resource "neon_bucket_object" "example" {
 ### Optional
 
 - `content` (String, Sensitive) The content of the object. 
-Note that it's not persisted in the Terraform state.
+Note that the value is stored in the Terraform plan and state; use "source" to keep file contents out of them.
 It **conflicts** with "content_base64", "source".
 - `content_base64` (String, Sensitive) The base64-encoded content of the object. 
-Note that it's not persisted in the Terraform state. 
+Note that the value is stored in the Terraform plan and state; use "source" to keep file contents out of them.
 It **conflicts** with "content" and "source".
 - `content_type` (String) The MIME type of the object.
 - `is_directory` (Boolean) Set to true to provision a "folder". Note that it **conflicts** with "content", "content_base64", "source".

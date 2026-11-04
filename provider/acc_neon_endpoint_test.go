@@ -772,7 +772,7 @@ resource "neon_endpoint" "this" {
 
 							return fmt.Sprintf("%s/%s", ref.ID, endpointID), nil
 						},
-						ExpectError: regexp.MustCompile("404"),
+						ExpectError: regexp.MustCompile("Cannot import non-existent remote object"),
 					},
 					// to avoid dangling resources on post-test destroy
 					{

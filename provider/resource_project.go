@@ -992,7 +992,7 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		}
 		cfg.Project.Settings.BlockVpcConnections = state.BlockVPCConnections.ValueBoolPointer()
 	}
-	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() && !state.Hipaa.ValueBool() {
+	if !state.Hipaa.IsUnknown() && !state.Hipaa.IsNull() {
 		if cfg.Project.Settings == nil {
 			cfg.Project.Settings = &neon.ProjectSettingsData{}
 		}

@@ -40,14 +40,14 @@ func TestAccJwksUrl(t *testing.T) {
 	wantRoleName := "foo"
 	var resourceDefinition = func(projectName string) string {
 		return fmt.Sprintf(`resource "neon_project" "_" { 
-	name = "%s"
-	branch {role_name = "%s"}
+	name          = %q
+	database_user = %q
 }
 resource "neon_jwks_url" "_" {
 	project_id    = neon_project._.id
 	role_names    = [neon_project._.database_user]
 	provider_name = "Stack"
-	jwks_url      = "%s"
+	jwks_url      = %q
 	depends_on    = [neon_project._]
 }`, projectName, wantRoleName, wantJwksUrl)
 	}

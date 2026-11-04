@@ -2,12 +2,12 @@ terraform {
   required_providers {
     neon = {
       source  = "neondatabase/neon"
-      version = ">= 0.17.0"
+      version = ">= 0.19.0"
     }
 
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.67"
+      version = "~> 6.71.0"
     }
   }
 }
@@ -33,7 +33,7 @@ resource "neon_endpoint" "this" {
 
 resource "neon_branch" "this" {
   project_id = neon_project.this.id
-  parent_id  = neon_project.this.default_branch_id
+  parent_id  = neon_project.this.branch.id
   name       = "mybranch"
 }
 
@@ -50,6 +50,18 @@ resource "neon_database" "this" {
   name       = "mydb"
 }
 
+ephemeral "neon_role" "this" {
+  project_id = neon_project.this.id
+  branch_id  = neon_branch.this.id
+  name       = neon_role.this.name
+  lifecycle {
+    postcondition {
+      condition     = self.password != ""
+      error_message = "Empty role password returned"
+    }
+  }
+}
+
 resource "aws_secretsmanager_secret" "this" {
   name                    = "neon/mybranch/mydb/myrole"
   description             = "Neon SaaS access details for mydb, myrole @ mybranch"
@@ -63,10 +75,10 @@ resource "aws_secretsmanager_secret" "this" {
 
 resource "aws_secretsmanager_secret_version" "this" {
   secret_id = aws_secretsmanager_secret.this.id
-  secret_string = jsonencode({
+  secret_string_wo = jsonencode({
+    user     = ephemeral.neon_role.this.name
+    password = ephemeral.neon_role.this.password
     host     = neon_endpoint.this.host
-    user     = neon_role.this.name
-    password = neon_role.this.password
     dbname   = neon_database.this.name
   })
 }

@@ -199,6 +199,7 @@ func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.P
 	previousAllowedIPs := v.AllowedIPs
 	v.AllowedIPs = types.ListNull(types.StringType)
 
+	previousEnabledLibraries := v.EnabledLibraries
 	v.EnabledLibraries = types.ListNull(types.StringType)
 	v.EnabledLibrariesUseDefaults = types.BoolNull()
 
@@ -259,6 +260,13 @@ func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.P
 	// when the API has not returned a non-empty list.
 	if v.AllowedIPs.IsNull() && !previousAllowedIPs.IsNull() && !previousAllowedIPs.IsUnknown() {
 		v.AllowedIPs = types.ListValueMust(types.StringType, nil)
+	}
+
+	// Empty API settings cannot distinguish an omitted list from explicit [].
+	// Keep known list intent across reads, including missing settings, without
+	// replacing non-empty contents returned by the API.
+	if v.EnabledLibraries.IsNull() && !previousEnabledLibraries.IsNull() && !previousEnabledLibraries.IsUnknown() {
+		v.EnabledLibraries = types.ListValueMust(types.StringType, nil)
 	}
 
 	// default compute a/k/a endpoints settings

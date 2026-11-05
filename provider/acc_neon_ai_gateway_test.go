@@ -43,15 +43,11 @@ func TestAIGatewayDataSource(t *testing.T) {
 	require.NoError(t, err)
 
 	projectNamePrefix := "aiGatewayDataSource"
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	projectName := newProjectName(projectNamePrefix)
-	resource.Test(t, resource.TestCase{
+	projects.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: newProviderFactories(),
 		Steps: []resource.TestStep{
 			{

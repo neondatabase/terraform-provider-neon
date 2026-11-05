@@ -44,16 +44,12 @@ func TestAccNeonSnapshot(t *testing.T) {
 
 	projectNamePrefix := "neonSnapshotAcc"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, &orgID, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	t.Run("shall create and read a snapshot, and verify against the live API", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -73,7 +69,7 @@ func TestAccNeonSnapshot(t *testing.T) {
 
 	t.Run("shall update the snapshot name in place and verify against the live API", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -93,7 +89,7 @@ func TestAccNeonSnapshot(t *testing.T) {
 	t.Run("shall set and clear expires_at and verify against the live API", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		expiry := time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -116,7 +112,7 @@ func TestAccNeonSnapshot(t *testing.T) {
 
 	t.Run("shall import a snapshot by <project_id>/<snapshot_id> and verify against the live API", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -140,7 +136,7 @@ func TestAccNeonSnapshot(t *testing.T) {
 
 	t.Run("shall remove the snapshot from the live API when deleted out-of-band", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{

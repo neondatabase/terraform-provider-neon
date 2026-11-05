@@ -25,12 +25,8 @@ func TestAccJwksUrl(t *testing.T) {
 
 	projectNamePrefix := "jwks"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	// Note that Neon verifies the URL upon provisioning, hence the Stack project must exist.
 	// Dmitry Kisler's Stack project ID.
@@ -56,7 +52,7 @@ resource "neon_jwks_url" "_" {
 	t.Run("Stack as IdP", func(t *testing.T) {
 		const resourceName = "neon_jwks_url._"
 		config := resourceDefinition(projectName)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -120,7 +116,7 @@ resource "neon_jwks_url" "_" {
 	depends_on    = [neon_project._]
 }`, projectName)
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -135,7 +131,7 @@ resource "neon_jwks_url" "_" {
 	t.Run("shall destroy even if the resource was deleted outside of terraform,", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		config := resourceDefinition(projectName)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -173,7 +169,7 @@ resource "neon_jwks_url" "_" {
 
 	t.Run("shall fail role_names validation if the list has more than 10 elements", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

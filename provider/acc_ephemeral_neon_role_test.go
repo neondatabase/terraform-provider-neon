@@ -21,16 +21,12 @@ func TestAccEphemeralRole(t *testing.T) {
 	}
 
 	projectNamePrefix := "ephemeralRole"
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	t.Run("returns a password for an existing role", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -64,7 +60,7 @@ ephemeral "neon_role" "this" {
 
 	t.Run("returns the error when the role does not exist", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -87,7 +83,7 @@ ephemeral "neon_role" "this" {
 
 	t.Run("returns the error when the branch does not exist", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -110,7 +106,7 @@ ephemeral "neon_role" "this" {
 
 	t.Run("returns the error when the project does not exist", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{

@@ -62,17 +62,13 @@ func TestAccNeonTrigger(t *testing.T) {
 
 	projectNamePrefix := "neonTrigger"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, &orgID, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	t.Run("shall provision a schedule trigger", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		name := "sched"
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -95,7 +91,7 @@ func TestAccNeonTrigger(t *testing.T) {
 
 	t.Run("shall provision a storage_object_created trigger", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -119,7 +115,7 @@ func TestAccNeonTrigger(t *testing.T) {
 	t.Run("shall update mutable attributes without forced replacement", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		name := "upd"
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{

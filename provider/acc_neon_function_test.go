@@ -31,12 +31,8 @@ func TestFunction(t *testing.T) {
 
 	projectNamePrefix := "function"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, &orgID, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	wd, err := os.Getwd()
 	assert.NoError(t, err)
@@ -63,7 +59,7 @@ resource "neon_function" "this" {
 
 		projectName := newProjectName(projectNamePrefix)
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -125,7 +121,7 @@ resource "neon_function" "this" {
 	t.Run("shall set the environment variables for the runtime", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -198,7 +194,7 @@ resource "neon_function" "this" {
 
 		projectName := newProjectName(projectNamePrefix)
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

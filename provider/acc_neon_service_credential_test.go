@@ -24,16 +24,12 @@ func TestServiceCredential(t *testing.T) {
 
 	projectNamePrefix := "serviceCredential"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	t.Run("shall provision a service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -72,7 +68,7 @@ func TestServiceCredential(t *testing.T) {
 
 	t.Run("shall import a service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projectID, branchID := createServiceCredentialProject(t, client, projectName)
+		projectID, branchID := createServiceCredentialProject(t, client, projects, projectName)
 		name := "imported"
 		created, err := client.CreateCredential(projectID, branchID, neon.CreateCredentialRequest{
 			Name:          &name,
@@ -81,7 +77,7 @@ func TestServiceCredential(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -146,9 +142,9 @@ func TestServiceCredential(t *testing.T) {
 
 	t.Run("shall fail to import a non-existent service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projectID, branchID := createServiceCredentialProject(t, client, projectName)
+		projectID, branchID := createServiceCredentialProject(t, client, projects, projectName)
 
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -174,7 +170,7 @@ func TestServiceCredential(t *testing.T) {
 		name := "deletable"
 		config := serviceCredentialConfig(projectName, name)
 
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -219,7 +215,7 @@ func TestServiceCredential(t *testing.T) {
 
 	t.Run("shall fail to update service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -256,7 +252,7 @@ resource "neon_service_credential" "this" {
 `, projectName, credentialName)
 }
 
-func createServiceCredentialProject(t *testing.T, client *neon.Client, projectName string) (string, string) {
+func createServiceCredentialProject(t *testing.T, client *neon.Client, projects *acceptanceProjects, projectName string) (string, string) {
 	t.Helper()
 
 	created, err := client.CreateProject(neon.ProjectCreateRequest{
@@ -270,6 +266,9 @@ func createServiceCredentialProject(t *testing.T, client *neon.Client, projectNa
 		t.Fatal(err)
 	}
 
+	if err := projects.RecordProject(created.Project); err != nil {
+		t.Fatal(err)
+	}
 	sleepDuringRunningOperations(t, client, created.Project.ID)
 	branches, err := client.ListProjectBranches(created.Project.ID, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)

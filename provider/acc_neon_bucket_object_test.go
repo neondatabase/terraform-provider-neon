@@ -28,12 +28,8 @@ func TestBucketObject(t *testing.T) {
 	}
 
 	projectNamePrefix := "bucketObject"
-	t.Cleanup(func() {
-		projects, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range projects.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	t.Run("shall fail plan: content, content_base64, source, is_directory are set", func(t *testing.T) {
 		resource.UnitTest(t, resource.TestCase{
@@ -218,7 +214,7 @@ func TestBucketObject(t *testing.T) {
 		for _, tc := range configs {
 			t.Run(tc.name, func(t *testing.T) {
 				projectName := newProjectName(projectNamePrefix)
-				resource.Test(t, resource.TestCase{
+				projects.Test(t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{{
 						Config: bucketObjectConfig(projectName, "object", tc.input+`
@@ -237,7 +233,7 @@ content_type = "text/plain"`),
 	})
 
 	t.Run("creates a folder", func(t *testing.T) {
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: bucketObjectConfig(newProjectName(projectNamePrefix), "folder", "is_directory = true"),
@@ -256,7 +252,7 @@ content_type = "text/plain"`),
 		projectName := newProjectName(projectNamePrefix)
 		config := bucketObjectConfig(projectName, "delete-me", `content = "delete me"`)
 		var projectID, branchID string
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -290,7 +286,7 @@ content_type = "text/plain"`),
 
 	t.Run("renames an object", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{Config: bucketObjectConfig(projectName, "before.txt", `content = "rename me"`)},
@@ -302,7 +298,7 @@ content_type = "text/plain"`),
 	t.Run("updates object content", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		var oldETag string
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{Config: bucketObjectConfig(projectName, "mutable.txt", `content = "first"`), Check: resource.TestCheckResourceAttrWith("neon_bucket_object.this", "etag", func(value string) error { oldETag = value; return nil })},
@@ -321,12 +317,12 @@ content_type = "text/plain"`),
 
 	t.Run("imports an object", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projectID, branchID, err := createBucketObjectFixture(t, client, projectName, "import me.txt",
+		projectID, branchID, err := createBucketObjectFixture(t, client, projects, projectName, "import me.txt",
 			[]byte("imported"), "text/plain")
 		if err != nil {
 			t.Fatal(err)
 		}
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: fmt.Sprintf(`resource "neon_bucket_object" "this" {
@@ -351,7 +347,7 @@ content_type = "text/plain"`),
 	})
 
 	t.Run("creates an empty string object from content", func(t *testing.T) {
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: bucketObjectConfig(newProjectName(projectNamePrefix), "empty obj", "content = \"\""),
@@ -371,7 +367,7 @@ content_type = "text/plain"`),
 			t.Fatal(err)
 		}
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -441,10 +437,13 @@ func nonEmptyAttribute(name string) func(string) error {
 	}
 }
 
-func createBucketObjectFixture(t *testing.T, client *neon.Client, projectName, key string, content []byte, contentType string) (string, string, error) {
+func createBucketObjectFixture(t *testing.T, client *neon.Client, projects *acceptanceProjects, projectName, key string, content []byte, contentType string) (string, string, error) {
 	t.Helper()
 	created, err := client.CreateProject(neon.ProjectCreateRequest{Project: neon.ProjectCreateRequestProject{Name: &projectName, RegionID: pointer("aws-us-east-2")}})
 	if err != nil {
+		return "", "", err
+	}
+	if err := projects.RecordProject(created.Project); err != nil {
 		return "", "", err
 	}
 	projectID := created.Project.ID

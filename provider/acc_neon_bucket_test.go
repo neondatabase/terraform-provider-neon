@@ -24,16 +24,12 @@ func TestBucket(t *testing.T) {
 
 	projectNamePrefix := "bucket"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	t.Run("shall create a bucket with default access level", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -91,7 +87,7 @@ resource "neon_bucket" "this" {
 
 	t.Run("shall create a bucket with the public access level", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -155,6 +151,9 @@ resource "neon_bucket" "this" {
 			RegionID: pointer("aws-us-east-2"),
 		}})
 		assert.NoErrorf(t, err, "could not provision the project")
+		if err := projects.RecordProject(prCreateResp.Project); err != nil {
+			t.Fatal(err)
+		}
 
 		projectID := prCreateResp.Project.ID
 		sleepDuringRunningOperations(t, client, projectID)
@@ -170,7 +169,7 @@ resource "neon_bucket" "this" {
 		})
 		assert.NoErrorf(t, err, "could not create bucket")
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -266,6 +265,9 @@ resource "neon_bucket" "this" {
 			RegionID: pointer("aws-us-east-2"),
 		}})
 		assert.NoErrorf(t, err, "could not provision the project")
+		if err := projects.RecordProject(prCreateResp.Project); err != nil {
+			t.Fatal(err)
+		}
 
 		projectID := prCreateResp.Project.ID
 		sleepDuringRunningOperations(t, client, projectID)
@@ -281,7 +283,7 @@ resource "neon_bucket" "this" {
 		})
 		assert.NoErrorf(t, err, "could not create bucket")
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -309,6 +311,9 @@ resource "neon_bucket" "this" {
 			RegionID: pointer("aws-us-east-2"),
 		}})
 		assert.NoErrorf(t, err, "could not provision the project")
+		if err := projects.RecordProject(prCreateResp.Project); err != nil {
+			t.Fatal(err)
+		}
 
 		projectID := prCreateResp.Project.ID
 		sleepDuringRunningOperations(t, client, projectID)
@@ -318,7 +323,7 @@ resource "neon_bucket" "this" {
 		assert.NoErrorf(t, err, "could not list branches")
 		branchID := br.Branches[0].ID
 
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -352,7 +357,7 @@ resource "neon_bucket" "this" {
   name       = "foo"
 }
 `, projectName)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -399,7 +404,7 @@ resource "neon_bucket" "this" {
 
 	t.Run("shall fail to update existing bucket", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

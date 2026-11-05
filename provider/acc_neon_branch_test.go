@@ -27,12 +27,8 @@ func TestBranch(t *testing.T) {
 
 	projectNamePrefix := "branch-"
 
-	t.Cleanup(func() {
-		resp, _ := client.ListProjects(nil, nil, &projectNamePrefix, nil, nil, nil)
-		for _, project := range resp.Projects {
-			_, _ = client.DeleteProject(project.ID)
-		}
-	})
+	projects := newAcceptanceProjects(t, client)
+	newProjectName := projects.NewName
 
 	var preConfig = func(projectName string, branchName string) {
 		ref, err := readProjectInfo(client, projectName)
@@ -87,7 +83,7 @@ resource "neon_branch" "this" {
 			}
 		}
 
-		resource.Test(t, resource.TestCase{
+		projects.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -124,7 +120,7 @@ resource "neon_branch" "this" {
 
 	t.Run("shall indicate non empty plan if the branch was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -159,7 +155,7 @@ resource "neon_branch" "this" {
 	project_id = neon_project.this.id 
 	name       = "test"
 }`, projectName)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -190,7 +186,7 @@ resource "neon_branch" "this" {
 
 	t.Run("shall indicate non empty plan if the branch was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -225,7 +221,7 @@ resource "neon_branch" "this" {
 	project_id = neon_project.this.id 
 	name       = "test"
 }`, projectName)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -256,7 +252,7 @@ resource "neon_branch" "this" {
 
 	t.Run("shall recreate branch upon update if it was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -327,7 +323,7 @@ resource "neon_branch" "this" {
 	project_id = neon_project.this.id 
 	name       = "test"
 }`, projectName)
-		resource.Test(
+		projects.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

@@ -73,9 +73,10 @@ func (r *neonTriggerResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "Human-readable trigger name. Unique among triggers visible on the branch.",
 			},
 			"type": schema.StringAttribute{
-				Required:    true,
-				Validators:  []validator.String{triggerTypeValidator{}},
-				Description: "Trigger type discriminator. One of `schedule` or `storage_object_created`.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:    []validator.String{triggerTypeValidator{}},
+				Description:   "Trigger type discriminator. One of `schedule` or `storage_object_created`.",
 			},
 			"function_slug": schema.StringAttribute{
 				Required:    true,

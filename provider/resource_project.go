@@ -61,27 +61,34 @@ func findDefaultDatabase(databases []neon.Database, defaultBranchID string) neon
 	return o
 }
 
-func findDefaultEndpoint(endpoints []neon.Endpoint, defaultBranchID string) neon.Endpoint {
-	o := neon.Endpoint{}
-
-	if len(endpoints) > 0 {
-		var eps []neon.Endpoint
-		for _, el := range endpoints {
-			// the default endpoint can only be of read_write type
-			if !el.Disabled && el.Type == neon.EndpointTypeReadWrite && el.BranchID == defaultBranchID {
-				eps = append(eps, el)
-			}
+// findDefaultEndpoint returns the read-write endpoint of the default branch,
+// and false when the branch has none.
+// Disabled endpoints count: disabling an endpoint only restricts connections,
+// so a disabled primary compute is still the default endpoint.
+func findDefaultEndpoint(endpoints []neon.Endpoint, defaultBranchID string) (neon.Endpoint, bool) {
+	var eps []neon.Endpoint
+	for _, el := range endpoints {
+		// the default endpoint can only be of read_write type
+		if el.Type == neon.EndpointTypeReadWrite && el.BranchID == defaultBranchID {
+			eps = append(eps, el)
 		}
-
-		// select the default endpoint based on the creation timestamp
-		slices.SortStableFunc(eps, func(a, b neon.Endpoint) int {
-			return a.CreatedAt.Compare(b.CreatedAt)
-		})
-
-		o = eps[0]
+	}
+	if len(eps) == 0 {
+		return neon.Endpoint{}, false
 	}
 
-	return o
+	// select the default endpoint based on the creation timestamp
+	slices.SortStableFunc(eps, func(a, b neon.Endpoint) int {
+		return a.CreatedAt.Compare(b.CreatedAt)
+	})
+	return eps[0], true
+}
+
+func addMissingDefaultEndpointError(diags *diag.Diagnostics, projectID, branchID string) {
+	diags.AddError("Primary compute not found",
+		fmt.Sprintf("project %s has no read-write compute endpoint on its default branch %s. "+
+			"Create a read-write compute for that branch in Neon, then run Terraform again.",
+			projectID, branchID))
 }
 
 type neonProjectResourceModel struct {
@@ -849,6 +856,7 @@ func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest,
 	var project neon.Project
 	var defaultBranch neon.Branch
 	var defaultEndpoint neon.Endpoint
+	var defaultEndpointFound bool
 	var defaultDatabase neon.Database
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		// read the project details
@@ -899,7 +907,7 @@ func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest,
 				errs <- err
 				return
 			}
-			defaultEndpoint = findDefaultEndpoint(resEndpoints.Endpoints, defaultBranch.ID)
+			defaultEndpoint, defaultEndpointFound = findDefaultEndpoint(resEndpoints.Endpoints, defaultBranch.ID)
 			errs <- nil
 		}()
 
@@ -931,6 +939,11 @@ func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest,
 	}
 	if project.ID == "" {
 		resp.State.RemoveResource(ctx)
+		return
+	}
+	// Reported here rather than inside the retry, so it is not retried.
+	if defaultBranch.ID != "" && !defaultEndpointFound {
+		addMissingDefaultEndpointError(&resp.Diagnostics, project.ID, defaultBranch.ID)
 		return
 	}
 
@@ -1136,7 +1149,11 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 	primaryComputeSettings := state.PrimaryCompute
 	branchSettings := state.Branch
 
-	defaultEndpoint := findDefaultEndpoint(endpoints, defaultBranch.ID)
+	defaultEndpoint, found := findDefaultEndpoint(endpoints, defaultBranch.ID)
+	if !found {
+		addMissingDefaultEndpointError(&resp.Diagnostics, project.ID, defaultBranch.ID)
+		return
+	}
 	defaultDatabase := findDefaultDatabase(databases, defaultBranch.ID)
 	state.inferAttr(ctx, project, defaultBranch, defaultEndpoint, defaultDatabase, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {

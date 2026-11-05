@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"testing"
@@ -26,9 +28,6 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 	}
 
 	projectNamePrefix := "roleRecreation"
-
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
 
 	var preConfig = func(projectName string, roleName string) {
 		ref, err := readProjectInfo(client, projectName)
@@ -58,7 +57,7 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 
 	t.Run("shall indicate non empty plan if the role was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -95,7 +94,7 @@ resource "neon_role" "this" {
 	branch_id  = neon_project.this.branch.id
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -126,7 +125,7 @@ resource "neon_role" "this" {
 
 	t.Run("shall recreate role upon update if it was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -211,7 +210,7 @@ resource "neon_role" "this" {
 	branch_id  = neon_project.this.branch.id
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -272,20 +271,35 @@ func TestRoleShallImportCreatedOutsideOfTerraform(t *testing.T) {
 
 	projectNamePrefix := "roleImport"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	projectName := newProjectName(projectNamePrefix)
 	respCreateProject, err := client.CreateProject(neon.ProjectCreateRequest{
-		Project: neon.ProjectCreateRequestProject{Name: &projectName},
+		Project: neon.ProjectCreateRequestProject{
+			Name:  &projectName,
+			OrgID: pointer(os.Getenv("ORG_ID")),
+		},
 	})
-	assert.NoError(t, err)
-	if err := projects.RecordProject(respCreateProject.Project); err != nil {
-		t.Fatal(err)
+	if err != nil {
+		t.Fatalf("could not provision the project: %v", err)
 	}
-	waitUnfinishedOperations(context.TODO(), client, respCreateProject.OperationsResponse.Operations)
 
 	projectID := respCreateProject.Project.ID
+	if projectID == "" {
+		t.Fatal("could not provision the project: response has no project ID")
+	}
+	t.Cleanup(func() {
+		if _, err := client.DeleteProject(projectID); err != nil {
+			var value neon.Error
+			var pointer *neon.Error
+			if errors.As(err, &value) && value.HTTPCode == http.StatusNotFound {
+				return
+			}
+			if errors.As(err, &pointer) && pointer != nil && pointer.HTTPCode == http.StatusNotFound {
+				return
+			}
+			t.Errorf("delete test project %s: %v", projectID, err)
+		}
+	})
+	waitUnfinishedOperations(context.TODO(), client, respCreateProject.OperationsResponse.Operations)
 	branchID := respCreateProject.Branch.ID
 	const roleName = "foo"
 	respCreateRole, err := client.CreateProjectBranchRole(projectID, branchID, neon.RoleCreateRequest{
@@ -300,7 +314,7 @@ func TestRoleShallImportCreatedOutsideOfTerraform(t *testing.T) {
   branch_id  = %q
 }`, roleName, projectID, branchID)
 
-	projects.Test(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: newProviderFactories(),
 		Steps: []resource.TestStep{
 			{

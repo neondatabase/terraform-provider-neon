@@ -23,11 +23,8 @@ func TestBranchBackupSchedule(t *testing.T) {
 
 	projectNamePrefix := "branchBackupSchedule"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	projectName := newProjectName(projectNamePrefix)
-	projects.Test(
+	resource.Test(
 		t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{

@@ -31,9 +31,6 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "projectRecreation-"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	var preConfig = func(projectName string) string {
 		ref, err := readProjectInfo(client, projectName)
 		if err != nil {
@@ -49,7 +46,7 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	t.Run("shall indicate non empty plan if the project was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -76,7 +73,7 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	t.Run("shall destroy even if the project was deleted outside of terraform,", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -108,7 +105,7 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	t.Run("shall recreate project upon update if it was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		var refProjectID string
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -149,7 +146,7 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	t.Run("shall fail to import project if it was deleted", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -181,9 +178,6 @@ func TestProject(t *testing.T) {
 	}
 
 	projectNamePrefix := "pr-"
-
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
 
 	var verify = func(state *terraform.State) error {
 		r, ok := state.RootModule().Resources["neon_project.this"]
@@ -331,7 +325,7 @@ func TestProject(t *testing.T) {
 		branchResource.Schema(context.TODO(), tfResource.SchemaRequest{}, &branchSchemaResp)
 		branchSchemaAttributes := branchSchemaResp.Schema.Attributes
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -459,7 +453,7 @@ func TestProject(t *testing.T) {
 
 	t.Run("shall create a project w/ custom name", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -482,7 +476,7 @@ func TestProject(t *testing.T) {
 			t.Skip("the test required ORG_ID env. variable set to the Neon organization id")
 		}
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -503,7 +497,7 @@ func TestProject(t *testing.T) {
 	t.Run("shall create a project w/ custom enable_logical_replication and update it", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		var projectID string
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -630,7 +624,7 @@ func TestProject(t *testing.T) {
 	t.Run("shall create a project w/ custom hipaa and update it", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		var projectID string
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -763,7 +757,7 @@ func TestProject(t *testing.T) {
 	}
 
 	t.Run("shall create a project w/ custom maintenance window", func(t *testing.T) {
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -789,7 +783,7 @@ func TestProject(t *testing.T) {
 
 	t.Run("shall update the name", func(t *testing.T) {
 		before, after := newProjectName(projectNamePrefix), newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -816,7 +810,7 @@ func TestProject(t *testing.T) {
 	t.Run("shall update maintenance window", func(t *testing.T) {
 		// see: https://github.com/neondatabase/terraform-provider-neon/issues/60
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -902,7 +896,7 @@ func TestProject(t *testing.T) {
 	t.Run("shall create a new project with different compute configs and the default compute's configs",
 		func(t *testing.T) {
 			projectName := newProjectName(projectNamePrefix)
-			projects.Test(
+			resource.Test(
 				t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{
@@ -959,7 +953,7 @@ func TestProject(t *testing.T) {
 	t.Run("shall update project's compute configs w/o affecting default compute's configs",
 		func(t *testing.T) {
 			projectName := newProjectName(projectNamePrefix)
-			projects.Test(
+			resource.Test(
 				t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{
@@ -1060,7 +1054,7 @@ func TestProject(t *testing.T) {
 	t.Run("shall update default compute's configs w/o affecting project's compute configs",
 		func(t *testing.T) {
 			projectName := newProjectName(projectNamePrefix)
-			projects.Test(
+			resource.Test(
 				t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{
@@ -1160,7 +1154,7 @@ func TestProject(t *testing.T) {
 
 	t.Run("shall enable/disable default branch protection", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -1238,7 +1232,7 @@ func TestProject(t *testing.T) {
 
 	t.Run("shall maintain default branch protection", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -1302,7 +1296,7 @@ resource "neon_database" "this" {
   owner_name = neon_role.this.name
 }`, projectName)
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -1336,9 +1330,6 @@ func TestProjectAllowedIPs(t *testing.T) {
 
 	projectNamePrefix := "prAllowedIps"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	wantAllowedIPs := []string{"192.168.1.0", "192.168.2.0/24"}
 	ips := `["` + strings.Join(wantAllowedIPs, `", "`) + `"]`
 
@@ -1368,7 +1359,7 @@ func TestProjectAllowedIPs(t *testing.T) {
 
 	t.Run("shall provision a project with a custom list of allowed IPs and update it", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -1477,7 +1468,7 @@ func TestProjectAllowedIPs(t *testing.T) {
 	t.Run("shall provision a project with a custom list of allowed IPs w/ variable cfg for protected branch only",
 		func(t *testing.T) {
 			projectName := newProjectName(projectNamePrefix)
-			projects.Test(
+			resource.Test(
 				t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{

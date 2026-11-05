@@ -1,7 +1,9 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"testing"
@@ -24,12 +26,9 @@ func TestBucket(t *testing.T) {
 
 	projectNamePrefix := "bucket"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	t.Run("shall create a bucket with default access level", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -87,7 +86,7 @@ resource "neon_bucket" "this" {
 
 	t.Run("shall create a bucket with the public access level", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -148,14 +147,30 @@ resource "neon_bucket" "this" {
 		projectName := newProjectName(projectNamePrefix)
 		prCreateResp, err := client.CreateProject(neon.ProjectCreateRequest{Project: neon.ProjectCreateRequestProject{
 			Name:     &projectName,
+			OrgID:    pointer(os.Getenv("ORG_ID")),
 			RegionID: pointer("aws-us-east-2"),
 		}})
-		assert.NoErrorf(t, err, "could not provision the project")
-		if err := projects.RecordProject(prCreateResp.Project); err != nil {
-			t.Fatal(err)
+		if err != nil {
+			t.Fatalf("could not provision the project: %v", err)
 		}
 
 		projectID := prCreateResp.Project.ID
+		if projectID == "" {
+			t.Fatal("could not provision the project: response has no project ID")
+		}
+		t.Cleanup(func() {
+			if _, err := client.DeleteProject(projectID); err != nil {
+				var value neon.Error
+				var pointer *neon.Error
+				if errors.As(err, &value) && value.HTTPCode == http.StatusNotFound {
+					return
+				}
+				if errors.As(err, &pointer) && pointer != nil && pointer.HTTPCode == http.StatusNotFound {
+					return
+				}
+				t.Errorf("delete test project %s: %v", projectID, err)
+			}
+		})
 		sleepDuringRunningOperations(t, client, projectID)
 
 		br, err := client.ListProjectBranches(projectID,
@@ -169,7 +184,7 @@ resource "neon_bucket" "this" {
 		})
 		assert.NoErrorf(t, err, "could not create bucket")
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -262,14 +277,30 @@ resource "neon_bucket" "this" {
 		projectName := newProjectName(projectNamePrefix)
 		prCreateResp, err := client.CreateProject(neon.ProjectCreateRequest{Project: neon.ProjectCreateRequestProject{
 			Name:     &projectName,
+			OrgID:    pointer(os.Getenv("ORG_ID")),
 			RegionID: pointer("aws-us-east-2"),
 		}})
-		assert.NoErrorf(t, err, "could not provision the project")
-		if err := projects.RecordProject(prCreateResp.Project); err != nil {
-			t.Fatal(err)
+		if err != nil {
+			t.Fatalf("could not provision the project: %v", err)
 		}
 
 		projectID := prCreateResp.Project.ID
+		if projectID == "" {
+			t.Fatal("could not provision the project: response has no project ID")
+		}
+		t.Cleanup(func() {
+			if _, err := client.DeleteProject(projectID); err != nil {
+				var value neon.Error
+				var pointer *neon.Error
+				if errors.As(err, &value) && value.HTTPCode == http.StatusNotFound {
+					return
+				}
+				if errors.As(err, &pointer) && pointer != nil && pointer.HTTPCode == http.StatusNotFound {
+					return
+				}
+				t.Errorf("delete test project %s: %v", projectID, err)
+			}
+		})
 		sleepDuringRunningOperations(t, client, projectID)
 
 		br, err := client.ListProjectBranches(projectID,
@@ -283,7 +314,7 @@ resource "neon_bucket" "this" {
 		})
 		assert.NoErrorf(t, err, "could not create bucket")
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -308,14 +339,30 @@ resource "neon_bucket" "this" {
 		projectName := newProjectName(projectNamePrefix)
 		prCreateResp, err := client.CreateProject(neon.ProjectCreateRequest{Project: neon.ProjectCreateRequestProject{
 			Name:     &projectName,
+			OrgID:    pointer(os.Getenv("ORG_ID")),
 			RegionID: pointer("aws-us-east-2"),
 		}})
-		assert.NoErrorf(t, err, "could not provision the project")
-		if err := projects.RecordProject(prCreateResp.Project); err != nil {
-			t.Fatal(err)
+		if err != nil {
+			t.Fatalf("could not provision the project: %v", err)
 		}
 
 		projectID := prCreateResp.Project.ID
+		if projectID == "" {
+			t.Fatal("could not provision the project: response has no project ID")
+		}
+		t.Cleanup(func() {
+			if _, err := client.DeleteProject(projectID); err != nil {
+				var value neon.Error
+				var pointer *neon.Error
+				if errors.As(err, &value) && value.HTTPCode == http.StatusNotFound {
+					return
+				}
+				if errors.As(err, &pointer) && pointer != nil && pointer.HTTPCode == http.StatusNotFound {
+					return
+				}
+				t.Errorf("delete test project %s: %v", projectID, err)
+			}
+		})
 		sleepDuringRunningOperations(t, client, projectID)
 
 		br, err := client.ListProjectBranches(projectID,
@@ -323,7 +370,7 @@ resource "neon_bucket" "this" {
 		assert.NoErrorf(t, err, "could not list branches")
 		branchID := br.Branches[0].ID
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -357,7 +404,7 @@ resource "neon_bucket" "this" {
   name       = "foo"
 }
 `, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -404,7 +451,7 @@ resource "neon_bucket" "this" {
 
 	t.Run("shall plan bucket replacement", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

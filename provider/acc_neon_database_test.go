@@ -27,9 +27,6 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "database"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	var preConfig = func(projectName, dbName string) int64 {
 		ref, err := readProjectInfo(client, projectName)
 		if err != nil {
@@ -83,7 +80,7 @@ resource "neon_database" "this" {
 `, projectName, dbName, ownerName)
 		}
 
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -142,7 +139,7 @@ resource "neon_database" "this" {
 	owner_name = neon_project.this.database_user
 	name       = "test"
 }`, projectName)
-			projects.Test(
+			resource.Test(
 				t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{
@@ -201,7 +198,7 @@ resource "neon_database" "this" {
 	owner_name = neon_project.this.database_user
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -222,7 +219,7 @@ resource "neon_database" "this" {
 	t.Run("shall recreate database upon update if it was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		var refDatabaseID int64
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -299,7 +296,7 @@ resource "neon_database" "this" {
 	owner_name = neon_project.this.database_user
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

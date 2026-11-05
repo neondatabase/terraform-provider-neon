@@ -30,8 +30,6 @@ func TestResourcesStack(t *testing.T) {
 	}
 
 	var projectNamePrefix = "e2e"
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
 
 	var (
 		projectID       string
@@ -137,7 +135,7 @@ resource "neon_database" "this" {
 
 	const resourceNameProject = "neon_project.this"
 
-	projects.Test(
+	resource.Test(
 		t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{

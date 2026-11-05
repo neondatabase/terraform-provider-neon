@@ -31,9 +31,6 @@ func TestFunction(t *testing.T) {
 
 	projectNamePrefix := "function"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	wd, err := os.Getwd()
 	assert.NoError(t, err)
 	zipPath := filepath.Join(wd, "testdata/function/function.zip")
@@ -59,7 +56,7 @@ resource "neon_function" "this" {
 
 		projectName := newProjectName(projectNamePrefix)
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -121,7 +118,7 @@ resource "neon_function" "this" {
 	t.Run("shall set the environment variables for the runtime", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -194,7 +191,7 @@ resource "neon_function" "this" {
 
 		projectName := newProjectName(projectNamePrefix)
 
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

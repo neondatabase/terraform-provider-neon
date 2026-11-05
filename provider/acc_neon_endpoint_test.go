@@ -28,9 +28,6 @@ func TestEndpoint(t *testing.T) {
 
 	projectNamePrefix := "endpoint"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	var verify = func(state *terraform.State) error {
 		r, ok := state.RootModule().Resources["neon_endpoint.this"]
 		assert.Truef(t, ok, "no endpoint resource found")
@@ -110,7 +107,7 @@ func TestEndpoint(t *testing.T) {
 	t.Run("shall create read-only endpoint for default branch with inherited autoscaling config "+
 		"and update its attr in-place", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -295,7 +292,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create a read-write endpoint", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -351,7 +348,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom autoscaling limits", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `
@@ -368,7 +365,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom suspend timeout", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `suspend_timeout_seconds = 120`),
@@ -382,7 +379,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom name", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `name = "custom-endpoint"`),
@@ -396,7 +393,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom compute_provisioner", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `compute_provisioner = "k8s-neonvm"`),
@@ -410,7 +407,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom disabled", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `disabled = true`),
@@ -424,7 +421,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom enabled_libraries", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `enabled_libraries = ["uuid-ossp"]`),
@@ -439,7 +436,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom enabled_libraries_use_defaults", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `enabled_libraries_use_defaults = true`),
@@ -453,7 +450,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom passwordless access", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `passwordless_access = true`),
@@ -467,7 +464,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom autoscaling and suspend timeout", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `
@@ -486,7 +483,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom name and compute provisioner", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `
@@ -503,7 +500,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ custom libraries and defaults", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `
@@ -521,7 +518,7 @@ func TestEndpoint(t *testing.T) {
 
 	t.Run("shall create w/ all custom configs", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{{
 				Config: endpointConfig(projectName, `
@@ -566,9 +563,6 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "endpointRecreation"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	var preConfig = func(projectName string) {
 		ref, err := readProjectInfo(client, projectName)
 		if err != nil {
@@ -592,7 +586,7 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 
 	t.Run("shall indicate non empty plan if the endpoint was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -631,7 +625,7 @@ resource "neon_endpoint" "this" {
 	branch_id  = neon_project.this.branch.id
 	type       = "%s"
 }`, projectName, endpointTypeReadOnly)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -656,7 +650,7 @@ resource "neon_endpoint" "this" {
 
 	t.Run("shall recreate endpoint upon update if it was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -729,7 +723,7 @@ resource "neon_endpoint" "this" {
 				type       = "%s"
 			}
 		`, projectName, endpointTypeReadOnly)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

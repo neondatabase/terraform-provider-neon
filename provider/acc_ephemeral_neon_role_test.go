@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	neon "github.com/kislerdm/neon-sdk-go"
 )
 
 func TestAccEphemeralRole(t *testing.T) {
@@ -15,18 +14,11 @@ func TestAccEphemeralRole(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	projectNamePrefix := "ephemeralRole"
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
 
 	t.Run("returns a password for an existing role", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -60,7 +52,7 @@ ephemeral "neon_role" "this" {
 
 	t.Run("returns the error when the role does not exist", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -83,7 +75,7 @@ ephemeral "neon_role" "this" {
 
 	t.Run("returns the error when the branch does not exist", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -106,7 +98,7 @@ ephemeral "neon_role" "this" {
 
 	t.Run("returns the error when the project does not exist", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{

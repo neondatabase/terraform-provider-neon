@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
-	neon "github.com/kislerdm/neon-sdk-go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -55,20 +54,12 @@ func TestAccNeonTrigger(t *testing.T) {
 		t.Skip("ORG_ID must be set")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	projectNamePrefix := "neonTrigger"
-
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
 
 	t.Run("shall provision a schedule trigger", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		name := "sched"
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -91,7 +82,7 @@ func TestAccNeonTrigger(t *testing.T) {
 
 	t.Run("shall provision a storage_object_created trigger", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -115,7 +106,7 @@ func TestAccNeonTrigger(t *testing.T) {
 	t.Run("shall update mutable attributes without forced replacement", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		name := "upd"
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{

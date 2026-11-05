@@ -27,9 +27,6 @@ func TestBranch(t *testing.T) {
 
 	projectNamePrefix := "branch-"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	var preConfig = func(projectName string, branchName string) {
 		ref, err := readProjectInfo(client, projectName)
 		if err != nil {
@@ -83,7 +80,7 @@ resource "neon_branch" "this" {
 			}
 		}
 
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -120,7 +117,7 @@ resource "neon_branch" "this" {
 
 	t.Run("shall indicate non empty plan if the branch was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -155,7 +152,7 @@ resource "neon_branch" "this" {
 	project_id = neon_project.this.id 
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -186,7 +183,7 @@ resource "neon_branch" "this" {
 
 	t.Run("shall indicate non empty plan if the branch was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -221,7 +218,7 @@ resource "neon_branch" "this" {
 	project_id = neon_project.this.id 
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -252,7 +249,7 @@ resource "neon_branch" "this" {
 
 	t.Run("shall recreate branch upon update if it was deleted outside of terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -323,7 +320,7 @@ resource "neon_branch" "this" {
 	project_id = neon_project.this.id 
 	name       = "test"
 }`, projectName)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

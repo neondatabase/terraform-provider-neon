@@ -1,7 +1,9 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"testing"
@@ -24,12 +26,9 @@ func TestServiceCredential(t *testing.T) {
 
 	projectNamePrefix := "serviceCredential"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	t.Run("shall provision a service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -68,7 +67,7 @@ func TestServiceCredential(t *testing.T) {
 
 	t.Run("shall import a service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projectID, branchID := createServiceCredentialProject(t, client, projects, projectName)
+		projectID, branchID := createServiceCredentialProject(t, client, projectName)
 		name := "imported"
 		created, err := client.CreateCredential(projectID, branchID, neon.CreateCredentialRequest{
 			Name:          &name,
@@ -77,7 +76,7 @@ func TestServiceCredential(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -142,9 +141,9 @@ func TestServiceCredential(t *testing.T) {
 
 	t.Run("shall fail to import a non-existent service credential", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projectID, branchID := createServiceCredentialProject(t, client, projects, projectName)
+		projectID, branchID := createServiceCredentialProject(t, client, projectName)
 
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -170,7 +169,7 @@ func TestServiceCredential(t *testing.T) {
 		name := "deletable"
 		config := serviceCredentialConfig(projectName, name)
 
-		projects.Test(t, resource.TestCase{
+		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
 				{
@@ -215,7 +214,7 @@ func TestServiceCredential(t *testing.T) {
 
 	t.Run("shall plan service credential replacement", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{
@@ -248,29 +247,43 @@ resource "neon_service_credential" "this" {
 `, projectName, credentialName)
 }
 
-func createServiceCredentialProject(t *testing.T, client *neon.Client, projects *acceptanceProjects, projectName string) (string, string) {
+func createServiceCredentialProject(t *testing.T, client *neon.Client, projectName string) (string, string) {
 	t.Helper()
 
 	created, err := client.CreateProject(neon.ProjectCreateRequest{
 		Project: neon.ProjectCreateRequestProject{
 			Name:     &projectName,
+			OrgID:    pointer(os.Getenv("ORG_ID")),
 			RegionID: pointer("aws-us-east-2"),
 		},
 	})
-	assert.NoError(t, err)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("could not provision the project: %v", err)
 	}
 
-	if err := projects.RecordProject(created.Project); err != nil {
-		t.Fatal(err)
+	projectID := created.Project.ID
+	if projectID == "" {
+		t.Fatalf("could not provision the project: response has no project ID")
 	}
-	sleepDuringRunningOperations(t, client, created.Project.ID)
-	branches, err := client.ListProjectBranches(created.Project.ID, nil, nil, nil, nil, nil, nil)
+	t.Cleanup(func() {
+		if _, err := client.DeleteProject(projectID); err != nil {
+			var value neon.Error
+			var pointer *neon.Error
+			if errors.As(err, &value) && value.HTTPCode == http.StatusNotFound {
+				return
+			}
+			if errors.As(err, &pointer) && pointer != nil && pointer.HTTPCode == http.StatusNotFound {
+				return
+			}
+			t.Errorf("delete test project %s: %v", projectID, err)
+		}
+	})
+	sleepDuringRunningOperations(t, client, projectID)
+	branches, err := client.ListProjectBranches(projectID, nil, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 	if err != nil || len(branches.Branches) == 0 {
 		t.Fatalf("could not find project branch: %v", err)
 	}
 
-	return created.Project.ID, branches.Branches[0].ID
+	return projectID, branches.Branches[0].ID
 }

@@ -25,9 +25,6 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 
 	projectNamePrefix := "projectPermissionRecreation"
 
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
-
 	var preConfig = func(projectName, email string) {
 		ref, err := readProjectInfo(client, projectName)
 		if err != nil {
@@ -52,7 +49,7 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 		func(t *testing.T) {
 			email := "foo@bar.baz"
 			projectName := newProjectName(projectNamePrefix)
-			projects.Test(
+			resource.Test(
 				t, resource.TestCase{
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{
@@ -88,7 +85,7 @@ resource "neon_project_permission" "this" {
 	project_id = neon_project.this.id 
 	grantee    = "%s"
 }`, projectName, email)
-		projects.Test(
+		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
 				Steps: []resource.TestStep{

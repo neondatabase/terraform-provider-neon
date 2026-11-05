@@ -43,11 +43,9 @@ func TestAIGatewayDataSource(t *testing.T) {
 	require.NoError(t, err)
 
 	projectNamePrefix := "aiGatewayDataSource"
-	projects := newAcceptanceProjects(t, client)
-	newProjectName := projects.NewName
 
 	projectName := newProjectName(projectNamePrefix)
-	projects.Test(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: newProviderFactories(),
 		Steps: []resource.TestStep{
 			{

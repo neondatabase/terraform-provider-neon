@@ -649,23 +649,7 @@ func TestProject(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
 							verify,
-							func(state *terraform.State) error {
-								r, ok := state.RootModule().Resources["neon_project.this"]
-								if !ok {
-									return fmt.Errorf("no project resource found")
-								}
-								flag := false
-								p, err := client.UpdateProject(r.Primary.ID, neon.ProjectUpdateRequest{
-									Project: neon.ProjectUpdateRequestProject{
-										Settings: &neon.ProjectSettingsData{Hipaa: &flag},
-									},
-								})
-								waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
-								if err != nil && assert.Contains(t, err.(*neon.Error).Details[0].Message, "hipaa") {
-									t.Skipf("org %s HIPAA compliance is not supported", *p.Project.OrgID)
-								}
-								return nil
-							},
+							hipaaPrerequisiteCheck(t, client),
 						),
 					},
 					{

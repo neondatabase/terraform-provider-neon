@@ -197,7 +197,6 @@ func (r *neonOrgMemberRoleResource) Read(ctx context.Context, req resource.ReadR
 	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -384,6 +385,12 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 
 	var state neonEndpointResourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &state)...)
+	// Schema defaults apply to the plan, not the configuration.
+	// The rest stays on the configuration, where unset computed attributes are
+	// null rather than unknown, so they are left out of the request.
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("type"), &state.Type)...)
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("compute_provisioner"),
+		&state.ComputeProvisioner)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

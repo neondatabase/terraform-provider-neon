@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -221,15 +222,6 @@ func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.P
 			}
 		}
 
-		// The API represents both an omitted allowlist and an explicit [] as empty.
-		// Preserve a known list as [], while preserving a null manifest value as null.
-		if v.AllowedIPs.IsNull() &&
-			!previousAllowedIPs.IsNull() &&
-			!previousAllowedIPs.IsUnknown() {
-			v.AllowedIPs, d = types.ListValueFrom(ctx, types.StringType, []string{})
-			diagnostics.Append(d...)
-		}
-
 		if v.Quota != nil && settings.Quota != nil {
 			v.Quota = &projectQuota{
 				ActiveTimeSeconds:  types.Int64PointerValue(settings.Quota.ActiveTimeSeconds),
@@ -260,6 +252,13 @@ func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.P
 			v.MaintenanceWindow.Weekdays, d = types.ListValueFrom(ctx, types.Int32Type, weekdays)
 			diagnostics.Append(d...)
 		}
+	}
+
+	// The API represents omitted and explicitly empty allowlists identically,
+	// including when it omits the settings object. Only preserve list intent
+	// when the API has not returned a non-empty list.
+	if v.AllowedIPs.IsNull() && !previousAllowedIPs.IsNull() && !previousAllowedIPs.IsUnknown() {
+		v.AllowedIPs = types.ListValueMust(types.StringType, nil)
 	}
 
 	// default compute a/k/a endpoints settings
@@ -1462,24 +1461,23 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	readResp := resource.ReadResponse{State: req.State}
-	r.Read(ctx, resource.ReadRequest{State: req.State}, &readResp)
+	// Refresh needs the new allowlist's null/empty intent, not the old value.
+	// Keep every other prior-state field unchanged. Read still returns actual
+	// API contents, so a failed update cannot be masked by the planned list.
+	readState := req.State
+	if !plan.AllowedIPs.IsUnknown() {
+		resp.Diagnostics.Append(readState.SetAttribute(ctx, path.Root("allowed_ips"), plan.AllowedIPs)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	readResp := resource.ReadResponse{State: readState}
+	r.Read(ctx, resource.ReadRequest{State: readState}, &readResp)
 	resp.Diagnostics.Append(readResp.Diagnostics...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 	resp.State = readResp.State
-
-	// if config does not include allowed_ips attr, preserve the empty list in the state
-	if config.AllowedIPs.IsNull() && plan.AllowedIPs.IsNull() {
-		var state neonProjectResourceModel
-		resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.AllowedIPs = types.ListNull(types.StringType)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-	}
 
 	if config.EnabledLibraries.IsNull() && plan.EnabledLibraries.IsNull() {
 		var state neonProjectResourceModel

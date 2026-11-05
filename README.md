@@ -98,3 +98,5 @@ In order to run the full suite of Unit tests, run `make test`.
 In order to run the full suite of Acceptance tests, run `make testacc`.
 
 *Note:* Acceptance tests create real resources, and often cost money to run.
+For manual cleanup, use the [explicit-ID cleanup command](cmd/cleanup/README.md).
+It previews by default and never disables branch protection.

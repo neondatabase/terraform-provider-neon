@@ -506,8 +506,9 @@ var validateNonEmptyString = validatorNonEmptyString{}
 func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	attrs := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
-			Description: "Project ID.",
-			Computed:    true,
+			PlanModifiers: idPlanModifiers(),
+			Description:   "Project ID.",
+			Computed:      true,
 		},
 		"org_id": schema.StringAttribute{
 			Description: "Identifier of the organisation to which this project belongs.",
@@ -598,17 +599,19 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			},
 		},
 		"database_name": schema.StringAttribute{
-			Description: "Default database name.",
-			Computed:    true,
-			Optional:    true,
+			Description:   "Default database name.",
+			Computed:      true,
+			Optional:      true,
+			PlanModifiers: keepPriorString,
 			Validators: []validator.String{
 				validateNonEmptyString,
 			},
 		},
 		"database_user": schema.StringAttribute{
-			Description: "Default database role.",
-			Computed:    true,
-			Optional:    true,
+			Description:   "Default database role.",
+			Computed:      true,
+			Optional:      true,
+			PlanModifiers: keepPriorString,
 			Validators: []validator.String{
 				validateNonEmptyString,
 			},
@@ -680,6 +683,7 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description:        "Default branch ID.",
 			DeprecationMessage: "Use the `id` attribute in the block `branch` instead.",
 			Computed:           true,
+			PlanModifiers:      keepPriorString,
 		},
 		"default_branch_protected": schema.BoolAttribute{
 			Description:        "Set default branch as protected. **Note** that the default value is false.",
@@ -692,16 +696,19 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Description:        "Default endpoint ID.",
 			DeprecationMessage: "Use the `id` attribute in the block `primary_compute` instead.",
 			Computed:           true,
+			PlanModifiers:      keepPriorString,
 		},
 		"database_host": schema.StringAttribute{
 			Description:        "The hostname of the default compute endpoint.",
 			DeprecationMessage: "Use the `host` attribute in the block `primary_compute` instead.",
 			Computed:           true,
+			PlanModifiers:      keepPriorString,
 		},
 		"database_host_pooler": schema.StringAttribute{
 			Description:        "The hostname of the default compute endpoint accessible through the connection pool (pgbouncer).",
 			DeprecationMessage: "Use the `host_pooler` attribute in the block `primary_compute` instead.",
 			Computed:           true,
+			PlanModifiers:      keepPriorString,
 		},
 	}
 

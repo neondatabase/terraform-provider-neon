@@ -70,7 +70,7 @@ func (r *neonDataAPIResource) Schema(_ context.Context, _ resource.SchemaRequest
 	resp.Schema = schema.Schema{
 		Description: "Manages a Neon Data API endpoint for a branch database. Authentication options apply only during creation; changes require replacement. Deletion does not revoke database grants or remove authentication schema objects created during setup.",
 		Attributes: map[string]schema.Attribute{
-			"id":                 schema.StringAttribute{Computed: true, Description: "Resource identity and import ID: <project_id>/<branch_id>/<database_name>."},
+			"id":                 schema.StringAttribute{Computed: true, PlanModifiers: idPlanModifiers(), Description: "Resource identity and import ID: <project_id>/<branch_id>/<database_name>."},
 			"project_id":         schema.StringAttribute{Required: true, PlanModifiers: replacementString, Description: "The Neon project ID. Changes require replacement."},
 			"branch_id":          schema.StringAttribute{Required: true, PlanModifiers: replacementString, Description: "The Neon branch ID. Changes require replacement."},
 			"database_name":      schema.StringAttribute{Required: true, PlanModifiers: replacementString, Description: "The database served by the Data API. Changes require replacement."},

@@ -50,8 +50,9 @@ func (r *neonOrgSpendingLimitResource) Schema(
 		Description: "Manages an organization's monthly spending limit in cents.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The organization ID used as the resource identity.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The organization ID used as the resource identity.",
 			},
 			"org_id": schema.StringAttribute{
 				Required: true,

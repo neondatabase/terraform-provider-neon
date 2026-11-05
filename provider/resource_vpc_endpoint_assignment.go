@@ -64,8 +64,9 @@ See details: https://neon.tech/docs/guides/neon-private-networking#enable-privat
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The ID of this resource.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The ID of this resource.",
 			},
 			"org_id": schema.StringAttribute{
 				Required:      true,

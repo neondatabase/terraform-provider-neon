@@ -73,8 +73,9 @@ See details: https://neon.tech/docs/manage/users/
 `,
 		Attributes: map[string]schemaTFSDK.Attribute{
 			"id": schemaTFSDK.StringAttribute{
-				Computed:    true,
-				Description: "The role ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The role ID.",
 			},
 			"project_id": schemaTFSDK.StringAttribute{
 				Required:      true,

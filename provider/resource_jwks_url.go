@@ -48,8 +48,9 @@ func (r *jwksURLResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 		Description: "Project JWKS URL. See details: https://neon.com/docs/data-api/custom-authentication-providers\n\n~>**WARNING** The resource does not support import.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The JWKS configuration ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The JWKS configuration ID.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

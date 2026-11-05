@@ -48,8 +48,9 @@ func (r *neonOrgMemberRoleResource) Schema(_ context.Context, _ resource.SchemaR
 	Note that the deletion will only delete the resource from the tf state.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The org. member role ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The org. member role ID.",
 			},
 			"org_id": schema.StringAttribute{
 				Required:      true,

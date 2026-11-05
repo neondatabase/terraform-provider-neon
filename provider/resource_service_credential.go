@@ -56,8 +56,9 @@ func (r *neonServiceCredentialResource) Schema(_ context.Context, _ resource.Sch
 		Description: "Manages a Neon scoped service credential.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The credential resource ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The credential resource ID.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

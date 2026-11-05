@@ -47,8 +47,9 @@ func (r *orgAPIKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 `,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The API key ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The API key ID.",
 			},
 			"name": schema.StringAttribute{
 				Required:      true,

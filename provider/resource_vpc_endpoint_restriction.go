@@ -66,8 +66,9 @@ A VPC endpoint can be set as a restriction only after it is assigned to the
 parent organization of the Neon project.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The ID of this resource.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The ID of this resource.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

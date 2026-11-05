@@ -62,8 +62,9 @@ func (r *neonProjectPermission) Schema(_ context.Context, _ resource.SchemaReque
 		Description: `Project's access permission.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The permission ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The permission ID.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

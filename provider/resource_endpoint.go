@@ -149,8 +149,9 @@ func (r *neonEndpointResource) Schema(_ context.Context, _ resource.SchemaReques
 		Description: `Project Endpoint. See details: https://neon.tech/docs/manage/endpoints/`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "Endpoint ID.",
-				Computed:    true,
+				PlanModifiers: idPlanModifiers(),
+				Description:   "Endpoint ID.",
+				Computed:      true,
 			},
 			"project_id": schema.StringAttribute{
 				Description: "Project ID.",

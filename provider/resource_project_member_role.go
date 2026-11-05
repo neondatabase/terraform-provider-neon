@@ -50,8 +50,9 @@ func (r *neonProjectMemberRoleResource) Schema(_ context.Context, _ resource.Sch
 	Also, note that the org. admins may not have per-project permissions set to something other than admin.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The project member role ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The project member role ID.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

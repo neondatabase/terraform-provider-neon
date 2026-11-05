@@ -57,8 +57,9 @@ func (r *neonSnapshotResource) Schema(_ context.Context, _ resource.SchemaReques
 		Description: "Manages a Neon snapshot.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "Composite ID of the form <project_id>/<snapshot_id>.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "Composite ID of the form <project_id>/<snapshot_id>.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

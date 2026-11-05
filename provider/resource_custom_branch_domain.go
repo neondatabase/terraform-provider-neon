@@ -48,8 +48,9 @@ func (r *neonCustomBranchDomain) Schema(_ context.Context, _ resource.SchemaRequ
 		Description: `Manages custom domains for a project's branch.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The custom branch domain ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The custom branch domain ID.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

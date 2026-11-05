@@ -54,8 +54,9 @@ func (r *neonTriggerResource) Schema(_ context.Context, _ resource.SchemaRequest
 		Description: "Manages a Neon trigger (Function invocation on a schedule or after a branch-bucket object upload).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "Composite ID of the form <project_id>/<branch_id>/<trigger_id>.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "Composite ID of the form <project_id>/<branch_id>/<trigger_id>.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

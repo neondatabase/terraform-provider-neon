@@ -88,8 +88,9 @@ func (r *neonBucketObjectResource) Schema(_ context.Context, _ resource.SchemaRe
 		Description: "Manages an object in a Neon branchable object storage bucket.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: `Object state ID: <project_id>/<branch_id>/<bucket>/<key>.`,
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   `Object state ID: <project_id>/<branch_id>/<bucket>/<key>.`,
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

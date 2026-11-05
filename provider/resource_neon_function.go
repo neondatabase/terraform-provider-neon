@@ -62,8 +62,9 @@ func (r *neonFunctionResource) Schema(_ context.Context, _ resource.SchemaReques
 		Description: "Manages a Neon Serverless Function on a branch.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "Composite ID of the form <project_id>/<branch_id>/<slug>.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "Composite ID of the form <project_id>/<branch_id>/<slug>.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:      true,

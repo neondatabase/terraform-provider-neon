@@ -71,8 +71,9 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 		Description: "Project Branch. See details: https://neon.tech/docs/introduction/branching/",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
-				Description: "Branch ID.",
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "Branch ID.",
 			},
 			"project_id": schema.StringAttribute{
 				Required: true,

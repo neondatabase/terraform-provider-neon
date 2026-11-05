@@ -306,11 +306,40 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	requestedName := plan.Name
 	setNeonFunctionModel(&plan, fn)
 	// Echo back user-supplied sensitive inputs so subsequent plans are
 	// stable. Computed attributes are filled by setNeonFunctionModel.
 	plan.Runtime = types.StringValue(runtime)
 	plan.ZipFilePath = types.StringValue(zipPath)
+	// Keep the deployed identity available if the separate rename request fails.
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	if resp.Diagnostics.HasError() || requestedName.IsNull() || requestedName.IsUnknown() || requestedName.Equal(plan.Name) {
+		return
+	}
+
+	resp.Diagnostics.Append(
+		projectReadiness.Retry(ctx,
+			func(ctx context.Context) error {
+				rsp, err := r.client.UpdateProjectBranchFunction(
+					plan.ProjectID.ValueString(),
+					plan.BranchID.ValueString(),
+					plan.Slug.ValueString(),
+					neon.NeonFunctionUpdateRequest{Name: requestedName.ValueString()},
+				)
+				if err != nil {
+					return err
+				}
+				fn = rsp.Function
+				return nil
+			}, nil,
+		)...,
+	)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	setNeonFunctionModel(&plan, fn)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

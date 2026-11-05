@@ -1651,6 +1651,10 @@ func (r neonProjectResource) updatePrimaryCompute(ctx context.Context, prior *ne
 func (r neonProjectResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
 	return map[int64]resource.StateUpgrader{
 		11: legacyStateUpgrader(r.Schema, func(attrs map[string]any) {
+			// SDK v2 could store an omitted Optional list as an empty array.
+			if ips, ok := attrs["allowed_ips"].([]any); ok && len(ips) == 0 {
+				attrs["allowed_ips"] = nil
+			}
 			unwrapLegacyBlocks(attrs, "branch", "primary_compute", "maintenance_window", "quota")
 			legacyYesNoToBool(attrs, "allowed_ips_protected_branches_only", "block_public_connections",
 				"block_vpc_connections", "enable_logical_replication", "hipaa", "store_password")

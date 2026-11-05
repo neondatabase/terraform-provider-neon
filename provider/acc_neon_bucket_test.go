@@ -402,7 +402,7 @@ resource "neon_bucket" "this" {
 		)
 	})
 
-	t.Run("shall fail to update existing bucket", func(t *testing.T) {
+	t.Run("shall plan bucket replacement", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		projects.Test(
 			t, resource.TestCase{
@@ -434,23 +434,8 @@ resource "neon_bucket" "this" {
   access_level = "public_read"
 }
 `, projectName),
-						PlanOnly:    true,
-						ExpectError: regexp.MustCompile("Neon Bucket Update Not Supported"),
-					},
-					{
-						Config: fmt.Sprintf(`resource "neon_project" "this" {
-	name      = "%s"
-	region_id = "aws-us-east-2"
-}
-
-resource "neon_bucket" "this" {
-  project_id   = neon_project.this.id
-  branch_id    = neon_project.this.branch.id
-  name         = "foo"
-  access_level = "public_read"
-}
-`, projectName),
-						ExpectError: regexp.MustCompile("Neon Bucket Update Not Supported"),
+						PlanOnly:           true,
+						ExpectNonEmptyPlan: true,
 					},
 				},
 			},

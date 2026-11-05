@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 
 var _ resource.ResourceWithConfigure = (*neonServiceCredentialResource)(nil)
 var _ resource.ResourceWithImportState = (*neonServiceCredentialResource)(nil)
-var _ resource.ResourceWithModifyPlan = (*neonServiceCredentialResource)(nil)
 
 type neonServiceCredentialResource struct {
 	client *neon.Client
@@ -113,30 +111,6 @@ func (r *neonServiceCredentialResource) Schema(_ context.Context, _ resource.Sch
 				Description: "Whether the credential has expired.",
 			},
 		},
-	}
-}
-
-func (r *neonServiceCredentialResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
-		return
-	}
-
-	var prior neonServiceCredentialResourceModel
-	var planned neonServiceCredentialResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &planned)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if stringChanged(prior.ProjectID, planned.ProjectID) ||
-		stringChanged(prior.BranchID, planned.BranchID) ||
-		stringChanged(prior.Name, planned.Name) ||
-		!slices.Equal(prior.Scopes, planned.Scopes) {
-		resp.Diagnostics.AddError(
-			"Neon Service Credential Update Not Supported",
-			"Changing service credential attributes is not supported. Remove and recreate the resource instead.",
-		)
 	}
 }
 

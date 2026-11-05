@@ -17,7 +17,6 @@ import (
 )
 
 var _ resource.ResourceWithConfigure = (*neonBucketResource)(nil)
-var _ resource.ResourceWithModifyPlan = (*neonBucketResource)(nil)
 var _ resource.ResourceWithImportState = (*neonBucketResource)(nil)
 
 type neonBucketResource struct {
@@ -136,30 +135,6 @@ func (r *neonBucketResource) Configure(_ context.Context, req resource.Configure
 	}
 
 	r.client = client.sdk
-}
-
-func (r *neonBucketResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
-		return
-	}
-
-	var prior neonBucketResourceModel
-	var planned neonBucketResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &planned)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if stringChanged(prior.ProjectID, planned.ProjectID) ||
-		stringChanged(prior.BranchID, planned.BranchID) ||
-		stringChanged(prior.Name, planned.Name) ||
-		stringChanged(prior.AccessLevel, planned.AccessLevel) {
-		resp.Diagnostics.AddError(
-			"Neon Bucket Update Not Supported",
-			"Changing bucket attributes is not supported. Remove and recreate the resource instead.",
-		)
-	}
 }
 
 func (r *neonBucketResource) ImportState(ctx context.Context, req resource.ImportStateRequest,

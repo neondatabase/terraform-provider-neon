@@ -213,7 +213,7 @@ func TestServiceCredential(t *testing.T) {
 		})
 	})
 
-	t.Run("shall fail to update service credential", func(t *testing.T) {
+	t.Run("shall plan service credential replacement", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		projects.Test(
 			t, resource.TestCase{
@@ -223,13 +223,9 @@ func TestServiceCredential(t *testing.T) {
 						Config: serviceCredentialConfig(projectName, "foo"),
 					},
 					{
-						Config:      serviceCredentialConfig(projectName, "bar"),
-						PlanOnly:    true,
-						ExpectError: regexp.MustCompile("Neon Service Credential Update Not Supported"),
-					},
-					{
-						Config:      serviceCredentialConfig(projectName, "bar"),
-						ExpectError: regexp.MustCompile("Neon Service Credential Update Not Supported"),
+						Config:             serviceCredentialConfig(projectName, "bar"),
+						PlanOnly:           true,
+						ExpectNonEmptyPlan: true,
 					},
 				},
 			},

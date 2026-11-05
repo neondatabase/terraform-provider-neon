@@ -346,41 +346,55 @@ func (v *validatorMaintenanceWindow) ValidateObject(ctx context.Context, req val
 		return err == nil
 	}
 	errMsg := "undefined maintenance window"
-	if window.Weekdays.IsNull() || window.Weekdays.IsUnknown() {
-		resp.Diagnostics.AddError(errMsg, "undefined weekdays, it must be a list of values between 1 and 7")
-	}
-	var weekdays []int32
-	resp.Diagnostics.Append(window.Weekdays.ElementsAs(ctx, &weekdays, false)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
+	// Values that come from other resources are unknown at plan time.
+	// Terraform validates again once they are known, so they are skipped here.
 	switch {
-	case len(weekdays) > 7 || len(weekdays) < 1:
-		resp.Diagnostics.AddError(errMsg, "invalid number of weekdays, it must be between 1 and 7")
+	case window.Weekdays.IsNull():
+		resp.Diagnostics.AddError(errMsg, "undefined weekdays, it must be a list of values between 1 and 7")
+	case window.Weekdays.IsUnknown() || hasUnknownElement(window.Weekdays):
 	default:
-		for j, weekday := range weekdays {
-			switch weekday {
-			case 1, 2, 3, 4, 5, 6, 7:
-			default:
-				resp.Diagnostics.AddError(errMsg,
-					fmt.Sprintf("invalid weekday %d, the value must be from 1 (Mon.) to 7 (Sun.)", j))
+		var weekdays []int32
+		resp.Diagnostics.Append(window.Weekdays.ElementsAs(ctx, &weekdays, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+
+		switch {
+		case len(weekdays) > 7 || len(weekdays) < 1:
+			resp.Diagnostics.AddError(errMsg, "invalid number of weekdays, it must be between 1 and 7")
+		default:
+			for j, weekday := range weekdays {
+				switch weekday {
+				case 1, 2, 3, 4, 5, 6, 7:
+				default:
+					resp.Diagnostics.AddError(errMsg,
+						fmt.Sprintf("invalid weekday %d, the value must be from 1 (Mon.) to 7 (Sun.)", j))
+				}
 			}
 		}
 	}
-	if window.StartTime.IsUnknown() || window.StartTime.IsNull() {
-		resp.Diagnostics.AddError(errMsg, "start_time is required")
-	}
-	if window.EndTime.IsUnknown() || window.EndTime.IsNull() {
-		resp.Diagnostics.AddError(errMsg, "end_time is required")
-	}
 
-	if !isValidTime(window.StartTime.ValueString()) {
-		resp.Diagnostics.AddError(errMsg, "invalid start_time, it must be in the format of \"HH:MM\"")
+	validateTime := func(name string, value types.String) {
+		switch {
+		case value.IsNull():
+			resp.Diagnostics.AddError(errMsg, name+" is required")
+		case value.IsUnknown():
+		case !isValidTime(value.ValueString()):
+			resp.Diagnostics.AddError(errMsg,
+				fmt.Sprintf("invalid %s, it must be in the format of \"HH:MM\"", name))
+		}
 	}
-	if !isValidTime(window.EndTime.ValueString()) {
-		resp.Diagnostics.AddError(errMsg, "invalid end_time, it must be in the format of \"HH:MM\"")
+	validateTime("start_time", window.StartTime)
+	validateTime("end_time", window.EndTime)
+}
+
+func hasUnknownElement(list types.List) bool {
+	for _, el := range list.Elements() {
+		if el.IsUnknown() {
+			return true
+		}
 	}
+	return false
 }
 
 type projectQuota struct {

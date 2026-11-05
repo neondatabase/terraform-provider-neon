@@ -295,7 +295,7 @@ func (v validatorComputeProvisioner) MarkdownDescription(ctx context.Context) st
 
 func (v validatorComputeProvisioner) ValidateString(ctx context.Context, req validator.StringRequest,
 	resp *validator.StringResponse) {
-	if req.ConfigValue.IsNull() {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
 
@@ -350,7 +350,7 @@ func (v validatorEndpointType) MarkdownDescription(ctx context.Context) string {
 
 func (v validatorEndpointType) ValidateString(ctx context.Context, req validator.StringRequest,
 	resp *validator.StringResponse) {
-	if req.ConfigValue.IsNull() {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
 

@@ -67,6 +67,7 @@ func (v *neonEndpointResourceModel) inferAttr(ctx context.Context, endpoint neon
 	v.SuspendTimeoutSeconds = types.Int64Value(int64(endpoint.SuspendTimeoutSeconds))
 	v.ComputeProvisioner = types.StringValue(string(endpoint.Provisioner))
 	v.Disabled = types.BoolValue(endpoint.Disabled)
+	previousEnabledLibraries := v.EnabledLibraries
 	if endpoint.Settings.PreloadLibraries != nil {
 		libs, d := types.ListValueFrom(ctx, types.StringType, endpoint.Settings.PreloadLibraries.EnabledLibraries)
 		diagnostics.Append(d...)
@@ -78,6 +79,10 @@ func (v *neonEndpointResourceModel) inferAttr(ctx context.Context, endpoint neon
 	} else {
 		v.EnabledLibraries = types.ListNull(types.StringType)
 		v.EnabledLibrariesUseDefaults = types.BoolNull()
+	}
+	// Missing API settings cannot distinguish an omitted list from explicit [].
+	if v.EnabledLibraries.IsNull() && !previousEnabledLibraries.IsNull() && !previousEnabledLibraries.IsUnknown() {
+		v.EnabledLibraries = types.ListValueMust(types.StringType, nil)
 	}
 	v.PasswordlessAccess = types.BoolValue(endpoint.PasswordlessAccess)
 	v.Host = types.StringValue(endpoint.Host)
@@ -539,6 +544,8 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	// The PATCH response mapper may replace plan fields before the final Read.
+	plannedEnabledLibraries := plan.EnabledLibraries
 	var cfg neon.EndpointUpdateRequestEndpoint
 
 	if !prior.BranchID.Equal(plan.BranchID) {
@@ -660,23 +667,18 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	}
 
-	readResp := resource.ReadResponse{State: req.State}
-	r.Read(ctx, resource.ReadRequest{State: req.State}, &readResp)
+	readState := req.State
+	resp.Diagnostics.Append(readState.SetAttribute(ctx, path.Root("enabled_libraries"), plannedEnabledLibraries)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	readResp := resource.ReadResponse{State: readState}
+	r.Read(ctx, resource.ReadRequest{State: readState}, &readResp)
 	resp.Diagnostics.Append(readResp.Diagnostics...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 	resp.State = readResp.State
-
-	if plan.EnabledLibraries.IsNull() {
-		var state neonEndpointResourceModel
-		resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.EnabledLibraries = types.ListNull(types.StringType)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-	}
 }
 
 func (r *neonEndpointResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

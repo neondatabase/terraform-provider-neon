@@ -53,7 +53,7 @@ resource "neon_function" "example" {
 
 ### Optional
 
-- `environment_variables` (Map of String, Sensitive) Environment variables to expose to the function. Values are write-only and never returned by the API. Known limit: setting non-empty values currently fails at apply due to an upstream Plugin Framework reflection bug. Omit the attribute or set it to `{}` to avoid the failure.
+- `environment_variables` (Map of String, Sensitive) Environment variables to expose to the function. The API never returns their values. Terraform stores configured values in state and marks them sensitive. Changes require replacing the function.
 - `name` (String) Free-form display name for the function. Updatable in place.
 - `zip_file_path` (String, Sensitive) Path to a local ZIP archive of the function source. Required on create.
 

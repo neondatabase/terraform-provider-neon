@@ -291,7 +291,9 @@ func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.P
 	v.DefaultBranchID = v.Branch.ID
 	v.DefaultBranchProtected = v.Branch.Protected
 
-	v.PrimaryCompute = &neonEndpointResourceModel{}
+	v.PrimaryCompute = &neonEndpointResourceModel{
+		EnabledLibraries: v.PrimaryCompute.EnabledLibraries,
+	}
 	v.PrimaryCompute.inferAttr(ctx, endpoint, diagnostics)
 	v.DefaultEndpointID = v.PrimaryCompute.ID
 	v.DatabaseHost = v.PrimaryCompute.Host
@@ -1462,19 +1464,30 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	if config.PrimaryCompute != nil && plan.PrimaryCompute != nil && prior.PrimaryCompute != nil {
+	hasPrimaryComputePlan := config.PrimaryCompute != nil && plan.PrimaryCompute != nil && prior.PrimaryCompute != nil
+	var primaryLibraries types.List
+	if hasPrimaryComputePlan {
+		// The delegated response can replace plan fields before project Read.
+		primaryLibraries = plan.PrimaryCompute.EnabledLibraries
 		plan.PrimaryCompute = r.updatePrimaryCompute(ctx, prior.PrimaryCompute, plan.PrimaryCompute, &resp.Diagnostics)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 	}
 
-	// Refresh needs the new allowlist's null/empty intent, not the old value.
-	// Keep every other prior-state field unchanged. Read still returns actual
-	// API contents, so a failed update cannot be masked by the planned list.
+	// Refresh needs the configured lists' null/empty intent, not the old values.
+	// Keep unrelated prior-state fields unchanged. Read still returns actual
+	// API contents, so a failed update cannot be masked by a planned list.
 	readState := req.State
 	if !plan.AllowedIPs.IsUnknown() {
 		resp.Diagnostics.Append(readState.SetAttribute(ctx, path.Root("allowed_ips"), plan.AllowedIPs)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if hasPrimaryComputePlan {
+		resp.Diagnostics.Append(readState.SetAttribute(ctx,
+			path.Root("primary_compute").AtName("enabled_libraries"), primaryLibraries)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}

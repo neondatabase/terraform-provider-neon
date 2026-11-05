@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -190,11 +193,100 @@ func (r *neonTriggerResource) Configure(_ context.Context, req resource.Configur
 	r.client = client.sdk
 }
 
-func (r *neonTriggerResource) ImportState(_ context.Context, _ resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.AddError(
-		"neon_trigger does not support import",
-		"neon_trigger is provisioned via `terraform apply` only; the server mints `trigger_id` on create. Re-author the trigger in your configuration to manage it with Terraform.",
-	)
+func (r *neonTriggerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.Split(req.ID, "/")
+	validID := len(parts) == 3
+	// The SDK concatenates identifiers into the URL without escaping them.
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." || url.PathEscape(part) != part {
+			validID = false
+			break
+		}
+	}
+	if !validID {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("id"),
+			"Invalid Neon Trigger Import ID",
+			"Expected an import ID in the form <project_id>/<branch_id>/<trigger_id>, with three nonempty literal identifiers and no URL encoding, query/fragment delimiters, or dot segments.",
+		)
+		return
+	}
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
+	if err := ctx.Err(); err != nil {
+		resp.Diagnostics.AddError("Trigger Import Canceled", err.Error())
+		return
+	}
+
+	projectID, branchID, triggerID := parts[0], parts[1], parts[2]
+	result, err := r.client.GetProjectBranchTrigger(projectID, branchID, neon.TriggerID(triggerID))
+	if err != nil {
+		var apiError neon.Error
+		if errors.As(err, &apiError) && apiError.HTTPCode == http.StatusNotFound {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("id"),
+				"Trigger Not Found",
+				fmt.Sprintf("Trigger %q was not found on branch %q in project %q.", triggerID, branchID, projectID),
+			)
+			return
+		}
+		resp.Diagnostics.AddError("Failed to Import Neon Trigger", err.Error())
+		return
+	}
+
+	returnedTriggerID := triggerIDFromTrigger(result.Trigger)
+	if returnedTriggerID == "" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("id"),
+			"Invalid Neon Trigger Response",
+			"The API returned an empty trigger_id; no state was imported.",
+		)
+		return
+	}
+	if returnedTriggerID != triggerID {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("id"),
+			"Neon Trigger ID Mismatch",
+			fmt.Sprintf("The API returned trigger ID %q, which does not match requested trigger ID %q; no state was imported.", returnedTriggerID, triggerID),
+		)
+		return
+	}
+	if result.Trigger.Type != "schedule" && result.Trigger.Type != "storage_object_created" {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("id"),
+			"Unsupported Neon Trigger Type",
+			fmt.Sprintf("The API returned unsupported trigger type %q; no state was imported.", result.Trigger.Type),
+		)
+		return
+	}
+	if triggerIsInherited(result.Trigger) {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("id"),
+			"Cannot Import Inherited Neon Trigger",
+			"The trigger is inherited from an ancestor branch. Import only branch-local triggers because updating an inherited trigger creates a local shadow and deleting it creates a tombstone.",
+		)
+		return
+	}
+
+	state := neonTriggerResourceModel{
+		ProjectID: types.StringValue(projectID),
+		BranchID:  types.StringValue(branchID),
+	}
+	setNeonTriggerModel(&state, result.Trigger)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func triggerIsInherited(t neon.Trigger) bool {
+	switch t.Type {
+	case "schedule":
+		return t.ScheduleTrigger.Inherited
+	case "storage_object_created":
+		return t.StorageObjectCreatedTrigger.Inherited
+	default:
+		return false
+	}
 }
 
 func (r *neonTriggerResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

@@ -136,7 +136,7 @@ func TestAccNeonTrigger(t *testing.T) {
 		})
 	})
 
-	t.Run("shall reject import with a clear diagnostic", func(t *testing.T) {
+	t.Run("shall reject malformed import IDs with a clear diagnostic", func(t *testing.T) {
 		config := `resource "neon_trigger" "this" {
   project_id     = "0"
   branch_id      = "br-1"
@@ -152,9 +152,9 @@ func TestAccNeonTrigger(t *testing.T) {
 					Config:        config,
 					ImportState:   true,
 					ResourceName:  "neon_trigger.this",
-					ImportStateId: "0/br-1/trig-1",
+					ImportStateId: "0/br-1/",
 					ExpectError: regexp.MustCompile(
-						"neon_trigger does not support import",
+						"Invalid Neon Trigger Import ID",
 					),
 				},
 			},

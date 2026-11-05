@@ -16,4 +16,11 @@ description: |-
 
 ## Import
 
-The Neon Trigger cannot be imported because the server mints `trigger_id` on create. Re-author the trigger in your Terraform configuration to manage it.
+Import a branch-local schedule or storage trigger using `<project_id>/<branch_id>/<trigger_id>`.
+Use literal identifiers, without URL encoding, query or fragment delimiters, or dot segments.
+
+```shell
+terraform import neon_trigger.example "project-id/branch-id/trigger-id"
+```
+
+Inherited triggers cannot be imported because updating them creates branch-local shadows and deleting them creates tombstones.

@@ -14,8 +14,8 @@ func TestMigrationFromKislerdm(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
-	t.Run("from v0.18.0", func(t *testing.T) {
-		projectName := "migration0180"
+	t.Run("v0.18.0:neon_project", func(t *testing.T) {
+		projectName := "migration0180Project"
 
 		configFrom := fmt.Sprintf(`resource "neon_project" "_" {
   name = %q
@@ -28,6 +28,7 @@ func TestMigrationFromKislerdm(t *testing.T) {
         autoscaling_limit_min_cu = 0.5
 		autoscaling_limit_max_cu = 2
 		suspend_timeout_seconds  = 1200
+		name                     = "default"
   }
 
   branch {
@@ -45,27 +46,14 @@ func TestMigrationFromKislerdm(t *testing.T) {
 
   allowed_ips = ["0.0.0.0/0"]
 }
-
-resource "neon_endpoint" "_" {
- project_id = neon_project._.id
- branch_id  = neon_project._.default_branch_id
- name       = "test"
- type       = "read_only"
-}
-
-resource "neon_branch" "_" {
- project_id   = neon_project._.id
- parent_id    = neon_project._.default_branch_id
- name         = "test"
- protected    = "yes"
-}
 `, projectName)
 
-		configTo := fmt.Sprintf(`resource "neon_project" "_" {
+		var configTo = func(protected bool) string {
+			return fmt.Sprintf(`resource "neon_project" "_" {
   name = %q
 
-  database_name = "default"
-  database_user = "default"
+  database_name = "baz"
+  database_user = "qux"
 
   autoscaling_limit_min_cu = 0.25
   autoscaling_limit_max_cu = 1
@@ -78,26 +66,19 @@ resource "neon_branch" "_" {
 
   branch = {
 	name      = "default"
-    protected = true
+    protected = %v
+  }
+
+  maintenance_window = {
+    weekdays   = [6, 7]
+    start_time = "07:00"
+    end_time   = "08:00"
   }
 
   allowed_ips = ["0.0.0.0/0"]
 }
-
-resource "neon_endpoint" "_" {
- project_id = neon_project._.id
- branch_id  = neon_project._.branch.id
- name       = "test"
- type       = "read_only"
-}
-
-resource "neon_branch" "_" {
- project_id   = neon_project._.id
- parent_id    = neon_project._.branch.id
- name         = "test"
- protected    = true
-}
-`, projectName)
+`, projectName, protected)
+		}
 
 		resource.Test(
 			t, resource.TestCase{
@@ -113,45 +94,69 @@ resource "neon_branch" "_" {
 					},
 					{
 						ProtoV6ProviderFactories: newProviderFactories(),
-						Config:                   configTo,
+						Config:                   configTo(true),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project._", "name", projectName),
+
+							resource.TestCheckResourceAttr("neon_project._", "database_name", "baz"),
+							resource.TestCheckResourceAttr("neon_project._", "database_user", "qux"),
+
+							resource.TestCheckResourceAttr("neon_project._", "branch.name", "default"),
+							resource.TestCheckResourceAttr("neon_project._", "branch.protected", "true"),
+
+							resource.TestCheckResourceAttr("neon_project._", "autoscaling_limit_min_cu", "0.25"),
+							resource.TestCheckResourceAttr("neon_project._", "autoscaling_limit_max_cu", "1"),
+							resource.TestCheckResourceAttr("neon_project._", "suspend_timeout_seconds", "600"),
+
+							resource.TestCheckResourceAttr("neon_project._", "primary_compute.autoscaling_limit_min_cu", "0.5"),
+							resource.TestCheckResourceAttr("neon_project._", "primary_compute.autoscaling_limit_max_cu", "2"),
+							resource.TestCheckResourceAttr("neon_project._", "primary_compute.suspend_timeout_seconds", "1200"),
+
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.weekdays.#", "2"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.weekdays.0", "6"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.weekdays.1", "7"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.start_time", "07:00"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.end_time", "08:00"),
+
+							resource.TestCheckResourceAttr("neon_project._", "allowed_ips.#", "1"),
+							resource.TestCheckResourceAttr("neon_project._", "allowed_ips.0", "0.0.0.0/0"),
+						),
 					},
 					{
 						ProtoV6ProviderFactories: newProviderFactories(),
-						Config: fmt.Sprintf(`resource "neon_project" "_" {
-  name = %q
+						Config:                   configTo(true),
+						PlanOnly:                 true,
+					},
+					// unprotect the default branch to delete the resources in the end of the test
+					{
+						ProtoV6ProviderFactories: newProviderFactories(),
+						Config:                   configTo(false),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project._", "name", projectName),
 
-  database_name = "default"
-  database_user = "default"
+							resource.TestCheckResourceAttr("neon_project._", "database_name", "baz"),
+							resource.TestCheckResourceAttr("neon_project._", "database_user", "qux"),
 
-  autoscaling_limit_min_cu = 0.25
-  autoscaling_limit_max_cu = 1
-  suspend_timeout_seconds  = 600
-  primary_compute = {
-        autoscaling_limit_min_cu = 0.5
-		autoscaling_limit_max_cu = 2
-		suspend_timeout_seconds  = 1200
-  }
+							resource.TestCheckResourceAttr("neon_project._", "branch.name", "default"),
+							resource.TestCheckResourceAttr("neon_project._", "branch.protected", "false"),
 
-  branch = {
-	name = "default"
-  }
+							resource.TestCheckResourceAttr("neon_project._", "autoscaling_limit_min_cu", "0.25"),
+							resource.TestCheckResourceAttr("neon_project._", "autoscaling_limit_max_cu", "1"),
+							resource.TestCheckResourceAttr("neon_project._", "suspend_timeout_seconds", "600"),
 
-  allowed_ips = ["0.0.0.0/0"]
-}
+							resource.TestCheckResourceAttr("neon_project._", "primary_compute.autoscaling_limit_min_cu", "0.5"),
+							resource.TestCheckResourceAttr("neon_project._", "primary_compute.autoscaling_limit_max_cu", "2"),
+							resource.TestCheckResourceAttr("neon_project._", "primary_compute.suspend_timeout_seconds", "1200"),
 
-resource "neon_endpoint" "_" {
- project_id = neon_project._.id
- branch_id  = neon_project._.branch.id
- name       = "test"
- type       = "read_only"
-}
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.weekdays.#", "2"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.weekdays.0", "6"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.weekdays.1", "7"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.start_time", "07:00"),
+							resource.TestCheckResourceAttr("neon_project._", "maintenance_window.end_time", "08:00"),
 
-resource "neon_branch" "_" {
- project_id   = neon_project._.id
- parent_id    = neon_project._.branch.id
- name         = "test"
-}
-`, projectName),
+							resource.TestCheckResourceAttr("neon_project._", "allowed_ips.#", "1"),
+							resource.TestCheckResourceAttr("neon_project._", "allowed_ips.0", "0.0.0.0/0"),
+						),
 					},
 				},
 			},

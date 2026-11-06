@@ -101,9 +101,10 @@ func (d *neonAIGatewayDataSource) Read(ctx context.Context, req datasource.ReadR
 	if errors.As(err, &apiErr) && slices.ContainsFunc(apiErr.Details, func(e neon.ErrorDetails) bool {
 		return e.Code == "AI_GATEWAY_NOT_ENABLED"
 	}) {
-		resp.Diagnostics.AddError("AI Gateway not enabled",
-			fmt.Sprintf("The AI Gateway is not enabled on branch %s of project %s. Enable it in the Neon Console, "+
-				"or set aiGateway in neon.ts and run neon config apply, then run Terraform again.", branchID, projectID))
+		resp.Diagnostics.AddError("AI Gateway unavailable on this branch",
+			fmt.Sprintf("%s\n\nCheck that branch %s exists in project %s, that the project is in a region the AI Gateway "+
+				"serves, and that the gateway is enabled on the branch in the Neon Console or with aiGateway in neon.ts "+
+				"and neon config apply. Then run Terraform again.", err, branchID, projectID))
 		return
 	}
 	resp.Diagnostics.Append(newDiagnostics(err)...)

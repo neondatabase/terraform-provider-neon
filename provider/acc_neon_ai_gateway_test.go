@@ -19,8 +19,9 @@ import (
 // UUID literal for the unavailable-scenario TestStep.
 func newAIGatewayConfig(projectName, orgID, branchIDExpr string) string {
 	return fmt.Sprintf(`resource "neon_project" "this" {
-  name   = %q
-  org_id = %q
+  name      = %q
+  org_id    = %q
+  region_id = "aws-us-east-2"
 }
 
 data "neon_ai_gateway" "this" {
@@ -73,7 +74,7 @@ func TestAIGatewayDataSource(t *testing.T) {
 			},
 			{
 				Config:      newAIGatewayConfig(projectName, orgID, `"00000000-0000-0000-0000-000000000000"`),
-				ExpectError: regexp.MustCompile("Neon (resource not found|rejected the request)"),
+				ExpectError: regexp.MustCompile("(Neon resource not found|Neon rejected the request|AI Gateway unavailable on this branch)"),
 			},
 		},
 	})

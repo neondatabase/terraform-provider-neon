@@ -153,13 +153,9 @@ func (r neonDatabase) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -206,12 +202,8 @@ func (r neonDatabase) Update(ctx context.Context, req resource.UpdateRequest, re
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -249,10 +241,10 @@ func (r neonDatabase) Delete(ctx context.Context, req resource.DeleteRequest, re
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.State.RemoveResource(ctx)
 }
@@ -283,7 +275,6 @@ func (r neonDatabase) ImportState(ctx context.Context, req resource.ImportStateR
 	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 

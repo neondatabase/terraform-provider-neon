@@ -130,13 +130,9 @@ func (r *neonProjectPermission) Read(ctx context.Context, req resource.ReadReque
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -174,10 +170,10 @@ func (r *neonProjectPermission) Delete(ctx context.Context, req resource.DeleteR
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.State.RemoveResource(ctx)
 }
@@ -203,7 +199,6 @@ func (r *neonProjectPermission) ImportState(ctx context.Context, req resource.Im
 	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 

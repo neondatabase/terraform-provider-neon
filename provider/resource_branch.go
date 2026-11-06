@@ -218,13 +218,9 @@ func (r *neonBranchResource) Read(ctx context.Context, req resource.ReadRequest,
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -271,12 +267,8 @@ func (r *neonBranchResource) Update(ctx context.Context, req resource.UpdateRequ
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -313,10 +305,10 @@ func (r *neonBranchResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.State.RemoveResource(ctx)
 }
@@ -386,7 +378,6 @@ func (r *neonBranchResource) ImportState(ctx context.Context, req resource.Impor
 	}, nil)...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 

@@ -156,13 +156,9 @@ func (r neonRole) Read(ctx context.Context, req resource.ReadRequest, resp *reso
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 
@@ -202,10 +198,10 @@ func (r neonRole) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.State.RemoveResource(ctx)
 }

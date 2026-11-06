@@ -138,7 +138,6 @@ func (r neonVPCEndpointAssignment) Read(ctx context.Context, req resource.ReadRe
 		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {
-		resp.State.RemoveResource(ctx)
 		return
 	}
 

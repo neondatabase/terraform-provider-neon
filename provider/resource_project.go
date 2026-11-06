@@ -1182,9 +1182,19 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 	}
 
 	if branchSettings != nil && defaultBranch.ID != "" {
-		state.Branch = r.updateBranch(ctx, state.Branch, branchSettings, &resp.Diagnostics)
-		if resp.Diagnostics.HasError() {
-			return
+		// Settings the configuration leaves unset keep the values Neon created the branch with.
+		branchPlan := *branchSettings
+		if branchPlan.Name.IsNull() || branchPlan.Name.IsUnknown() {
+			branchPlan.Name = state.Branch.Name
+		}
+		if branchPlan.Protected.IsNull() || branchPlan.Protected.IsUnknown() {
+			branchPlan.Protected = state.Branch.Protected
+		}
+		if !branchPlan.Name.Equal(state.Branch.Name) || !branchPlan.Protected.Equal(state.Branch.Protected) {
+			state.Branch = r.updateBranch(ctx, state.Branch, &branchPlan, &resp.Diagnostics)
+			if resp.Diagnostics.HasError() {
+				return
+			}
 		}
 	}
 

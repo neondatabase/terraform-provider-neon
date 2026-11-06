@@ -1250,10 +1250,11 @@ func TestProject(t *testing.T) {
 
   history_retention_seconds = 604800 # 7 days
 
+  database_name = "do_not_use_neon_default"
+  database_user = "main"
+
   branch = {
-    name          = "main"
-    database_name = "do_not_use_neon_default"
-    role_name     = "main"
+    name = "main"
   }
 
   autoscaling_limit_min_cu = 0.25

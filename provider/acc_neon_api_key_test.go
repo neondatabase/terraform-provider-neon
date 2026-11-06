@@ -20,6 +20,7 @@ func TestRecreateAPIKeyIfNotFound(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
 	if err != nil {
@@ -122,6 +123,7 @@ func TestAPIKey(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
 	if err != nil {

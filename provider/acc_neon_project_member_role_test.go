@@ -16,6 +16,7 @@ func TestProjectMember(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
 	if err != nil {
@@ -24,7 +25,8 @@ func TestProjectMember(t *testing.T) {
 
 	projectName := newProjectName("projectMember")
 	projectCreateResp, err := client.CreateProject(neon.ProjectCreateRequest{Project: neon.ProjectCreateRequestProject{
-		Name: &projectName,
+		Name:  &projectName,
+		OrgID: pointer(os.Getenv("ORG_ID")),
 	}})
 	assert.NoError(t, err, "failed to create project")
 	projectID := projectCreateResp.ProjectResponse.Project.ID

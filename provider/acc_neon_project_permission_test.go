@@ -17,6 +17,7 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
 	if err != nil {
@@ -24,6 +25,7 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 	}
 
 	projectNamePrefix := "projectPermissionRecreation"
+	orgID := os.Getenv("ORG_ID")
 
 	var preConfig = func(projectName, email string) {
 		ref, err := readProjectInfo(client, projectName)
@@ -54,11 +56,14 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 					ProtoV6ProviderFactories: newProviderFactories(),
 					Steps: []resource.TestStep{
 						{
-							Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
+							Config: fmt.Sprintf(`resource "neon_project" "this" {
+	name   = "%s"
+	org_id = "%s"
+}
 resource "neon_project_permission" "this" {
-	project_id = neon_project.this.id 
+	project_id = neon_project.this.id
 	grantee    = "%s"
-}`, projectName, email),
+}`, projectName, orgID, email),
 							Check: resource.ComposeTestCheckFunc(
 								resource.TestCheckResourceAttr(
 									"neon_project_permission.this",
@@ -80,11 +85,14 @@ resource "neon_project_permission" "this" {
 	t.Run("shall destroy even if the project permission was deleted outside of terraform,", func(t *testing.T) {
 		email := "foo@bar.baz"
 		projectName := newProjectName(projectNamePrefix)
-		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
+		config := fmt.Sprintf(`resource "neon_project" "this" {
+	name   = "%s"
+	org_id = "%s"
+}
 resource "neon_project_permission" "this" {
-	project_id = neon_project.this.id 
+	project_id = neon_project.this.id
 	grantee    = "%s"
-}`, projectName, email)
+}`, projectName, orgID, email)
 		resource.Test(
 			t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
@@ -112,7 +120,10 @@ resource "neon_project_permission" "this" {
 					},
 					// to avoid dangling resources on post-test destroy
 					{
-						Config: fmt.Sprintf(`resource "neon_project" "this" { name = "%s" }`, projectName),
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+	name   = "%s"
+	org_id = "%s"
+}`, projectName, orgID),
 					},
 				},
 			})

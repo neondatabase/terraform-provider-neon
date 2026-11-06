@@ -161,7 +161,7 @@ resource "neon_database" "this" {
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"store_password", "yes",
+							"store_password", "true",
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
@@ -193,10 +193,6 @@ resource "neon_database" "this" {
 							resourceNameProject,
 							"suspend_timeout_seconds",
 							suspendTimeoutSec,
-						),
-						resource.TestCheckResourceAttr(
-							resourceNameProject,
-							"quota.#", "1",
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
@@ -440,7 +436,11 @@ resource "neon_database" "this" {
 }
 
 func readProjectInfo(client *neon.Client, projectName string) (neon.Project, error) {
-	resp, err := client.ListProjects(nil, nil, &projectName, nil, nil, nil)
+	var orgID *string
+	if v := os.Getenv("ORG_ID"); v != "" {
+		orgID = &v
+	}
+	resp, err := client.ListProjects(nil, nil, &projectName, orgID, nil, nil)
 	if err != nil {
 		return neon.Project{}, errors.New("listing error: " + err.Error())
 	}

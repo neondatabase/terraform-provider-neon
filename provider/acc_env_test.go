@@ -34,3 +34,12 @@ func skipBelowTerraform(t *testing.T, minVersion string) {
 		t.Skipf("requires Terraform %s or later, found %s", minVersion, v.TerraformVersion)
 	}
 }
+
+// usePersonalAPIKey points t at NEON_PERSONAL_API_KEY when it is set. Neon refuses organization API keys for
+// managing API keys, members, and project permissions; every other test runs with an organization key.
+func usePersonalAPIKey(t *testing.T) {
+	t.Helper()
+	if key := os.Getenv("NEON_PERSONAL_API_KEY"); key != "" {
+		t.Setenv("NEON_API_KEY", key)
+	}
+}

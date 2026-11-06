@@ -121,6 +121,7 @@ jobs:
       - run: make testacc
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PERSONAL_API_KEY: ${{ secrets.NEON_PERSONAL_API_KEY }}
           ORG_ID: ${{ secrets.ORG_ID }}
           # The integration test organization is on the Scale plan.
           SCALE_PLAN: "1"

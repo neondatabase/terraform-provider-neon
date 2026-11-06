@@ -19,6 +19,7 @@ func TestRecreateOrgAPIKeyIfNotFound(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	orgID := os.Getenv("ORG_ID")
 	if orgID == "" {
@@ -116,6 +117,7 @@ func TestOrgAPIKey(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	orgID := os.Getenv("ORG_ID")
 	if orgID == "" {

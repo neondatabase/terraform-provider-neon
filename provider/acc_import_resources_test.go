@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"slices"
@@ -15,6 +16,7 @@ func TestAccResourcesImport(t *testing.T) {
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
+	usePersonalAPIKey(t)
 
 	var (
 		projectID      string
@@ -44,7 +46,8 @@ func TestAccResourcesImport(t *testing.T) {
 				Name:         pointer(defaultBranchName),
 				RoleName:     pointer(defaultRoleName),
 			},
-			Name: pointer(projectName),
+			Name:  pointer(projectName),
+			OrgID: pointer(os.Getenv("ORG_ID")),
 		}},
 	)
 	if err != nil {
@@ -93,11 +96,14 @@ func TestAccResourcesImport(t *testing.T) {
 	t.Run("shall successfully import the role", func(t *testing.T) {
 		// GIVEN a custom role
 		const customRoleName = "r-bar"
-		_, err := client.CreateProjectBranchRole(projectID, defaultBranchID, neon.RoleCreateRequest{
-			Role: neon.RoleCreateRequestRole{
-				Name: customRoleName,
-			},
-		})
+		err := projectReadiness.Do(context.Background(), func(context.Context) error {
+			_, err := client.CreateProjectBranchRole(projectID, defaultBranchID, neon.RoleCreateRequest{
+				Role: neon.RoleCreateRequestRole{
+					Name: customRoleName,
+				},
+			})
+			return err
+		}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -130,12 +136,15 @@ func TestAccResourcesImport(t *testing.T) {
 	t.Run("shall successfully import the database", func(t *testing.T) {
 		// GIVEN a custom database
 		const customDatabaseName = "db-bar"
-		_, err = client.CreateProjectBranchDatabase(projectID, defaultBranchID, neon.DatabaseCreateRequest{
-			Database: neon.DatabaseCreateRequestDatabase{
-				Name:      customDatabaseName,
-				OwnerName: defaultRoleName,
-			},
-		})
+		err = projectReadiness.Do(context.Background(), func(context.Context) error {
+			_, err := client.CreateProjectBranchDatabase(projectID, defaultBranchID, neon.DatabaseCreateRequest{
+				Database: neon.DatabaseCreateRequestDatabase{
+					Name:      customDatabaseName,
+					OwnerName: defaultRoleName,
+				},
+			})
+			return err
+		}, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

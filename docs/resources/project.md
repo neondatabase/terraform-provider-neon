@@ -163,7 +163,7 @@ All active endpoints will be suspended. See details: https://neon.com/docs/intro
 **Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.
 
 **Warning**: Once enabled, logical replication cannot be disabled.
-- `enabled_libraries` (List of String) Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints.
+- `enabled_libraries` (List of String) Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints. Removing the attribute keeps the current libraries; set it to `[]` to clear them.
 - `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
 - `hipaa` (Boolean) Enable HIPAA compliance for the project.
 Note that HIPAA must be configured for the organization first.

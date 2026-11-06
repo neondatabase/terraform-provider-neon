@@ -70,12 +70,14 @@ resource "neon_jwks_url" "_" {
 						),
 					},
 					{
-						Config:       config,
-						ResourceName: resourceName,
-						ImportState:  true,
-						ExpectError: regexp.MustCompile(
-							"the resource does not support import, please recreate it instead",
-						),
+						Config:            config,
+						ResourceName:      resourceName,
+						ImportState:       true,
+						ImportStateVerify: true,
+						ImportStateIdFunc: func(state *terraform.State) (string, error) {
+							r := state.RootModule().Resources[resourceName]
+							return r.Primary.Attributes["project_id"] + "/" + r.Primary.ID, nil
+						},
 					},
 					// shall yield non-empty plan if the resource is deleted outside terraform
 					// given that JWKs existed prior to deletion

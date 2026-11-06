@@ -740,7 +740,8 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 	branchResource := &neonBranchResource{}
 	branchResource.Schema(ctx, resource.SchemaRequest{}, &branchSchemaResp)
 	projectBranchSchemaAttributes := maps.Clone(branchSchemaResp.Schema.Attributes)
-	for _, name := range []string{"project_id"} {
+	// The project's root branch has no parent, so its parent attributes are read-only.
+	for _, name := range []string{"project_id", "parent_id", "parent_lsn", "parent_timestamp"} {
 		if _, ok := projectBranchSchemaAttributes[name]; ok {
 			projectBranchSchemaAttributes[name] =
 				newReadOnlyResourceAttrFromResourceAttr(projectBranchSchemaAttributes[name])

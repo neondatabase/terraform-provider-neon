@@ -3,7 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -19,6 +21,7 @@ import (
 var _ resource.Resource = (*jwksURLResource)(nil)
 var _ resource.ResourceWithUpgradeState = (*jwksURLResource)(nil)
 var _ resource.ResourceWithConfigure = (*jwksURLResource)(nil)
+var _ resource.ResourceWithImportState = (*jwksURLResource)(nil)
 
 type jwksURLResource struct {
 	client *neon.Client
@@ -46,7 +49,7 @@ func (r *jwksURLResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
 		Version:     1,
-		Description: "Project JWKS URL. See details: https://neon.com/docs/data-api/custom-authentication-providers\n\n~>**WARNING** The resource does not support import.",
+		Description: "Project JWKS URL. See details: https://neon.com/docs/data-api/custom-authentication-providers",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				PlanModifiers: idPlanModifiers(),
@@ -136,13 +139,6 @@ func (r *jwksURLResource) Configure(_ context.Context, req resource.ConfigureReq
 	}
 
 	r.client = client.sdk
-}
-
-func (r *jwksURLResource) ImportState(_ context.Context, _ resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.AddError(
-		"Import Not Supported",
-		"the resource does not support import, please recreate it instead",
-	)
 }
 
 func (r *jwksURLResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -260,15 +256,24 @@ func setJWKSModel(model *jwksURLResourceModel, value neon.JWKS, roleNames []stri
 	model.ProjectID = types.StringValue(value.ProjectID)
 	model.JWKSURL = types.StringValue(value.JwksURL)
 	model.ProviderName = types.StringValue(value.ProviderName)
+	model.RoleNames = value.RoleNames
 	if roleNames != nil {
 		model.RoleNames = roleNames
 	}
-	if value.BranchID != nil {
-		model.BranchID = types.StringValue(*value.BranchID)
+	model.BranchID = types.StringPointerValue(value.BranchID)
+	model.JWTAudience = types.StringPointerValue(value.JwtAudience)
+}
+
+// ImportState imports a JWKS configuration by its <project_id>/<jwks_id> ID.
+func (r *jwksURLResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	projectID, jwksID, ok := strings.Cut(req.ID, "/")
+	if !ok || projectID == "" || jwksID == "" || strings.Contains(jwksID, "/") {
+		resp.Diagnostics.AddError("Invalid JWKS URL Import ID",
+			fmt.Sprintf("Expected an import ID in the form <project_id>/<jwks_id>, got %q.", req.ID))
+		return
 	}
-	if value.JwtAudience != nil {
-		model.JWTAudience = types.StringValue(*value.JwtAudience)
-	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), jwksID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), projectID)...)
 }
 
 // UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.

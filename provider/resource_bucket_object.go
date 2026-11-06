@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -274,7 +273,7 @@ func (r *neonBucketObjectResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	plan.ID = types.StringValue(filepath.Join(projectID, branchID, bucket, plan.Key.ValueString()))
+	plan.ID = types.StringValue(bucketObjectID(projectID, branchID, bucket, plan.Key.ValueString()))
 	plan.ETag = types.StringValue(etag)
 	plan.ContentLength = types.Int64Value(contentLength)
 	plan.ContentType = types.StringValue(contentType)
@@ -355,7 +354,7 @@ func (r *neonBucketObjectResource) Update(ctx context.Context, req resource.Upda
 		}
 	}
 
-	plan.ID = types.StringValue(filepath.Join(projectID, branchID, bucket, plan.Key.ValueString()))
+	plan.ID = types.StringValue(bucketObjectID(projectID, branchID, bucket, plan.Key.ValueString()))
 	plan.ETag = types.StringValue(etag)
 	plan.ContentLength = types.Int64Value(contentLength)
 	plan.ContentType = types.StringValue(contentType)
@@ -514,8 +513,9 @@ func upload(ctx context.Context, sdk *neon.Client, httpClient httpClient, conten
 func readObjectHeaders(ctx context.Context, sdk *neon.Client, projectID string, branchID string, bucket string,
 	key string) (neon.BucketObject, error) {
 	var cursor, prefix *string
-	prefixTmp := filepath.Dir(key)
-	if prefixTmp != "." {
+	// Object keys use "/" as their separator on every OS, and keep repeated or dot segments as is.
+	if i := strings.LastIndex(key, "/"); i > 0 {
+		prefixTmp := key[:i]
 		prefix = &prefixTmp
 	}
 	for {
@@ -560,4 +560,9 @@ func (o objectNotFoundError) Error() string {
 
 func folderObjectKey(key string) string {
 	return strings.TrimSuffix(key, "/") + "/.emptyFolderPlaceholder"
+}
+
+// bucketObjectID is the <project_id>/<branch_id>/<bucket>/<key> state ID; the key keeps its own slashes.
+func bucketObjectID(projectID, branchID, bucket, key string) string {
+	return strings.Join([]string{projectID, branchID, bucket, key}, "/")
 }

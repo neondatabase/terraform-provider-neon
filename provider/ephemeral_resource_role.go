@@ -66,6 +66,7 @@ func (r *neonEphemeralRole) Schema(_ context.Context, _ ephemeral.SchemaRequest,
 			},
 			"password": schema.StringAttribute{
 				Computed:    true,
+				Sensitive:   true,
 				Description: "Database authentication password.",
 			},
 		},

@@ -78,11 +78,13 @@ func (r *neonEphemeralConnectionURI) Schema(_ context.Context, _ ephemeral.Schem
 			},
 			"uri": schema.StringAttribute{
 				Computed:    true,
-				Description: "URI of the direct database connection.",
+				Sensitive:   true,
+				Description: "URI of the direct database connection. It contains the role's password.",
 			},
 			"uri_pooler": schema.StringAttribute{
 				Computed:    true,
-				Description: "URI of the connection from the pool.",
+				Sensitive:   true,
+				Description: "URI of the pooled connection. It contains the role's password.",
 			},
 		},
 	}

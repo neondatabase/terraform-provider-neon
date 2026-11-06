@@ -38,8 +38,8 @@ func (d neonProject) Schema(ctx context.Context, _ datasource.SchemaRequest, res
 	blocksResource := resourceResp.Schema.Blocks
 	resp.Schema = schema.Schema{
 		Description: "Reads a Neon project by ID, including its default branch, primary compute, and settings.",
-		Attributes:          make(map[string]schema.Attribute, len(attsResource)),
-		Blocks:              make(map[string]schema.Block, len(blocksResource)),
+		Attributes:  make(map[string]schema.Attribute, len(attsResource)),
+		Blocks:      make(map[string]schema.Block, len(blocksResource)),
 	}
 	for k, v := range attsResource {
 		converted := newReadOnlyDataSourceAttrFromResourceAttr(v)

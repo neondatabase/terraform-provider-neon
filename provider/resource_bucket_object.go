@@ -402,12 +402,15 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 			"Expected <project_id>/<branch_id>/<bucket>/<key>.")
 		return
 	}
+	// A key ending in "/" names a folder, which resources store without the trailing slash.
+	key, isDirectory := strings.CutSuffix(els[3], "/")
 	state := neonBucketObjectResourceModel{
-		ID:            types.StringValue(req.ID),
+		ID:            types.StringValue(bucketObjectID(els[0], els[1], els[2], key)),
 		ProjectID:     types.StringValue(els[0]),
 		BranchID:      types.StringValue(els[1]),
 		Bucket:        types.StringValue(els[2]),
-		Key:           types.StringValue(els[3]),
+		Key:           types.StringValue(key),
+		IsDirectory:   types.BoolValue(isDirectory),
 		Content:       types.StringNull(),
 		ContentBase64: types.StringNull(),
 		Trigger:       types.StringNull(),
@@ -420,8 +423,7 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
 		return
 	}
-	key := state.Key.ValueString()
-	if state.IsDirectory.ValueBool() {
+	if isDirectory {
 		key = folderObjectKey(key)
 	}
 	meta, err := readObjectHeaders(ctx, r.client.sdk,

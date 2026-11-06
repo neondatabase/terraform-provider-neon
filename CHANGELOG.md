@@ -195,7 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Importing a `neon_bucket_object` whose key contains `%`, `?` or `#` works instead of crashing the provider.
+- Importing a `neon_bucket_object` whose key contains `%`, `?` or `#` works instead of crashing the provider, and the first plan after an import updates the object in place instead of replacing it. An import ID whose key ends in `/` imports a folder.
 - `environment_variables` of `neon_function` rejects empty values, which Neon treats as deleting the variable. After a deployment that Neon accepted but that did not become active, the next plan deploys the configured inputs again, even if the configuration was reverted, and deletes the variables that deployment added.
 - `passwordless_access` of `neon_endpoint` is sent on create. Neon does not support creating or updating an endpoint with it set to `false` yet, and the error now says so instead of the apply failing with an inconsistent result.
 - A `neon_database` rename is recorded in state even if waiting for the operation afterwards fails, so the next refresh does not lose the database.

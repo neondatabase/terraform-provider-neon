@@ -322,27 +322,44 @@ content_type = "text/plain"`),
 			if err != nil {
 				t.Fatal(err)
 			}
+			config := fmt.Sprintf(`resource "neon_bucket_object" "this" {
+  project_id   = %q
+  branch_id    = %q
+  bucket       = "objects"
+  key          = %q
+  content      = "imported"
+  content_type = "text/plain"
+}
+`, projectID, branchID, key)
 			resource.Test(t, resource.TestCase{
 				ProtoV6ProviderFactories: newProviderFactories(),
-				Steps: []resource.TestStep{{
-					Config: fmt.Sprintf(`resource "neon_bucket_object" "this" {
-  project_id = %q
-  branch_id  = %q
-  bucket     = "objects"
-  key        = %q
-}
-`, projectID, branchID, key),
-					ImportState: true, ResourceName: "neon_bucket_object.this",
-					ImportStateId: fmt.Sprintf("%s/%s/objects/%s", projectID, branchID, key),
-					Check: resource.ComposeTestCheckFunc(
-						resource.TestCheckResourceAttr("neon_bucket_object.this", "content_length", "8"),
-						resource.TestCheckResourceAttr("neon_bucket_object.this", "content_type", "text/plain"),
-						resource.TestCheckResourceAttr("neon_bucket_object.this", "is_directory", "false"),
-						resource.TestCheckNoResourceAttr("neon_bucket_object.this", "content"),
-						resource.TestCheckNoResourceAttr("neon_bucket_object.this", "content_base64"),
-						resource.TestCheckNoResourceAttr("neon_bucket_object.this", "source"),
-					),
-				}},
+				Steps: []resource.TestStep{
+					{
+						Config:      config,
+						ImportState: true, ImportStatePersist: true, ResourceName: "neon_bucket_object.this",
+						ImportStateId: fmt.Sprintf("%s/%s/objects/%s", projectID, branchID, key),
+						ImportStateCheck: func(states []*terraform.InstanceState) error {
+							if len(states) != 1 {
+								return fmt.Errorf("imported %d resources, want 1", len(states))
+							}
+							for attr, want := range map[string]string{
+								"key": key, "content_length": "8", "is_directory": "false",
+							} {
+								if got := states[0].Attributes[attr]; got != want {
+									return fmt.Errorf("%s = %q, want %q", attr, got, want)
+								}
+							}
+							return nil
+						},
+					},
+					{
+						// Neon cannot return an object's content or content type, so the first plan after an
+						// import uploads the configured content in place.
+						Config:             config,
+						PlanOnly:           true,
+						ExpectNonEmptyPlan: true,
+					},
+				},
 			})
 		})
 	}

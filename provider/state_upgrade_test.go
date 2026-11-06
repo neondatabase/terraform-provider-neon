@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -137,5 +138,65 @@ func TestProjectComputeProvisionerKeepsStateWhenOmitted(t *testing.T) {
 	}
 	if resp.PlanValue.ValueString() != "k8s-pod" || resp.RequiresReplace {
 		t.Errorf("plan = %s, requires replace = %t; want k8s-pod kept without replacement", resp.PlanValue, resp.RequiresReplace)
+	}
+}
+
+// A failed rollout cannot be produced against the live API on demand, so the plan is checked through the protocol.
+func TestFunctionPlanRedeploysPendingUpload(t *testing.T) {
+	ctx := context.Background()
+	server := NewServer("test")
+	schemaResp, err := server.GetProviderSchema(ctx, &tfprotov6.GetProviderSchemaRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	typ := schemaResp.ResourceSchemas["neon_function"].ValueType()
+	value := func(computed string) *tfprotov6.DynamicValue {
+		return &tfprotov6.DynamicValue{JSON: []byte(`{"project_id": "p", "branch_id": "br", "slug": "hello",
+			"runtime": "nodejs24", "name": "hello", "zip_file_path": "/tmp/function.zip", "source_code_hash": null,
+			"environment_variables": {"FOO": "1"}, ` + computed + `}`)}
+	}
+	prior := value(`"id": "p/br/hello", "created_at": "2026-11-06T00:00:00Z", "invocation_url": "https://hello.test",
+		"current_deployment_id": 7, "environment_variable_names": ["FOO"]`)
+	config := value(`"id": null, "created_at": null, "invocation_url": null, "current_deployment_id": null,
+		"environment_variable_names": null`)
+	pending, err := json.Marshal(map[string][]byte{pendingUploadPrivateKey: []byte(`["BAR"]`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range []struct {
+		name         string
+		private      []byte
+		wantRedeploy bool
+	}{
+		{name: "no pending upload", private: nil, wantRedeploy: false},
+		{name: "pending upload", private: pending, wantRedeploy: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := server.PlanResourceChange(ctx, &tfprotov6.PlanResourceChangeRequest{
+				TypeName:         "neon_function",
+				PriorState:       prior,
+				ProposedNewState: prior,
+				Config:           config,
+				PriorPrivate:     tc.private,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, d := range resp.Diagnostics {
+				t.Fatalf("%s: %s", d.Summary, d.Detail)
+			}
+			planned, err := resp.PlannedState.Unmarshal(typ)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var attrs map[string]tftypes.Value
+			if err := planned.As(&attrs); err != nil {
+				t.Fatal(err)
+			}
+			if redeploy := !attrs["current_deployment_id"].IsKnown(); redeploy != tc.wantRedeploy {
+				t.Errorf("plan redeploys = %t, want %t", redeploy, tc.wantRedeploy)
+			}
+		})
 	}
 }

@@ -314,36 +314,38 @@ content_type = "text/plain"`),
 		})
 	})
 
-	t.Run("imports an object", func(t *testing.T) {
-		projectName := newProjectName(projectNamePrefix)
-		projectID, branchID, err := createBucketObjectFixture(t, client, projectName, "import me.txt",
-			[]byte("imported"), "text/plain")
-		if err != nil {
-			t.Fatal(err)
-		}
-		resource.Test(t, resource.TestCase{
-			ProtoV6ProviderFactories: newProviderFactories(),
-			Steps: []resource.TestStep{{
-				Config: fmt.Sprintf(`resource "neon_bucket_object" "this" {
+	for _, key := range []string{"import me.txt", "reports/100% done?.txt"} {
+		t.Run("imports an object named "+key, func(t *testing.T) {
+			projectName := newProjectName(projectNamePrefix)
+			projectID, branchID, err := createBucketObjectFixture(t, client, projectName, key,
+				[]byte("imported"), "text/plain")
+			if err != nil {
+				t.Fatal(err)
+			}
+			resource.Test(t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{{
+					Config: fmt.Sprintf(`resource "neon_bucket_object" "this" {
   project_id = %q
   branch_id  = %q
   bucket     = "objects"
-  key        = "import me.txt"
+  key        = %q
 }
-`, projectID, branchID),
-				ImportState: true, ResourceName: "neon_bucket_object.this",
-				ImportStateId: fmt.Sprintf("%s/%s/objects/import me.txt", projectID, branchID),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("neon_bucket_object.this", "content_length", "8"),
-					resource.TestCheckResourceAttr("neon_bucket_object.this", "content_type", "text/plain"),
-					resource.TestCheckResourceAttr("neon_bucket_object.this", "is_directory", "false"),
-					resource.TestCheckNoResourceAttr("neon_bucket_object.this", "content"),
-					resource.TestCheckNoResourceAttr("neon_bucket_object.this", "content_base64"),
-					resource.TestCheckNoResourceAttr("neon_bucket_object.this", "source"),
-				),
-			}},
+`, projectID, branchID, key),
+					ImportState: true, ResourceName: "neon_bucket_object.this",
+					ImportStateId: fmt.Sprintf("%s/%s/objects/%s", projectID, branchID, key),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_bucket_object.this", "content_length", "8"),
+						resource.TestCheckResourceAttr("neon_bucket_object.this", "content_type", "text/plain"),
+						resource.TestCheckResourceAttr("neon_bucket_object.this", "is_directory", "false"),
+						resource.TestCheckNoResourceAttr("neon_bucket_object.this", "content"),
+						resource.TestCheckNoResourceAttr("neon_bucket_object.this", "content_base64"),
+						resource.TestCheckNoResourceAttr("neon_bucket_object.this", "source"),
+					),
+				}},
+			})
 		})
-	})
+	}
 
 	t.Run("creates an empty string object from content", func(t *testing.T) {
 		resource.Test(t, resource.TestCase{

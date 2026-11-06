@@ -440,7 +440,7 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 		presignResp, err = r.client.sdk.PresignProjectBranchBucketObject(state.ProjectID.ValueString(),
 			state.BranchID.ValueString(),
 			state.Bucket.ValueString(),
-			key, neon.PresignRequest{Operation: neon.PresignRequestOperationDownload},
+			url.PathEscape(key), neon.PresignRequest{Operation: neon.PresignRequestOperationDownload},
 		)
 		return err
 	}, nil)...)

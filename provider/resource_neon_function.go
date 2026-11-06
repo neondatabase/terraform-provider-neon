@@ -190,14 +190,20 @@ func (r *neonFunctionResource) ModifyPlan(ctx context.Context, req resource.Modi
 	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
 		return
 	}
+	_, pending, diags := pendingUpload(ctx, req.Private)
+	resp.Diagnostics.Append(diags...)
 	var planEnv, stateEnv types.Map
 	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("environment_variables"), &planEnv)...)
 	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("environment_variables"), &stateEnv)...)
-	if resp.Diagnostics.HasError() || planEnv.Equal(stateEnv) {
+	if resp.Diagnostics.HasError() || (!pending && planEnv.Equal(stateEnv)) {
 		return
 	}
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("environment_variable_names"),
 		types.ListUnknown(types.StringType))...)
+	if pending {
+		// An upload whose rollout failed may still go live, so the configured inputs are deployed again.
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("current_deployment_id"), types.Int64Unknown())...)
+	}
 }
 
 func (r *neonFunctionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -493,13 +499,13 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	if !plan.ZipFilePath.Equal(state.ZipFilePath) || !plan.SourceCodeHash.Equal(state.SourceCodeHash) ||
+	uploadedKeys, pending, diags := pendingUpload(ctx, req.Private)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if pending || !plan.ZipFilePath.Equal(state.ZipFilePath) || !plan.SourceCodeHash.Equal(state.SourceCodeHash) ||
 		!plan.Runtime.Equal(state.Runtime) || !maps.Equal(plan.EnvironmentVariables, state.EnvironmentVariables) {
-		uploadedKeys, diags := uploadedEnvironmentKeys(ctx, req.Private)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
 		// Neon carries variables over from the previous deployment unless they are sent empty.
 		env := maps.Clone(plan.EnvironmentVariables)
 		for _, key := range append(slices.Collect(maps.Keys(state.EnvironmentVariables)), uploadedKeys...) {
@@ -513,16 +519,15 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 		uploaded, diags := r.deploy(ctx, plan, env)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
-			// State keeps the previous inputs so the next apply deploys again. An accepted upload may still go live,
-			// so its keys are remembered for that deploy to delete if they are gone from the configuration by then.
+			// An accepted upload may still go live, so the next apply deploys the configured inputs again and
+			// deletes the variables it uploaded that the configuration no longer has.
 			if uploaded {
-				keys := slices.Sorted(maps.Keys(plan.EnvironmentVariables))
-				resp.Diagnostics.Append(setUploadedEnvironmentKeys(ctx, resp.Private,
-					slices.Compact(slices.Sorted(slices.Values(append(keys, uploadedKeys...)))))...)
+				keys := append(slices.Collect(maps.Keys(plan.EnvironmentVariables)), uploadedKeys...)
+				resp.Diagnostics.Append(setPendingUpload(ctx, resp.Private, slices.Compact(slices.Sorted(slices.Values(keys))))...)
 			}
 			return
 		}
-		resp.Diagnostics.Append(setUploadedEnvironmentKeys(ctx, resp.Private, nil)...)
+		resp.Diagnostics.Append(clearPendingUpload(ctx, resp.Private)...)
 		// The active deployment now runs these inputs; state must say so even if the rename or read below fails.
 		deployed := state
 		deployed.ZipFilePath = plan.ZipFilePath
@@ -627,28 +632,28 @@ func neonFunctionID(projectID, branchID, slug string) string {
 	return fmt.Sprintf("%s/%s/%s", projectID, branchID, slug)
 }
 
-const uploadedEnvironmentKeysPrivateKey = "uploaded_environment_variable_names"
+// pendingUploadPrivateKey holds the variable names of an accepted upload whose rollout failed.
+const pendingUploadPrivateKey = "pending_upload_environment_variable_names"
 
 type privateState interface {
 	GetKey(ctx context.Context, key string) ([]byte, diag.Diagnostics)
 	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
 }
 
-func uploadedEnvironmentKeys(ctx context.Context, private privateState) ([]string, diag.Diagnostics) {
-	raw, diags := private.GetKey(ctx, uploadedEnvironmentKeysPrivateKey)
+func pendingUpload(ctx context.Context, private privateState) (keys []string, pending bool, diags diag.Diagnostics) {
+	raw, diags := private.GetKey(ctx, pendingUploadPrivateKey)
 	if diags.HasError() || len(raw) == 0 {
-		return nil, diags
+		return nil, false, diags
 	}
-	var keys []string
 	if err := json.Unmarshal(raw, &keys); err != nil {
-		diags.AddError("Unreadable private state", fmt.Sprintf("Decode %s: %s", uploadedEnvironmentKeysPrivateKey, err))
+		diags.AddError("Unreadable private state", fmt.Sprintf("Decode %s: %s", pendingUploadPrivateKey, err))
 	}
-	return keys, diags
+	return keys, true, diags
 }
 
-func setUploadedEnvironmentKeys(ctx context.Context, private privateState, keys []string) diag.Diagnostics {
-	if len(keys) == 0 {
-		return private.SetKey(ctx, uploadedEnvironmentKeysPrivateKey, nil)
+func setPendingUpload(ctx context.Context, private privateState, keys []string) diag.Diagnostics {
+	if keys == nil {
+		keys = []string{}
 	}
 	raw, err := json.Marshal(keys)
 	if err != nil {
@@ -656,7 +661,11 @@ func setUploadedEnvironmentKeys(ctx context.Context, private privateState, keys 
 		diags.AddError("Unwritable private state", err.Error())
 		return diags
 	}
-	return private.SetKey(ctx, uploadedEnvironmentKeysPrivateKey, raw)
+	return private.SetKey(ctx, pendingUploadPrivateKey, raw)
+}
+
+func clearPendingUpload(ctx context.Context, private privateState) diag.Diagnostics {
+	return private.SetKey(ctx, pendingUploadPrivateKey, nil)
 }
 
 func (r *neonFunctionResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest,

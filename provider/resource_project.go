@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int32planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -688,17 +689,20 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			},
 		},
 		"enabled_libraries": schema.ListAttribute{
-			Description: "Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints.",
+			Description: "Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints. Removing the attribute keeps the current libraries; set it to `[]` to clear them.",
 			Optional:    true,
 			Computed:    true,
 			ElementType: types.StringType,
+			PlanModifiers: []planmodifier.List{
+				listplanmodifier.UseStateForUnknown(),
+			},
 		},
 		"enabled_libraries_use_defaults": schema.BoolAttribute{
 			Description: "When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.",
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setFalseIfUnknown,
+				boolplanmodifier.UseStateForUnknown(),
 			},
 		},
 		"default_branch_id": schema.StringAttribute{
@@ -1348,9 +1352,7 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	updateEnabledLibraries := false
 	switch {
 	case priorHasEnabledLibraries:
-		updateEnabledLibraries = plan.EnabledLibraries.IsUnknown() ||
-			config.EnabledLibraries.IsNull() || config.EnabledLibraries.IsUnknown() ||
-			!plan.EnabledLibraries.Equal(prior.EnabledLibraries)
+		updateEnabledLibraries = !plan.EnabledLibraries.IsUnknown() && !plan.EnabledLibraries.Equal(prior.EnabledLibraries)
 	case planHasEnabledLibraries:
 		updateEnabledLibraries = true
 	}
@@ -1462,6 +1464,12 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	readState := req.State
 	if !plan.AllowedIPs.IsUnknown() {
 		resp.Diagnostics.Append(readState.SetAttribute(ctx, path.Root("allowed_ips"), plan.AllowedIPs)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if !plan.EnabledLibraries.IsUnknown() {
+		resp.Diagnostics.Append(readState.SetAttribute(ctx, path.Root("enabled_libraries"), plan.EnabledLibraries)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}

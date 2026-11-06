@@ -1747,6 +1747,46 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 		)
 	})
 
+	t.Run("shall set an empty project-level library list on a project created without one", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)},
+				{
+					Config: fmt.Sprintf(`resource "neon_project" "this" {
+  name              = %q
+  enabled_libraries = []
+}`, projectName),
+					Check: resource.TestCheckResourceAttr("neon_project.this", "enabled_libraries.#", "0"),
+				},
+			},
+		})
+	})
+
+	t.Run("shall keep project-level libraries through an unrelated update", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: fmt.Sprintf(`resource "neon_project" "this" {
+  name              = %q
+  enabled_libraries = ["uuid-ossp"]
+}`, projectName),
+				},
+				{
+					// The libraries are no longer in the configuration, as after an import or a migration.
+					Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName+"-renamed"),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_project.this", "enabled_libraries.#", "1"),
+						resource.TestCheckResourceAttr("neon_project.this", "enabled_libraries.0", "uuid-ossp"),
+					),
+				},
+			},
+		})
+	})
+
 	t.Run("shall set an empty list of libraries on a project created without one", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(t, resource.TestCase{

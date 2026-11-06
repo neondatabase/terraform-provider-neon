@@ -399,8 +399,6 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 	// The rest stays on the configuration, where unset computed attributes are
 	// null rather than unknown, so they are left out of the request.
 	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("type"), &state.Type)...)
-	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("compute_provisioner"),
-		&state.ComputeProvisioner)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -412,12 +410,17 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	cfg := neon.EndpointCreateRequestEndpoint{
-		BranchID:    state.BranchID.ValueString(),
-		Type:        endpointType,
-		RegionID:    state.RegionID.ValueStringPointer(),
-		Disabled:    state.Disabled.ValueBoolPointer(),
-		Provisioner: pointer(neon.Provisioner(state.ComputeProvisioner.ValueString())),
-		Name:        state.Name.ValueStringPointer(),
+		BranchID: state.BranchID.ValueString(),
+		Type:     endpointType,
+		RegionID: state.RegionID.ValueStringPointer(),
+		Disabled: state.Disabled.ValueBoolPointer(),
+		Name:     state.Name.ValueStringPointer(),
+	}
+	if !state.ComputeProvisioner.IsNull() && !state.ComputeProvisioner.IsUnknown() {
+		cfg.Provisioner = pointer(neon.Provisioner(state.ComputeProvisioner.ValueString()))
+	}
+	if !state.PasswordlessAccess.IsNull() && !state.PasswordlessAccess.IsUnknown() {
+		cfg.PasswordlessAccess = state.PasswordlessAccess.ValueBoolPointer()
 	}
 
 	if !state.AutoscalingLimitMinCU.IsNull() && !state.AutoscalingLimitMinCU.IsUnknown() {

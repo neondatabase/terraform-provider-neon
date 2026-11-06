@@ -161,7 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[BREAKING]** `protected` of the resource `neon_branch` takes `true` or `false` instead of `"yes"` or `"no"`.
 - **[BREAKING]** Renamed the attribute `host_pooling` of the resource `neon_endpoint` to `host_pooler`.
 - Changing `type` of the resource `neon_endpoint` replaces the endpoint.
-- Removing `enabled_libraries`, `enabled_libraries_use_defaults` or `suspend_timeout_seconds` from a `neon_endpoint` or `neon_project.primary_compute` configuration keeps the current value. Set `enabled_libraries = []` to clear the libraries.
+- Removing `enabled_libraries`, `enabled_libraries_use_defaults` or `suspend_timeout_seconds` from a `neon_project`, `neon_project.primary_compute` or `neon_endpoint` configuration keeps the current value, including when another attribute changes. Set `enabled_libraries = []` to clear the libraries.
 - **[BREAKING]** `branch_id` and `jwt_audience` of the resource `neon_jwks_url` reject empty strings. Omit them instead.
 - Neon API errors name the cause in the summary (rejected API key, missing resource, rejected request, rate limit,
   API outage) and end with the next step to take.
@@ -195,6 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `passwordless_access` of `neon_endpoint` is sent on create. Neon does not support creating or updating an endpoint with it set to `false` yet, and the error now says so instead of the apply failing with an inconsistent result.
 - A `neon_database` rename is recorded in state even if waiting for the operation afterwards fails, so the next refresh does not lose the database.
 - `neon_org_member_role` is removed from state when the member left the organization outside Terraform, instead of failing the refresh.
 - A `neon_function` update whose deployment became active records the deployed inputs even if the rename or the read after it fails, so a later change still reaches Neon.

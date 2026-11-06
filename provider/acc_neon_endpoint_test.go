@@ -481,6 +481,17 @@ func TestEndpoint(t *testing.T) {
 		})
 	})
 
+	t.Run("shall report that Neon cannot create an endpoint without passwordless access", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{{
+				Config:      endpointConfig(projectName, `passwordless_access = false`),
+				ExpectError: regexp.MustCompile(`(?s)passwordless\s+access\s+disabled\s+is\s+currently\s+not\s+supported`),
+			}},
+		})
+	})
+
 	t.Run("shall create w/ custom autoscaling and suspend timeout", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(t, resource.TestCase{

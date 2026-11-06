@@ -364,18 +364,21 @@ func (r *neonServiceCredentialResource) Read(ctx context.Context, req resource.R
 	}
 
 	if revealNotFound {
-		resp.Diagnostics.AddWarning(
-			"Credential Secret Not Found",
-			"This credential was not found. Rotate it outside Terraform to obtain new secret material.",
-		)
-		if !state.IsExpired.ValueBool() {
+		if state.IsExpired.ValueBool() {
 			resp.Diagnostics.AddWarning(
-				"Credential Secret Expired",
-				"This credential has expired, it's being removed from the state.",
+				"Credential Expired",
+				fmt.Sprintf("Service credential %s has expired. It is removed from the state, and the next apply creates a new one.",
+					state.TokenID.ValueString()),
 			)
 			resp.State.RemoveResource(ctx)
 			return
 		}
+		resp.Diagnostics.AddWarning(
+			"Credential Secret Not Found",
+			fmt.Sprintf("Neon no longer returns the secret of service credential %s. "+
+				"Replace the resource, for example with terraform apply -replace, to get new secret material.",
+				state.TokenID.ValueString()),
+		)
 		state.APIToken = types.StringNull()
 		state.S3SecretAccessKey = types.StringNull()
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

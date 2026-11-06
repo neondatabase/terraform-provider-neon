@@ -193,6 +193,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `compute_provisioner` of `neon_project` has no default. A configuration that omits it keeps the provisioner in state, so projects created with `k8s-pod` are not replaced.
+- `neon_trigger` accepts `cron` and `bucket_name` values that are unknown at plan time, and checks them against `type` on create as well as on update.
+- `environment_variables` of `neon_function` accepts values that are unknown at plan time.
 - A resource whose create call succeeded but whose follow-up operation failed is kept in state and marked tainted, so Terraform can replace or destroy it. This covers `neon_project`, `neon_branch`, `neon_endpoint`, `neon_role`, `neon_database`, `neon_jwks_url` and `neon_function`.
 - Changing `parent_id`, `parent_lsn` or `parent_timestamp` of `neon_branch` to a value that is unknown at plan time, for example the ID of a replaced parent branch, plans a replacement instead of failing during apply. Setting `parent_lsn` and `parent_timestamp` together is rejected at plan time, including on create.
 - An organization API key used for an operation that requires a personal API key no longer removes the resource from state as if it were deleted. The error says to use a personal API key.

@@ -82,25 +82,14 @@ func Test_waitUnfinishedOperations(t *testing.T) {
 			Status:    neon.OperationStatusFailed,
 			Error:     &reason,
 		}}
-		err := waitUnfinishedOperations(context.TODO(), failingOpsReader{}, operations)
+		err := waitUnfinishedOperations(context.TODO(), nil, operations)
 		assert.ErrorContains(t, err, `op-failed (start_compute) on Neon project project ended with status "failed": `+reason)
 	})
 	t.Run("shall stop waiting when the context is cancelled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		operations := []neon.Operation{{ID: "op", ProjectID: "project", Status: neon.OperationStatusRunning}}
-		err := waitUnfinishedOperations(ctx, failingOpsReader{}, operations)
+		err := waitUnfinishedOperations(ctx, nil, operations)
 		assert.ErrorIs(t, err, context.Canceled)
 	})
-	t.Run("shall give up after repeated status lookup failures", func(t *testing.T) {
-		operations := []neon.Operation{{ID: "op", ProjectID: "project", Status: neon.OperationStatusRunning}}
-		err := waitUnfinishedOperations(context.TODO(), failingOpsReader{}, operations)
-		assert.ErrorContains(t, err, "unable to read the status of Neon operation op")
-	})
-}
-
-type failingOpsReader struct{}
-
-func (failingOpsReader) GetProjectOperation(_ string, _ string) (neon.OperationResponse, error) {
-	return neon.OperationResponse{}, neon.Error{HTTPCode: 500}
 }

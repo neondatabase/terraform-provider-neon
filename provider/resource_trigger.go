@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	_ resource.ResourceWithConfigure   = (*neonTriggerResource)(nil)
-	_ resource.ResourceWithImportState = (*neonTriggerResource)(nil)
+	_ resource.ResourceWithConfigure      = (*neonTriggerResource)(nil)
+	_ resource.ResourceWithImportState    = (*neonTriggerResource)(nil)
+	_ resource.ResourceWithValidateConfig = (*neonTriggerResource)(nil)
 )
 
 type neonTriggerResource struct {
@@ -123,24 +124,21 @@ func (r *neonTriggerResource) Schema(_ context.Context, _ resource.SchemaRequest
 	}
 }
 
-func (r *neonTriggerResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
-		return
-	}
-
-	var planned neonTriggerResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &planned)...)
+func (r *neonTriggerResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest,
+	resp *resource.ValidateConfigResponse) {
+	var config neonTriggerResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	typ := planned.Type.ValueString()
-	scheduleSet := !planned.Cron.IsNull() && !planned.Cron.IsUnknown()
-	storageSet := !planned.BucketName.IsNull() && !planned.BucketName.IsUnknown()
+	// Unknown values are checked again once they resolve.
+	scheduleSet := !config.Cron.IsNull() && !config.Cron.IsUnknown()
+	storageSet := !config.BucketName.IsNull() && !config.BucketName.IsUnknown()
 
-	switch typ {
+	switch config.Type.ValueString() {
 	case "schedule":
-		if !scheduleSet {
+		if config.Cron.IsNull() {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("cron"),
 				"Missing required attribute",
@@ -155,7 +153,7 @@ func (r *neonTriggerResource) ModifyPlan(ctx context.Context, req resource.Modif
 			)
 		}
 	case "storage_object_created":
-		if !storageSet {
+		if config.BucketName.IsNull() {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("bucket_name"),
 				"Missing required attribute",

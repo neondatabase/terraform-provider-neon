@@ -4,6 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
@@ -101,4 +107,35 @@ func TestUpgradeResourceState_v018(t *testing.T) {
 			}
 		}
 	})
+}
+
+// Neon no longer provisions k8s-pod, so only projects created by earlier versions carry it in state.
+func TestProjectComputeProvisionerKeepsStateWhenOmitted(t *testing.T) {
+	var schemaResp resource.SchemaResponse
+	neonProjectResource{}.Schema(context.Background(), resource.SchemaRequest{}, &schemaResp)
+	attr, ok := schemaResp.Schema.Attributes["compute_provisioner"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("compute_provisioner is not a string attribute")
+	}
+	if attr.Default != nil {
+		t.Fatal("a default would replace every project whose state holds another provisioner")
+	}
+
+	raw := tftypes.NewValue(tftypes.Object{}, map[string]tftypes.Value{})
+	req := planmodifier.StringRequest{
+		Path:        path.Root("compute_provisioner"),
+		ConfigValue: types.StringNull(),
+		StateValue:  types.StringValue("k8s-pod"),
+		PlanValue:   types.StringUnknown(),
+		Plan:        tfsdk.Plan{Raw: raw},
+		State:       tfsdk.State{Raw: raw},
+	}
+	resp := planmodifier.StringResponse{PlanValue: req.PlanValue}
+	for _, modifier := range attr.PlanModifiers {
+		req.PlanValue = resp.PlanValue
+		modifier.PlanModifyString(context.Background(), req, &resp)
+	}
+	if resp.PlanValue.ValueString() != "k8s-pod" || resp.RequiresReplace {
+		t.Errorf("plan = %s, requires replace = %t; want k8s-pod kept without replacement", resp.PlanValue, resp.RequiresReplace)
+	}
 }

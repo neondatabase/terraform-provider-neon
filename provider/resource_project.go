@@ -20,7 +20,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -669,12 +668,15 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			},
 		},
 		"compute_provisioner": schema.StringAttribute{
-			Description:   "Project-wide compute provisioner. `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.",
-			Optional:      true,
-			Computed:      true,
-			Default:       stringdefault.StaticString("k8s-neonvm"),
-			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			Validators:    []validator.String{validateComputeProvisioner},
+			Description: "Project-wide compute provisioner. `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.",
+			Optional:    true,
+			Computed:    true,
+			// No default: an omitted value must keep the provisioner in state, or migrated k8s-pod projects are replaced.
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
+			},
+			Validators: []validator.String{validateComputeProvisioner},
 		},
 		"hipaa": schema.BoolAttribute{
 			Description: "Enable HIPAA compliance for the project.\nNote that HIPAA must be configured for the organization first.\n\n**Warning**: Once enabled, HIPAA cannot be disabled.",

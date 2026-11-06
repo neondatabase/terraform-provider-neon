@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -43,6 +44,21 @@ func TestTriggerConfigPlan(t *testing.T) {
 			})
 		})
 	}
+
+	t.Run("schedule without cron", func(t *testing.T) {
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: strings.Replace(triggerScheduleConfig("test-project", "test-org", "sched", "myfn", "x"),
+						`  cron           = "x"
+`, "", 1),
+					PlanOnly:    true,
+					ExpectError: regexp.MustCompile("When type is `schedule`, `cron` is required"),
+				},
+			},
+		})
+	})
 }
 
 func TestAccNeonTrigger(t *testing.T) {
@@ -128,6 +144,24 @@ func TestAccNeonTrigger(t *testing.T) {
 						triggerID = rs.Primary.Attributes["trigger_id"]
 						return nil
 					},
+				},
+				{
+					// cron is unknown at plan time until terraform_data.cron exists.
+					Config: strings.Replace(triggerScheduleConfig(projectName, orgID, name, "myfn", "cron"),
+						`cron           = "cron"`, `cron           = terraform_data.cron.output`, 1) + `
+resource "terraform_data" "cron" {
+  input = "*/15 * * * *"
+}
+`,
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_trigger.this", "cron", "*/15 * * * *"),
+						func(state *terraform.State) error {
+							if state.RootModule().Resources["neon_trigger.this"].Primary.Attributes["trigger_id"] != triggerID {
+								return fmt.Errorf("cron change replaced the trigger")
+							}
+							return nil
+						},
+					),
 				},
 				{
 					ResourceName:      "neon_trigger.this",

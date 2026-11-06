@@ -370,24 +370,28 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	// Once Neon accepts the upload, the function exists even if its build, rollout, or the reads below fail, so
+	// state must record it for Terraform to replace or destroy it. Before that, the slug may belong to a function
+	// this resource never deployed.
 	uploaded, diags := r.deploy(ctx, plan, plan.EnvironmentVariables)
 	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		// After an accepted upload, a failed build or rollout still leaves the function in Neon. Track it so Terraform
-		// can replace or destroy it. Before that, the slug may belong to a function this resource never deployed.
-		if !uploaded {
-			return
-		}
-		if fn, diags := r.getFunction(ctx, plan); !diags.HasError() {
-			setNeonFunctionModel(&plan, fn)
-			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
-		}
+	if !uploaded {
 		return
 	}
 
 	fn, diags := r.getFunction(ctx, plan)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		plan.ID = types.StringValue(neonFunctionID(plan.ProjectID.ValueString(), plan.BranchID.ValueString(),
+			plan.Slug.ValueString()))
+		if plan.Name.IsUnknown() {
+			plan.Name = types.StringNull()
+		}
+		plan.CreatedAt = types.StringNull()
+		plan.InvocationURL = types.StringNull()
+		plan.CurrentDeploymentID = types.Int64Null()
+		plan.EnvironmentVariableNames = types.ListNull(types.StringType)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 		return
 	}
 

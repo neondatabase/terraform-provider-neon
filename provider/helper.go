@@ -490,8 +490,44 @@ func newDiagnostics(err error) diag.Diagnostics {
 	}
 
 	var diags diag.Diagnostics
-	diags.AddError("Neon API request failed", err.Error())
+	var apiErr neon.Error
+	if !errors.As(err, &apiErr) {
+		diags.AddError("Neon API request failed", err.Error())
+		return diags
+	}
+	summary, hint := describeAPIError(apiErr.HTTPCode)
+	detail := err.Error()
+	if hint != "" {
+		detail += "\n\n" + hint
+	}
+	diags.AddError(summary, detail)
 	return diags
+}
+
+// describeAPIError returns a summary and an actionable hint for a Neon API status code.
+func describeAPIError(code int) (summary, hint string) {
+	switch {
+	case code == http.StatusUnauthorized:
+		return "Neon API key rejected",
+			"Check the provider's api_key argument or the NEON_API_KEY environment variable. The key may have been revoked."
+	case code == http.StatusForbidden:
+		return "Neon API key not allowed",
+			"The API key has no access to this resource. Use a key from the organization that owns it, " +
+				"or a personal API key for operations that require one."
+	case code == http.StatusNotFound:
+		return "Neon resource not found",
+			"Check the IDs in the configuration. The resource may have been deleted outside Terraform, " +
+				"or the API key cannot access it."
+	case code == http.StatusBadRequest, code == http.StatusConflict, code == http.StatusUnprocessableEntity:
+		return "Neon rejected the request", "Change the configuration as the message above describes, then run Terraform again."
+	case code == http.StatusTooManyRequests:
+		return "Neon API rate limit reached", "Requests were retried and kept hitting the rate limit. Wait, then run Terraform again."
+	case code >= http.StatusInternalServerError:
+		return "Neon API unavailable",
+			"Requests were retried without success. Try again later, and include the request ID when contacting Neon support."
+	default:
+		return "Neon API request failed", ""
+	}
 }
 
 // isNotFoundError reports whether the Neon API answered with 404 Not Found.

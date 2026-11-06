@@ -159,8 +159,9 @@ func TestBucketDataSourceReadNotFound(t *testing.T) {
 		resp)
 
 	require.Equal(t, 1, resp.Diagnostics.ErrorsCount())
-	require.Equal(t, "Neon API request failed", resp.Diagnostics[0].Summary())
-	require.Equal(t, "[HTTP Code: 404][Error Code: STORAGE_NOT_ENABLED] not found", resp.Diagnostics[0].Detail())
+	require.Equal(t, "Neon resource not found", resp.Diagnostics[0].Summary())
+	require.True(t, strings.HasPrefix(resp.Diagnostics[0].Detail(),
+		"[HTTP Code: 404][Error Code: STORAGE_NOT_ENABLED] not found"), resp.Diagnostics[0].Detail())
 }
 
 func TestBucketDataSourceReadAPIError(t *testing.T) {
@@ -181,7 +182,8 @@ func TestBucketDataSourceReadAPIError(t *testing.T) {
 		combined += diag.Summary() + ": " + diag.Detail() + "\n"
 	}
 	require.Contains(t, combined, "INVALID_INPUT")
-	require.Equal(t, "[HTTP Code: 400][Error Code: INVALID_INPUT] upstream rejected request", resp.Diagnostics[0].Detail())
+	require.True(t, strings.HasPrefix(resp.Diagnostics[0].Detail(),
+		"[HTTP Code: 400][Error Code: INVALID_INPUT] upstream rejected request"), resp.Diagnostics[0].Detail())
 }
 
 func TestBucketDataSourceReadWithoutConfigure(t *testing.T) {

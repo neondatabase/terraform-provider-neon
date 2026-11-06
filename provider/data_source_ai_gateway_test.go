@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -136,8 +137,9 @@ func TestAIGatewayDataSourceReadErrors(t *testing.T) {
 				datasource.ReadRequest{Config: aiGatewayReadConfig(t, "cool-moon-42", tt.branchID)}, resp)
 
 			require.Equal(t, 1, resp.Diagnostics.ErrorsCount())
-			require.Equal(t, "Neon API request failed", resp.Diagnostics[0].Summary())
-			require.Equal(t, tt.wantDetail, resp.Diagnostics[0].Detail())
+			wantSummary, _ := describeAPIError(tt.status)
+			require.Equal(t, wantSummary, resp.Diagnostics[0].Summary())
+			require.True(t, strings.HasPrefix(resp.Diagnostics[0].Detail(), tt.wantDetail), resp.Diagnostics[0].Detail())
 			require.True(t, resp.State.Raw.IsNull(), "failed reads must not populate state")
 		})
 	}

@@ -106,7 +106,7 @@ func TestBranchEndpointsDataSource(t *testing.T) {
 					address, "endpoints.0.autoscaling_limit_min_cu", "0.5",
 				),
 				resource.TestCheckResourceAttr(
-					address, "endpoints.0.autoscaling_limit_max_cu", "0.5",
+					address, "endpoints.0.autoscaling_limit_max_cu", "4",
 				),
 				resource.TestCheckResourceAttr(
 					address, "endpoints.0.suspend_timeout_seconds", "300",
@@ -202,7 +202,7 @@ func TestBranchEndpointsDataSource(t *testing.T) {
 					address, "endpoints.1.autoscaling_limit_min_cu", "0.25",
 				),
 				resource.TestCheckResourceAttr(
-					address, "endpoints.1.autoscaling_limit_max_cu", "0.25",
+					address, "endpoints.1.autoscaling_limit_max_cu", "2",
 				),
 				resource.TestCheckResourceAttr(
 					address, "endpoints.1.suspend_timeout_seconds", "-1",

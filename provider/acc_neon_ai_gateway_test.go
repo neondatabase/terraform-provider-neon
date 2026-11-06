@@ -73,7 +73,7 @@ func TestAIGatewayDataSource(t *testing.T) {
 			},
 			{
 				Config:      newAIGatewayConfig(projectName, orgID, `"00000000-0000-0000-0000-000000000000"`),
-				ExpectError: regexp.MustCompile("Neon API request failed"),
+				ExpectError: regexp.MustCompile("Neon (resource not found|rejected the request)"),
 			},
 		},
 	})

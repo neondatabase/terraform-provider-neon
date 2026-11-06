@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -154,14 +156,19 @@ func (r *orgAPIKeyResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 
+	id, err := strconv.ParseInt(state.ID.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Parse API Key ID",
+			fmt.Sprintf("The API key ID %q in the Terraform state is not a number: %s", state.ID.ValueString(), err))
+		return
+	}
 	for _, key := range keys {
-		if key.Name == state.Name.ValueString() {
-			state.ID = types.StringValue(strconv.FormatInt(key.ID, 10))
+		if key.ID == id {
 			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 			return
 		}
 	}
-	tflog.Debug(ctx, "API key not found, removing from state", map[string]any{"name": state.Name.ValueString()})
+	tflog.Debug(ctx, "API key not found, removing from state", map[string]any{"id": state.ID.ValueString()})
 	resp.State.RemoveResource(ctx)
 }
 
@@ -191,7 +198,9 @@ func (r *orgAPIKeyResource) Delete(ctx context.Context, req resource.DeleteReque
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		_, err := r.client.RevokeOrgApiKey(state.OrgID.ValueString(), id)
 		return err
-	}, nil)...)
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error { return nil },
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

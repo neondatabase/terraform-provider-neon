@@ -49,7 +49,9 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+				if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+					panic(err)
+				}
 			}
 		}
 		return dbID
@@ -337,7 +339,9 @@ resource "neon_database" "this" {
 									if err != nil {
 										return "", err
 									}
-									waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+									if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+										return "", err
+									}
 								}
 							}
 							return fmt.Sprintf("%s/%s/%s", ref.ID, branchID, "test"), nil

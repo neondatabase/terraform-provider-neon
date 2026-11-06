@@ -52,7 +52,9 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+			panic(err)
+		}
 	}
 
 	t.Run("shall indicate non empty plan if the role was deleted outside of terraform", func(t *testing.T) {
@@ -243,7 +245,9 @@ resource "neon_role" "this" {
 							if err != nil {
 								return "", err
 							}
-							waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+							if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+								return "", err
+							}
 
 							return fmt.Sprintf("%s/%s/test", ref.ID, branchID), nil
 						},
@@ -299,14 +303,14 @@ func TestRoleShallImportCreatedOutsideOfTerraform(t *testing.T) {
 			t.Errorf("delete test project %s: %v", projectID, err)
 		}
 	})
-	waitUnfinishedOperations(context.TODO(), client, respCreateProject.OperationsResponse.Operations)
+	assert.NoError(t, waitUnfinishedOperations(context.TODO(), client, respCreateProject.OperationsResponse.Operations))
 	branchID := respCreateProject.Branch.ID
 	const roleName = "foo"
 	respCreateRole, err := client.CreateProjectBranchRole(projectID, branchID, neon.RoleCreateRequest{
 		Role: neon.RoleCreateRequestRole{Name: roleName},
 	})
 	assert.NoError(t, err)
-	waitUnfinishedOperations(context.TODO(), client, respCreateRole.OperationsResponse.Operations)
+	assert.NoError(t, waitUnfinishedOperations(context.TODO(), client, respCreateRole.OperationsResponse.Operations))
 
 	resourceDefinition := fmt.Sprintf(`resource "neon_role" "this" {
   name       = %q

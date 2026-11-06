@@ -187,7 +187,9 @@ func (r *neonBranchResource) Create(ctx context.Context, req resource.CreateRequ
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		branch = re.BranchResponse.Branch
 		return nil
 	}, nil)...)
@@ -262,7 +264,9 @@ func (r *neonBranchResource) Update(ctx context.Context, req resource.UpdateRequ
 	var branch neon.Branch
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		branchResp, err := r.client.UpdateProjectBranch(state.ProjectID.ValueString(), state.ID.ValueString(), cfg)
-		waitUnfinishedOperations(ctx, r.client, branchResp.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, branchResp.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		branch = branchResp.BranchResponse.Branch
 		return err
 	}, map[int]func(context.Context) error{
@@ -301,7 +305,9 @@ func (r *neonBranchResource) Delete(ctx context.Context, req resource.DeleteRequ
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },

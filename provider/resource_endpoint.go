@@ -466,7 +466,9 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		endpoint = result.EndpointResponse.Endpoint
 		return nil
 	}, nil)...)
@@ -655,7 +657,9 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 			if err != nil {
 				return err
 			}
-			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+			if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
+				return err
+			}
 			endpoint = result.EndpointResponse.Endpoint
 			return nil
 		}, nil)...)
@@ -698,7 +702,9 @@ func (r *neonEndpointResource) Delete(ctx context.Context, req resource.DeleteRe
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },

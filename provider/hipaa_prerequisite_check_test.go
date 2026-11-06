@@ -40,8 +40,7 @@ func hipaaPrerequisiteCheck(t hipaaPrerequisiteReporter, client *neon.Client) re
 			}
 			return fmt.Errorf("check HIPAA prerequisite for project %s: %w", r.Primary.ID, err)
 		}
-		waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
-		return nil
+		return waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
 	}
 }
 

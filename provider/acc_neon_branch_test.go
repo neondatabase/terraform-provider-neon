@@ -44,7 +44,9 @@ func TestBranch(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+				if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+					panic(err)
+				}
 			}
 		}
 	}
@@ -350,7 +352,9 @@ resource "neon_branch" "this" {
 									if err != nil {
 										return "", err
 									}
-									waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+									if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+										return "", err
+									}
 								}
 							}
 							return fmt.Sprintf("%s/%s", ref.ID, branchID), nil

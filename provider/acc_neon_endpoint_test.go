@@ -579,7 +579,9 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+				if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+					panic(err)
+				}
 			}
 		}
 	}
@@ -752,7 +754,9 @@ resource "neon_endpoint" "this" {
 									if err != nil {
 										return "", err
 									}
-									waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations)
+									if err := waitUnfinishedOperations(context.TODO(), client, op.OperationsResponse.Operations); err != nil {
+										return "", err
+									}
 								}
 							}
 

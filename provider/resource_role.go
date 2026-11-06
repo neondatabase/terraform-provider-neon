@@ -124,7 +124,9 @@ func (r neonRole) Create(ctx context.Context, req resource.CreateRequest, resp *
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		role = re.RoleResponse.Role
 		return nil
 	}, nil)...)
@@ -194,7 +196,9 @@ func (r neonRole) Delete(ctx context.Context, req resource.DeleteRequest, resp *
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },

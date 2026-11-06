@@ -1141,7 +1141,9 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		project = result.ProjectResponse.Project
 		defaultBranch = result.BranchResponse.Branch
 		endpoints = result.EndpointsResponse.Endpoints
@@ -1407,7 +1409,9 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			if err != nil {
 				return err
 			}
-			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+			if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
+				return err
+			}
 			return nil
 		}, nil)...)
 		if resp.Diagnostics.HasError() {
@@ -1558,7 +1562,9 @@ func (r neonProjectResource) updateDefaultDatabase(ctx context.Context, prior, p
 	if err != nil {
 		return err
 	}
-	waitUnfinishedOperations(ctx, r.client, updated.OperationsResponse.Operations)
+	if err := waitUnfinishedOperations(ctx, r.client, updated.OperationsResponse.Operations); err != nil {
+		return err
+	}
 	return nil
 }
 

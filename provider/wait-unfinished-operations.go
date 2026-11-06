@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -12,54 +13,70 @@ type opsReader interface {
 	GetProjectOperation(projectID string, operationID string) (neon.OperationResponse, error)
 }
 
-const operationsCompletionDelay = 100 * time.Millisecond
+const (
+	operationsCompletionDelay = 100 * time.Millisecond
+	// maxOperationLookupFailures bounds consecutive failed status lookups for one operation.
+	maxOperationLookupFailures = 10
+)
 
-func waitUnfinishedOperations(ctx context.Context, c opsReader, ops []neon.Operation) {
-	var unfinishedOps = make([]neon.Operation, 0, len(ops))
+// waitUnfinishedOperations blocks until every operation finishes, and returns an error
+// if one of them fails, is cancelled, or its status cannot be read.
+func waitUnfinishedOperations(ctx context.Context, c opsReader, ops []neon.Operation) error {
 	for _, op := range ops {
-		if unfinishedOperation(op) {
-			unfinishedOps = append(unfinishedOps, op)
+		if err := waitOperation(ctx, c, op); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	maxN := len(unfinishedOps)
-	var flags = make(chan struct{}, maxN)
+func waitOperation(ctx context.Context, c opsReader, op neon.Operation) error {
+	failures := 0
+	for {
+		switch op.Status {
+		case neon.OperationStatusFinished, neon.OperationStatusSkipped:
+			return nil
+		case neon.OperationStatusFailed, neon.OperationStatusError, neon.OperationStatusCancelled:
+			return operationError(op)
+		}
 
-	for _, op := range unfinishedOps {
-		go func(op neon.Operation) {
-			var finished bool
-			for !finished {
-				tflog.Trace(ctx, "wait for unfinished operation", map[string]interface{}{
-					"projectID":   op.ProjectID,
-					"operationID": op.ID,
-				})
-				time.Sleep(operationsCompletionDelay)
-				resp, err := c.GetProjectOperation(op.ProjectID, op.ID)
-				if err != nil {
-					tflog.Error(ctx, "error getting operation status", map[string]interface{}{
-						"projectID":   op.ProjectID,
-						"operationID": op.ID,
-						"error":       err,
-					})
-				} else {
-					finished = !unfinishedOperation(resp.Operation)
-				}
+		tflog.Trace(ctx, "wait for unfinished operation", map[string]interface{}{
+			"projectID":   op.ProjectID,
+			"operationID": op.ID,
+			"status":      op.Status.String(),
+		})
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("stopped waiting for Neon operation %s (%s) on project %s: %w",
+				op.ID, op.Action.String(), op.ProjectID, ctx.Err())
+		case <-time.After(operationsCompletionDelay):
+		}
+
+		resp, err := c.GetProjectOperation(op.ProjectID, op.ID)
+		if err != nil {
+			failures++
+			tflog.Warn(ctx, "error getting operation status", map[string]interface{}{
+				"projectID":   op.ProjectID,
+				"operationID": op.ID,
+				"error":       err,
+			})
+			if failures >= maxOperationLookupFailures {
+				return fmt.Errorf("unable to read the status of Neon operation %s (%s) on project %s: %w",
+					op.ID, op.Action.String(), op.ProjectID, err)
 			}
-			flags <- struct{}{}
-		}(op)
-	}
-
-	for maxN > 0 {
-		<-flags
-		maxN--
+			continue
+		}
+		failures = 0
+		op = resp.Operation
 	}
 }
 
-func unfinishedOperation(op neon.Operation) bool {
-	var o bool
-	switch op.Status {
-	case neon.OperationStatusRunning, neon.OperationStatusScheduling:
-		o = true
+func operationError(op neon.Operation) error {
+	reason := ""
+	if op.Error != nil && *op.Error != "" {
+		reason = ": " + *op.Error
 	}
-	return o
+	return fmt.Errorf("operation %s (%s) on Neon project %s ended with status %q%s. "+
+		"Check the project's operations in the Neon Console, then run Terraform again",
+		op.ID, op.Action.String(), op.ProjectID, op.Status.String(), reason)
 }

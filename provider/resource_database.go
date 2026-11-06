@@ -121,7 +121,9 @@ func (r neonDatabase) Create(ctx context.Context, req resource.CreateRequest, re
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		db = re.DatabaseResponse.Database
 		return nil
 	}, nil)...)
@@ -197,7 +199,9 @@ func (r neonDatabase) Update(ctx context.Context, req resource.UpdateRequest, re
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
 		dbResp, err := r.client.UpdateProjectBranchDatabase(state.ProjectID.ValueString(),
 			state.BranchID.ValueString(), state.Name.ValueString(), cfg)
-		waitUnfinishedOperations(ctx, r.client, dbResp.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, dbResp.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		db = dbResp.Database
 		return err
 	}, map[int]func(context.Context) error{
@@ -237,7 +241,9 @@ func (r neonDatabase) Delete(ctx context.Context, req resource.DeleteRequest, re
 		if err != nil {
 			return err
 		}
-		waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations)
+		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
+			return err
+		}
 		return nil
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },

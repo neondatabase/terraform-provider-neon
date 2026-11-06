@@ -173,7 +173,9 @@ func (r *jwksURLResource) Create(ctx context.Context, req resource.CreateRequest
 		var err error
 		result, err = r.client.AddProjectJWKS(state.ProjectID.ValueString(), cfg)
 		if err == nil {
-			waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations)
+			if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
+				return err
+			}
 		}
 		return err
 	}, nil)...)

@@ -26,7 +26,7 @@ func TestRecreateOrgAPIKeyIfNotFound(t *testing.T) {
 		t.Skip("ORG_ID must be set")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func TestOrgAPIKey(t *testing.T) {
 		t.Skip("ORG_ID must be set")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}

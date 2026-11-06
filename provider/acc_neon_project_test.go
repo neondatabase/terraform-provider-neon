@@ -24,7 +24,7 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestProject(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1305,7 +1305,7 @@ func TestProjectAllowedIPs(t *testing.T) {
 		t.Skip("test requires Scale plan; set env. variable SCALE_PLAN to 1 to run the test")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}

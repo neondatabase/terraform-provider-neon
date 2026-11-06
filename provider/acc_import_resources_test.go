@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"slices"
@@ -22,7 +21,7 @@ func TestAccResourcesImport(t *testing.T) {
 		projectID      string
 		customBranchID string
 	)
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,14 +95,11 @@ func TestAccResourcesImport(t *testing.T) {
 	t.Run("shall successfully import the role", func(t *testing.T) {
 		// GIVEN a custom role
 		const customRoleName = "r-bar"
-		err := projectReadiness.Do(context.Background(), func(context.Context) error {
-			_, err := client.CreateProjectBranchRole(projectID, defaultBranchID, neon.RoleCreateRequest{
-				Role: neon.RoleCreateRequestRole{
-					Name: customRoleName,
-				},
-			})
-			return err
-		}, nil)
+		_, err := client.CreateProjectBranchRole(projectID, defaultBranchID, neon.RoleCreateRequest{
+			Role: neon.RoleCreateRequestRole{
+				Name: customRoleName,
+			},
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,15 +132,12 @@ func TestAccResourcesImport(t *testing.T) {
 	t.Run("shall successfully import the database", func(t *testing.T) {
 		// GIVEN a custom database
 		const customDatabaseName = "db-bar"
-		err = projectReadiness.Do(context.Background(), func(context.Context) error {
-			_, err := client.CreateProjectBranchDatabase(projectID, defaultBranchID, neon.DatabaseCreateRequest{
-				Database: neon.DatabaseCreateRequestDatabase{
-					Name:      customDatabaseName,
-					OwnerName: defaultRoleName,
-				},
-			})
-			return err
-		}, nil)
+		_, err = client.CreateProjectBranchDatabase(projectID, defaultBranchID, neon.DatabaseCreateRequest{
+			Database: neon.DatabaseCreateRequestDatabase{
+				Name:      customDatabaseName,
+				OwnerName: defaultRoleName,
+			},
+		})
 		if err != nil {
 			t.Fatal(err)
 		}

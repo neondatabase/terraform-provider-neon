@@ -28,7 +28,7 @@ func TestAccNeonDataAPI(t *testing.T) {
 	if os.Getenv("NEON_API_KEY") == "" {
 		t.Skip("NEON_API_KEY must be set")
 	}
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	require.NoError(t, err)
 
 	t.Run("create and read", func(t *testing.T) {

@@ -25,7 +25,7 @@ func TestAccNeonOrgSpendingLimit(t *testing.T) {
 		t.Skip("ORG_ID must be set")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	require.NoError(t, err)
 
 	t.Run("create and read verifies the live API", func(t *testing.T) {

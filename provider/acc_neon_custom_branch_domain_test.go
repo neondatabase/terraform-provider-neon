@@ -21,7 +21,7 @@ func TestCustomBranchDomain(t *testing.T) {
 	assert.NoError(t, err)
 	functionZipPath := filepath.Join(d, "testdata/function/function.zip")
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}

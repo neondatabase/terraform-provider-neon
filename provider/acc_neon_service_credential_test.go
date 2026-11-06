@@ -19,7 +19,7 @@ func TestServiceCredential(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
 	if err != nil {
 		t.Fatal(err)
 	}

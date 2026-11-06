@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"strings"
 
 	schemaDataSource "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -496,6 +498,10 @@ func newDiagnostics(err error) diag.Diagnostics {
 		return diags
 	}
 	summary, hint := describeAPIError(apiErr.HTTPCode)
+	if requiresPersonalAPIKey(apiErr) {
+		summary, hint = "Neon API key not allowed", "This operation requires a personal API key. Organization API keys "+
+			"cannot manage API keys, project permissions, or members. Set the provider's api_key to a personal API key."
+	}
 	detail := err.Error()
 	if hint != "" {
 		detail += "\n\n" + hint
@@ -533,5 +539,13 @@ func describeAPIError(code int) (summary, hint string) {
 // isNotFoundError reports whether the Neon API answered with 404 Not Found.
 func isNotFoundError(err error) bool {
 	var apiErr neon.Error
-	return errors.As(err, &apiErr) && apiErr.HTTPCode == http.StatusNotFound
+	return errors.As(err, &apiErr) && apiErr.HTTPCode == http.StatusNotFound && !requiresPersonalAPIKey(apiErr)
+}
+
+// requiresPersonalAPIKey reports whether Neon refused an organization API key for an endpoint that needs a
+// personal one. Neon answers 404 with no error code in that case, so only the message identifies it.
+func requiresPersonalAPIKey(err neon.Error) bool {
+	return slices.ContainsFunc(err.Details, func(d neon.ErrorDetails) bool {
+		return strings.Contains(strings.ToLower(d.Message), "organization api keys")
+	})
 }

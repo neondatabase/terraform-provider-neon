@@ -59,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the attribute `filter` to the data source `neon_branches`.
 
+- Added import to the resource `neon_jwks_url`, with the ID `<project_id>/<jwks_id>`.
+
 - Added the following attributes to the elements of the `branches` list in the data source `neon-branches`:
   - `project_id`;
   - `parent_lsn`;
@@ -154,6 +156,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     }
   }
   ```
+  - **[BREAKING]** `allowed_ips_protected_branches_only`, `block_public_connections`, `block_vpc_connections`,
+    `enable_logical_replication`, `hipaa` and `store_password` take `true` or `false` instead of `"yes"` or `"no"`.
+- **[BREAKING]** Renamed the attribute `host_pooling` of the resource `neon_endpoint` to `host_pooler`.
+- Changing `type` of the resource `neon_endpoint` replaces the endpoint.
+- Neon API errors name the cause in the summary (rejected API key, missing resource, rejected request, rate limit,
+  API outage) and end with the next step to take.
+- See the [migration guide](docs/guides/migrate-from-kislerdm-neon.md) to move existing state from `kislerdm/neon`.
 
 - Updated dependencies:
   - github.com/hashicorp/terraform-plugin-docs: [v0.25.0](https://github.com/hashicorp/terraform-plugin-docs/compare/v0.21.0...v0.25.0)
@@ -183,6 +192,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An organization API key used for an operation that requires a personal API key no longer removes the resource from state as if it were deleted. The error says to use a personal API key.
+- Neon operations that end with the status `failed`, `error` or `cancelled` now fail the apply instead of being treated as finished, and waiting for operations stops when Terraform is interrupted.
 - [[#52](https://github.com/neondatabase/terraform-provider-neon/issues/52)] Fixed silent removal of the `neon_project` resource from the state if the API returns the status code 422, e.g., when the project contains protected branches.
 - [[#59](https://github.com/neondatabase/terraform-provider-neon/issues/59)] Fixed the provider's attribute `api_key` security flag.
 - [[#60](https://github.com/neondatabase/terraform-provider-neon/issues/60)] Fixed state management of the project's `maintenance_window`.

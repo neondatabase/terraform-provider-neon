@@ -304,14 +304,14 @@ func (r *neonBucketObjectResource) Read(ctx context.Context, req resource.ReadRe
 		state.Bucket.ValueString(), key)
 	switch {
 	case err == nil:
-	case errors.As(err, &neon.Error{}) && err.(neon.Error).HTTPCode == http.StatusNotFound:
+	case isNotFoundError(err):
 		resp.State.RemoveResource(ctx)
 		return
 	case errors.As(err, &objectNotFoundError{}):
 		resp.State.RemoveResource(ctx)
 		return
 	default:
-		resp.Diagnostics.AddError("unable to read object headers", err.Error())
+		resp.Diagnostics.Append(newDiagnostics(err)...)
 		return
 	}
 

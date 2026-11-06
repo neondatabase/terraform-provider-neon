@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -224,8 +223,7 @@ func (r *neonTriggerResource) ImportState(ctx context.Context, req resource.Impo
 	projectID, branchID, triggerID := parts[0], parts[1], parts[2]
 	result, err := r.client.GetProjectBranchTrigger(projectID, branchID, neon.TriggerID(triggerID))
 	if err != nil {
-		var apiError neon.Error
-		if errors.As(err, &apiError) && apiError.HTTPCode == http.StatusNotFound {
+		if isNotFoundError(err) {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("id"),
 				"Trigger Not Found",

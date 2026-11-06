@@ -10,6 +10,7 @@ import (
 )
 
 func TestAccEphemeralRole(t *testing.T) {
+	skipBelowTerraform(t, "1.10.0")
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}

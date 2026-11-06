@@ -42,7 +42,7 @@ func (r *delay) Do(ctx context.Context, fn func(context.Context) error,
 				case <-time.After(r.delay):
 				}
 			default:
-				if fallback, ok := fallbacks[e.HTTPCode]; ok {
+				if fallback, ok := fallbacks[e.HTTPCode]; ok && !requiresPersonalAPIKey(e) {
 					tflog.Debug(ctx, "API call fallback for error code: "+strconv.Itoa(e.HTTPCode))
 					return r.Do(ctx, fallback, nil)
 				}

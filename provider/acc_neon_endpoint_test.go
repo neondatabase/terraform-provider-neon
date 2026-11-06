@@ -264,7 +264,7 @@ func TestEndpoint(t *testing.T) {
 							verify,
 						),
 					},
-					// rm enabled_libraries and enabled_libraries_use_defaults from the manifest
+					// rm enabled_libraries and enabled_libraries_use_defaults from the manifest: both keep their values
 					{
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}
 
@@ -273,6 +273,27 @@ func TestEndpoint(t *testing.T) {
 						branch_id                      = neon_project.this.branch.id
 						region_id                      = neon_project.this.region_id
 						type                           = "read_only"
+					}
+					`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries.#",
+								"1"),
+							resource.TestCheckResourceAttr("neon_endpoint.this",
+								"enabled_libraries_use_defaults", "true"),
+							verify,
+						),
+					},
+					// clear enabled_libraries and enabled_libraries_use_defaults explicitly
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}
+
+					resource "neon_endpoint" "this" {
+						project_id                     = neon_project.this.id
+						branch_id                      = neon_project.this.branch.id
+						region_id                      = neon_project.this.region_id
+						type                           = "read_only"
+						enabled_libraries              = []
+						enabled_libraries_use_defaults = false
 					}
 					`, projectName),
 						Check: resource.ComposeTestCheckFunc(
@@ -574,9 +595,12 @@ func TestEndpoint(t *testing.T) {
 				},
 				{
 					Config: endpointConfig(projectName, ``),
+					// Removing the attribute keeps the libraries, like the other optional settings;
+					// `enabled_libraries = []` clears them.
 					Check: resource.ComposeTestCheckFunc(
 						resource.TestCheckResourceAttr("neon_endpoint.this",
-							"enabled_libraries.#", "0"),
+							"enabled_libraries.#", "1"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries.0", "uuid-ossp"),
 						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
 						verify,
 					),

@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -52,23 +53,6 @@ type neonEndpointResourceModel struct {
 	PasswordlessAccess          types.Bool    `tfsdk:"passwordless_access"`
 	Host                        types.String  `tfsdk:"host"`
 	HostPooler                  types.String  `tfsdk:"host_pooler"`
-}
-
-type clearListOnRemoval struct{}
-
-func (clearListOnRemoval) Description(context.Context) string {
-	return "Clears enabled libraries when the attribute is removed from configuration."
-}
-
-func (clearListOnRemoval) MarkdownDescription(ctx context.Context) string {
-	return (clearListOnRemoval{}).Description(ctx)
-}
-
-func (clearListOnRemoval) PlanModifyList(_ context.Context, req planmodifier.ListRequest,
-	resp *planmodifier.ListResponse) {
-	if req.ConfigValue.IsNull() && !req.StateValue.IsNull() && !req.StateValue.IsUnknown() {
-		resp.PlanValue = types.ListValueMust(types.StringType, nil)
-	}
 }
 
 func (v *neonEndpointResourceModel) inferAttr(ctx context.Context, endpoint neon.Endpoint, diagnostics *diag.Diagnostics) {
@@ -118,7 +102,6 @@ func (v neonEndpointResourceModel) enabledLibraries(ctx context.Context, diagnos
 	return enabledLibraries
 }
 
-// TODO: remove deadcode
 // mustConvertStr converts input string to any.
 // see example of possible values https://github.com/postgres/postgres/blob/master/src/backend/utils/misc/postgresql.conf.sample
 func mustConvertStr(s string) any {
@@ -253,8 +236,9 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				Description: "Compute provisioner: `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.",
 				Optional:    true,
 				Computed:    true,
-				Default:     stringdefault.StaticString("k8s-neonvm"),
-				Validators:  []validator.String{validateComputeProvisioner},
+				// No default: an omitted value must keep the provisioner in state, or migrated k8s-pod endpoints change.
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:    []validator.String{validateComputeProvisioner},
 			},
 			"disabled": schema.BoolAttribute{
 				Description: `Whether to restrict connections to the compute endpoint.
@@ -269,12 +253,12 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				},
 			},
 			"enabled_libraries": schema.ListAttribute{
-				Description: "Names of shared preload libraries to enable for the project.",
+				Description: "Names of shared preload libraries to enable on the endpoint. Removing the attribute keeps the current libraries; set it to `[]` to clear them.",
 				Optional:    true,
 				Computed:    true,
 				ElementType: types.StringType,
 				PlanModifiers: []planmodifier.List{
-					clearListOnRemoval{},
+					listplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"enabled_libraries_use_defaults": schema.BoolAttribute{
@@ -282,7 +266,7 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				Optional:    true,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Bool{
-					setFalseIfUnknown,
+					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"passwordless_access": schema.BoolAttribute{
@@ -614,21 +598,9 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 	planHasEnabledLibraries := !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() &&
 		len(plan.EnabledLibraries.Elements()) > 0
 	updateEnabledLibraries := false
-
-	var enabledLibrariesRemovedFromManifest, ok bool
-	enabledLibrariesRemovedFromManifest, ok = ctx.Value(enabledLibrariesRemoved{}).(bool)
-	if !ok && req.Config.Schema != nil {
-		var config neonEndpointResourceModel
-		resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		enabledLibrariesRemovedFromManifest = config.EnabledLibraries.IsNull() || config.EnabledLibraries.IsUnknown()
-	}
-
 	switch {
 	case priorHasEnabledLibraries:
-		updateEnabledLibraries = plan.EnabledLibraries.IsUnknown() || enabledLibrariesRemovedFromManifest ||
+		updateEnabledLibraries = plan.EnabledLibraries.IsUnknown() ||
 			!plan.EnabledLibraries.Equal(prior.EnabledLibraries)
 	case planHasEnabledLibraries:
 		updateEnabledLibraries = true
@@ -636,15 +608,11 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 	if updateEnabledLibraries {
 		preloadedLibs := []string{}
 
-		if !enabledLibrariesRemovedFromManifest &&
-			!plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() {
+		if !plan.EnabledLibraries.IsNull() && !plan.EnabledLibraries.IsUnknown() {
 			resp.Diagnostics.Append(plan.EnabledLibraries.ElementsAs(ctx, &preloadedLibs, false)...)
 			if resp.Diagnostics.HasError() {
 				return
 			}
-		}
-		if enabledLibrariesRemovedFromManifest {
-			plannedEnabledLibraries = types.ListValueMust(types.StringType, nil)
 		}
 
 		if cfg.Settings == nil {
@@ -669,8 +637,7 @@ func (r *neonEndpointResource) Update(ctx context.Context, req resource.UpdateRe
 		// As of 2026-10-16, the Neon team is aware of the misbehaviour of the ctr. plane and API:
 		// When use `UseDefaults` is updated to `true` after the `EnabledLibraries` were configured,
 		// the latter are voided. The condition below is meant as a workaround until the API logic is fixed.
-		if !enabledLibrariesRemovedFromManifest &&
-			!plan.EnabledLibraries.IsUnknown() &&
+		if !plan.EnabledLibraries.IsUnknown() &&
 			!plan.EnabledLibraries.IsNull() {
 			cfg.Settings.PreloadLibraries.EnabledLibraries = plan.enabledLibraries(ctx, &resp.Diagnostics)
 			if resp.Diagnostics.HasError() {

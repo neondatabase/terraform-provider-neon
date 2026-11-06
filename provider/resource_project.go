@@ -1171,8 +1171,7 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 
 	// set custom config for the primary compute
 	if primaryComputeSettings != nil && defaultEndpoint.ID != "" {
-		state.PrimaryCompute = r.updatePrimaryCompute(ctx, state.PrimaryCompute, state.PrimaryCompute,
-			primaryComputeSettings, &resp.Diagnostics)
+		state.PrimaryCompute = r.updatePrimaryCompute(ctx, state.PrimaryCompute, primaryComputeSettings, &resp.Diagnostics)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -1446,29 +1445,15 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	planPrimaryCompute := plan.PrimaryCompute
-	if planPrimaryCompute == nil {
-		planPrimaryCompute = &neonEndpointResourceModel{
-			EnabledLibraries: types.ListNull(types.StringType),
+	hasPrimaryComputePlan := config.PrimaryCompute != nil && plan.PrimaryCompute != nil && prior.PrimaryCompute != nil
+	var primaryLibraries types.List
+	if hasPrimaryComputePlan {
+		// The delegated response can replace plan fields before project Read.
+		primaryLibraries = plan.PrimaryCompute.EnabledLibraries
+		plan.PrimaryCompute = r.updatePrimaryCompute(ctx, prior.PrimaryCompute, plan.PrimaryCompute, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-	}
-	priorPrimaryCompute := prior.PrimaryCompute
-	if priorPrimaryCompute == nil {
-		priorPrimaryCompute = &neonEndpointResourceModel{
-			EnabledLibraries: types.ListNull(types.StringType),
-		}
-	}
-	configPrimaryCompute := config.PrimaryCompute
-	if configPrimaryCompute == nil {
-		configPrimaryCompute = &neonEndpointResourceModel{
-			EnabledLibraries: types.ListNull(types.StringType),
-		}
-	}
-	// The delegated response can replace plan fields before project Read.
-	plan.PrimaryCompute = r.updatePrimaryCompute(ctx, configPrimaryCompute, priorPrimaryCompute,
-		planPrimaryCompute, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
 	}
 
 	// Refresh needs the configured lists' null/empty intent, not the old values.
@@ -1481,7 +1466,13 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 			return
 		}
 	}
-
+	if hasPrimaryComputePlan {
+		resp.Diagnostics.Append(readState.SetAttribute(ctx,
+			path.Root("primary_compute").AtName("enabled_libraries"), primaryLibraries)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 	readResp := resource.ReadResponse{State: readState}
 	r.Read(ctx, resource.ReadRequest{State: readState}, &readResp)
 	resp.Diagnostics.Append(readResp.Diagnostics...)
@@ -1618,13 +1609,8 @@ func (r neonProjectResource) updateBranch(ctx context.Context, prior, plan *neon
 	return newState
 }
 
-// enabledLibrariesRemoved context indicator to flag removal of the enabled libraries
-// when delegating primary_compute's update to the endpoint resource's `Update` method.
-type enabledLibrariesRemoved struct{}
-
-func (r neonProjectResource) updatePrimaryCompute(ctx context.Context, config *neonEndpointResourceModel,
-	prior *neonEndpointResourceModel, plan *neonEndpointResourceModel,
-	diagnostics *diag.Diagnostics) *neonEndpointResourceModel {
+func (r neonProjectResource) updatePrimaryCompute(ctx context.Context, prior *neonEndpointResourceModel,
+	plan *neonEndpointResourceModel, diagnostics *diag.Diagnostics) *neonEndpointResourceModel {
 	schemaResp := resource.SchemaResponse{}
 	r.endpointHandler.Schema(ctx, resource.SchemaRequest{}, &schemaResp)
 	diagnostics.Append(schemaResp.Diagnostics...)
@@ -1643,13 +1629,6 @@ func (r neonProjectResource) updatePrimaryCompute(ctx context.Context, config *n
 	}
 
 	updateResp := resource.UpdateResponse{State: updateReq.State}
-
-	if config != nil {
-		if config.EnabledLibraries.IsNull() || config.EnabledLibraries.IsUnknown() {
-			ctx = context.WithValue(ctx, enabledLibrariesRemoved{}, true)
-		}
-	}
-
 	r.endpointHandler.Update(ctx, updateReq, &updateResp)
 	diagnostics.Append(updateResp.Diagnostics...)
 	if diagnostics.HasError() {

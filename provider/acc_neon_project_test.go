@@ -1682,13 +1682,15 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 			name      		= %q
 			primary_compute = {}
 		}`, projectName),
+						// Removing the attribute keeps the libraries, like the other optional settings;
+						// `enabled_libraries = []` clears them.
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
-								"primary_compute.enabled_libraries.#", "0"),
+								"primary_compute.enabled_libraries.#", "1"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
 							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+								_, err := verify(projectName, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1697,9 +1699,9 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
-								"primary_compute.enabled_libraries.#", "0"),
+								"primary_compute.enabled_libraries.#", "1"),
 							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+								_, err := verify(projectName, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1725,7 +1727,12 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 						),
 					},
 					{
-						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {
+				enabled_libraries = []
+			}
+		}`, projectName),
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
 								"primary_compute.enabled_libraries.#", "0"),
@@ -1738,6 +1745,25 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 				},
 			},
 		)
+	})
+
+	t.Run("shall set an empty list of libraries on a project created without one", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)},
+				{
+					Config: fmt.Sprintf(`resource "neon_project" "this" {
+  name            = %q
+  primary_compute = {
+    enabled_libraries = []
+  }
+}`, projectName),
+					Check: resource.TestCheckResourceAttr("neon_project.this", "primary_compute.enabled_libraries.#", "0"),
+				},
+			},
+		})
 	})
 }
 

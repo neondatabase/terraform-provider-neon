@@ -67,8 +67,8 @@ resource "neon_jwks_url" "custom" {
 
 ### Optional
 
-- `branch_id` (String) Branch ID.
-- `jwt_audience` (String) The name of the required JWT Audience to be used.
+- `branch_id` (String) Branch ID. Omit it instead of setting an empty string.
+- `jwt_audience` (String) The name of the required JWT Audience to be used. Omit it instead of setting an empty string.
 
 ### Read-Only
 

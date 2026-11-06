@@ -2,6 +2,9 @@ package provider
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"slices"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -89,11 +92,21 @@ func (d *neonAIGatewayDataSource) Read(ctx context.Context, req datasource.ReadR
 	branchID := data.BranchID.ValueString()
 
 	var gateway neon.BranchAiGateway
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	err := projectReadiness.Do(ctx, func(_ context.Context) error {
 		var err error
 		gateway, err = d.client.GetProjectBranchAiGateway(projectID, branchID)
 		return err
-	}, nil)...)
+	}, nil)
+	var apiErr neon.Error
+	if errors.As(err, &apiErr) && slices.ContainsFunc(apiErr.Details, func(e neon.ErrorDetails) bool {
+		return e.Code == "AI_GATEWAY_NOT_ENABLED"
+	}) {
+		resp.Diagnostics.AddError("AI Gateway not enabled",
+			fmt.Sprintf("The AI Gateway is not enabled on branch %s of project %s. Enable it in the Neon Console, "+
+				"or set aiGateway in neon.ts and run neon config apply, then run Terraform again.", branchID, projectID))
+		return
+	}
+	resp.Diagnostics.Append(newDiagnostics(err)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

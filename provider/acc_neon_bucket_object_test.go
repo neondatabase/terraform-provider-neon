@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
@@ -246,6 +247,23 @@ content_type = "text/plain"`),
 			}},
 		})
 	})
+
+	for _, key := range []string{"folder", "folder/"} {
+		t.Run("imports a folder created as "+strings.ReplaceAll(key, "/", "-slash"), func(t *testing.T) {
+			config := bucketObjectConfig(newProjectName(projectNamePrefix), key, "is_directory = true")
+			resource.Test(t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{Config: config},
+					{
+						// The imported state must match what the create produced, or the next plan replaces the folder.
+						Config: config, ResourceName: "neon_bucket_object.this",
+						ImportState: true, ImportStateVerify: true,
+					},
+				},
+			})
+		})
+	}
 
 	t.Run("deletes an object deleted outside terraform", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)

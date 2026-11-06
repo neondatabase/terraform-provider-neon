@@ -402,15 +402,12 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 			"Expected <project_id>/<branch_id>/<bucket>/<key>.")
 		return
 	}
-	// A key ending in "/" names a folder, which resources store without the trailing slash.
-	key, isDirectory := strings.CutSuffix(els[3], "/")
 	state := neonBucketObjectResourceModel{
-		ID:            types.StringValue(bucketObjectID(els[0], els[1], els[2], key)),
+		ID:            types.StringValue(req.ID),
 		ProjectID:     types.StringValue(els[0]),
 		BranchID:      types.StringValue(els[1]),
 		Bucket:        types.StringValue(els[2]),
-		Key:           types.StringValue(key),
-		IsDirectory:   types.BoolValue(isDirectory),
+		Key:           types.StringValue(els[3]),
 		Content:       types.StringNull(),
 		ContentBase64: types.StringNull(),
 		Trigger:       types.StringNull(),
@@ -423,12 +420,20 @@ func (r *neonBucketObjectResource) ImportState(ctx context.Context, req resource
 		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
 		return
 	}
-	if isDirectory {
-		key = folderObjectKey(key)
-	}
+	// A folder exists only as its placeholder object, so the key names a folder when no object has it.
+	key := state.Key.ValueString()
 	meta, err := readObjectHeaders(ctx, r.client.sdk,
 		state.ProjectID.ValueString(), state.BranchID.ValueString(), state.Bucket.ValueString(), key,
 	)
+	if errors.As(err, &objectNotFoundError{}) {
+		key = folderObjectKey(key)
+		meta, err = readObjectHeaders(ctx, r.client.sdk,
+			state.ProjectID.ValueString(), state.BranchID.ValueString(), state.Bucket.ValueString(), key,
+		)
+		state.IsDirectory = types.BoolValue(err == nil)
+	} else {
+		state.IsDirectory = types.BoolValue(false)
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("error reading object meta", err.Error())
 		return

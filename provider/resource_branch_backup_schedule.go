@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
@@ -96,6 +97,8 @@ func (r *branchBackupScheduleResource) Schema(_ context.Context, _ resource.Sche
 						"retention_seconds": schema.Int64Attribute{
 							Description: "How long to retain scheduled snapshots, in seconds. The maximum and default is 3024000 (35 days).",
 							Optional:    true,
+							Computed:    true,
+							Default:     int64default.StaticInt64(3024000),
 							Validators:  []validator.Int64{int64validator.Between(1, 3024000)},
 						},
 					},

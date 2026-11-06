@@ -157,6 +157,24 @@ resource "neon_branch_backup_schedule" "this" {
 						},
 					),
 				},
+				// omitted retention takes Neon's default, and the next plan is empty
+				{
+					Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
+
+resource "neon_branch_backup_schedule" "this" {
+  project_id = neon_project.this.id
+  branch_id  = neon_project.this.branch.id
+  schedule = [
+    {
+      frequency = "daily"
+      hour      = 4
+    }
+  ]
+}
+`, projectName),
+					Check: resource.TestCheckResourceAttr("neon_branch_backup_schedule.this",
+						"schedule.0.retention_seconds", "3024000"),
+				},
 				// delete
 				{
 					Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}`, projectName),

@@ -3,6 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -49,16 +52,19 @@ func (r *branchBackupScheduleResource) Schema(_ context.Context, _ resource.Sche
 		Description: "Manages the automatic snapshot backup schedule for a Neon branch.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "The ID of the backup schedule.",
-				Computed:    true,
+				Description:   "The ID of the backup schedule.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"project_id": schema.StringAttribute{
-				Description: "The Neon project ID.",
-				Required:    true,
+				Description:   "The Neon project ID. Changing it replaces the schedule.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"branch_id": schema.StringAttribute{
-				Description: "The Neon branch ID.",
-				Required:    true,
+				Description:   "The Neon branch ID. Changing it replaces the schedule.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"schedule": schema.ListNestedAttribute{
 				Description: "Snapshot frequencies configured for the branch.",
@@ -75,18 +81,22 @@ func (r *branchBackupScheduleResource) Schema(_ context.Context, _ resource.Sche
 						"day": schema.Int64Attribute{
 							Description: "Day of the week or month, when applicable.",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(0, 31)},
 						},
 						"hour": schema.Int64Attribute{
-							Description: "Hour of the day, when applicable.",
+							Description: "Hour of the day (0-23), when applicable.",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(0, 23)},
 						},
 						"month": schema.Int64Attribute{
-							Description: "Month of the year, when applicable.",
+							Description: "Month of the year (1-12), when applicable.",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(1, 12)},
 						},
 						"retention_seconds": schema.Int64Attribute{
-							Description: "How long to retain scheduled snapshots, in seconds.",
+							Description: "How long to retain scheduled snapshots, in seconds. The maximum and default is 3024000 (35 days).",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(1, 3024000)},
 						},
 					},
 				},

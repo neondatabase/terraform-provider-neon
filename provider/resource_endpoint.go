@@ -75,11 +75,12 @@ func (v *neonEndpointResourceModel) inferAttr(ctx context.Context, endpoint neon
 			return
 		}
 		v.EnabledLibraries = libs
-		v.EnabledLibrariesUseDefaults = types.BoolPointerValue(endpoint.Settings.PreloadLibraries.UseDefaults)
 	} else {
 		v.EnabledLibraries = types.ListNull(types.StringType)
-		v.EnabledLibrariesUseDefaults = types.BoolNull()
 	}
+	// The API omits preload settings until they are first changed, then reports use_defaults false.
+	v.EnabledLibrariesUseDefaults = types.BoolValue(endpoint.Settings.PreloadLibraries != nil &&
+		endpoint.Settings.PreloadLibraries.UseDefaults != nil && *endpoint.Settings.PreloadLibraries.UseDefaults)
 	// Missing API settings cannot distinguish an omitted list from explicit [].
 	if v.EnabledLibraries.IsNull() && !previousEnabledLibraries.IsNull() && !previousEnabledLibraries.IsUnknown() {
 		v.EnabledLibraries = types.ListValueMust(types.StringType, nil)

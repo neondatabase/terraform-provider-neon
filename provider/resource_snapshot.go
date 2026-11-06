@@ -82,7 +82,7 @@ func (r *neonSnapshotResource) Schema(_ context.Context, _ resource.SchemaReques
 			},
 			"expires_at": schema.StringAttribute{
 				Optional:    true,
-				Description: "RFC 3339 timestamp when the snapshot expires. Omit to leave the current expiration unchanged; set to null in configuration to clear it.",
+				Description: "RFC 3339 timestamp when the snapshot expires. Omit or remove it to clear the expiration.",
 			},
 			"lsn": schema.StringAttribute{
 				Optional:      true,
@@ -323,12 +323,10 @@ func (r *neonSnapshotResource) Update(ctx context.Context, req resource.UpdateRe
 
 	switch {
 	case plan.ExpiresAt.IsNull():
-		// Explicit null clears the expiration via a zero time; the SDK
-		// distinguishes "leave alone" (omitted) from "clear" via null.
+		// The API clears the expiration when it receives the zero time.
 		zero := time.Time{}
 		update.Snapshot.ExpiresAt = &zero
 	case plan.ExpiresAt.IsUnknown():
-		// No change.
 	default:
 		parsed, err := time.Parse(time.RFC3339, plan.ExpiresAt.ValueString())
 		if err != nil {

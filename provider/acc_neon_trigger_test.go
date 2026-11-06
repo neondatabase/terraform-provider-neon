@@ -3,6 +3,7 @@ package provider
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -103,9 +104,10 @@ func TestAccNeonTrigger(t *testing.T) {
 		})
 	})
 
-	t.Run("shall update mutable attributes without forced replacement", func(t *testing.T) {
+	t.Run("shall update mutable attributes in place, import, and replace on type change", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		name := "upd"
+		var triggerID string
 		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
@@ -120,6 +122,32 @@ func TestAccNeonTrigger(t *testing.T) {
 							return fmt.Errorf("neon_trigger.this not found in state")
 						}
 						assert.Equal(t, "*/10 * * * *", rs.Primary.Attributes["cron"])
+						if triggerID != "" && rs.Primary.Attributes["trigger_id"] != triggerID {
+							return fmt.Errorf("cron change replaced the trigger")
+						}
+						triggerID = rs.Primary.Attributes["trigger_id"]
+						return nil
+					},
+				},
+				{
+					ResourceName:      "neon_trigger.this",
+					ImportState:       true,
+					ImportStateVerify: true,
+					ImportStateIdFunc: func(state *terraform.State) (string, error) {
+						a := state.RootModule().Resources["neon_trigger.this"].Primary.Attributes
+						return a["project_id"] + "/" + a["branch_id"] + "/" + a["trigger_id"], nil
+					},
+				},
+				{
+					Config: triggerStorageConfig(projectName, orgID, name, "myfn", "uploads", "logs/"),
+					Check: func(state *terraform.State) error {
+						rs := state.RootModule().Resources["neon_trigger.this"]
+						if rs.Primary.Attributes["type"] != "storage_object_created" {
+							return fmt.Errorf("type is %q", rs.Primary.Attributes["type"])
+						}
+						if rs.Primary.Attributes["trigger_id"] == triggerID {
+							return fmt.Errorf("type change did not replace the trigger")
+						}
 						return nil
 					},
 				},
@@ -153,6 +181,12 @@ func TestAccNeonTrigger(t *testing.T) {
 	})
 }
 
+// triggerTestZip is the function archive the triggers invoke.
+func triggerTestZip() string {
+	wd, _ := os.Getwd()
+	return filepath.Join(wd, "testdata/function/function.zip")
+}
+
 func triggerScheduleConfig(projectName, orgID, triggerName, fnSlug, cron string) string {
 	return fmt.Sprintf(`resource "neon_project" "this" {
   name      = %q
@@ -160,15 +194,23 @@ func triggerScheduleConfig(projectName, orgID, triggerName, fnSlug, cron string)
   region_id = "aws-us-east-2"
 }
 
+resource "neon_function" "this" {
+  project_id    = neon_project.this.id
+  branch_id     = neon_project.this.branch.id
+  slug          = %q
+  runtime       = "nodejs24"
+  zip_file_path = %q
+}
+
 resource "neon_trigger" "this" {
   project_id     = neon_project.this.id
   branch_id      = neon_project.this.branch.id
   name           = %q
   type           = "schedule"
-  function_slug  = %q
+  function_slug  = neon_function.this.slug
   cron           = %q
 }
-`, projectName, orgID, triggerName, fnSlug, cron)
+`, projectName, orgID, fnSlug, triggerTestZip(), triggerName, cron)
 }
 
 func triggerStorageConfig(projectName, orgID, triggerName, fnSlug, bucket, prefix string) string {
@@ -184,15 +226,22 @@ resource "neon_bucket" "this" {
   name       = %q
 }
 
+resource "neon_function" "this" {
+  project_id    = neon_project.this.id
+  branch_id     = neon_project.this.branch.id
+  slug          = %q
+  runtime       = "nodejs24"
+  zip_file_path = %q
+}
+
 resource "neon_trigger" "this" {
   project_id     = neon_project.this.id
   branch_id      = neon_project.this.branch.id
   name           = %q
   type           = "storage_object_created"
-  function_slug  = %q
+  function_slug  = neon_function.this.slug
   bucket_name    = neon_bucket.this.name
   prefix         = %q
-  depends_on = [neon_bucket.this]
 }
-`, projectName, orgID, bucket, triggerName, fnSlug, prefix)
+`, projectName, orgID, bucket, fnSlug, triggerTestZip(), triggerName, prefix)
 }

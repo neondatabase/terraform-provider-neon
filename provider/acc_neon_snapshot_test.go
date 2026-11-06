@@ -142,12 +142,12 @@ func TestAccNeonSnapshot(t *testing.T) {
 						recordSnapshotForOutOfBandDelete(t, client, "to-delete"),
 					),
 				},
+				// Refresh drops the deleted snapshot from state, so the plan recreates it.
 				{
-					PreConfig: deleteSnapshotOutOfBand(t, client),
-					Config:    newSnapshotConfig(projectName, orgID, "to-delete", ""),
-					Check: resource.ComposeTestCheckFunc(
-						assertSnapshotRemovedFromStateAndAPI(t, client, "to-delete"),
-					),
+					PreConfig:          deleteSnapshotOutOfBand(t, client),
+					Config:             newSnapshotConfig(projectName, orgID, "to-delete", ""),
+					PlanOnly:           true,
+					ExpectNonEmptyPlan: true,
 				},
 			},
 		})
@@ -302,21 +302,6 @@ func deleteSnapshotOutOfBand(t *testing.T, client *neon.Client) func() {
 		if _, err := client.DeleteSnapshot(outOfBandSnapshotProjectID, outOfBandSnapshotID); err != nil {
 			t.Fatalf("delete out-of-band snapshot: %v", err)
 		}
-	}
-}
-
-func assertSnapshotRemovedFromStateAndAPI(t *testing.T, client *neon.Client, expectedName string) resource.TestCheckFunc {
-	return func(state *terraform.State) error {
-		if _, present := state.RootModule().Resources["neon_snapshot.this"]; present {
-			return fmt.Errorf("neon_snapshot.this should be removed from state after out-of-band delete")
-		}
-		if outOfBandSnapshotID != "" {
-			if _, err := findSnapshot(t, client, outOfBandSnapshotProjectID, outOfBandSnapshotID); err == nil {
-				return fmt.Errorf("snapshot %q still present in project %q", outOfBandSnapshotID, outOfBandSnapshotProjectID)
-			}
-		}
-		_ = expectedName
-		return nil
 	}
 }
 

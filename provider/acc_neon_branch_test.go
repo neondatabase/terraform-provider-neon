@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -367,5 +368,73 @@ resource "neon_branch" "this" {
 					},
 				},
 			})
+	})
+
+	t.Run("shall replace a child branch when its parent branch is replaced", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		config := func(parentOfA string) string {
+			return fmt.Sprintf(`resource "neon_project" "this" { name = "%s" }
+
+resource "neon_branch" "base" {
+  project_id = neon_project.this.id
+  name       = "base"
+}
+
+resource "neon_branch" "a" {
+  project_id = neon_project.this.id
+  parent_id  = %s
+  name       = "a"
+}
+
+resource "neon_branch" "b" {
+  project_id = neon_project.this.id
+  parent_id  = neon_branch.a.id
+  name       = "b"
+}
+`, projectName, parentOfA)
+		}
+		var firstChildID string
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: config("neon_project.this.branch.id"),
+					Check: func(s *terraform.State) error {
+						firstChildID = s.RootModule().Resources["neon_branch.b"].Primary.ID
+						return nil
+					},
+				},
+				{
+					// The new parent of a forces a's replacement, so b's parent_id is unknown at plan time.
+					Config: config("neon_branch.base.id"),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttrPair("neon_branch.b", "parent_id", "neon_branch.a", "id"),
+						func(s *terraform.State) error {
+							if s.RootModule().Resources["neon_branch.b"].Primary.ID == firstChildID {
+								return errors.New("neon_branch.b was not replaced")
+							}
+							return nil
+						},
+					),
+				},
+			},
+		})
+	})
+
+	t.Run("shall reject parent_lsn and parent_timestamp together", func(t *testing.T) {
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: `resource "neon_branch" "this" {
+  project_id       = "project-id"
+  parent_lsn       = "0/1"
+  parent_timestamp = 1
+}`,
+					PlanOnly:    true,
+					ExpectError: regexp.MustCompile("Invalid Attribute Combination"),
+				},
+			},
+		})
 	})
 }

@@ -422,9 +422,6 @@ func (r *neonTriggerResource) Delete(ctx context.Context, req resource.DeleteReq
 		http.StatusNotFound: func(_ context.Context) error {
 			return nil
 		},
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 	if resp.Diagnostics.HasError() {
 		return

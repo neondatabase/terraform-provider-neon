@@ -158,6 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
   - **[BREAKING]** `allowed_ips_protected_branches_only`, `block_public_connections`, `block_vpc_connections`,
     `enable_logical_replication`, `hipaa` and `store_password` take `true` or `false` instead of `"yes"` or `"no"`.
+- **[BREAKING]** `protected` of the resource `neon_branch` takes `true` or `false` instead of `"yes"` or `"no"`.
 - **[BREAKING]** Renamed the attribute `host_pooling` of the resource `neon_endpoint` to `host_pooler`.
 - Changing `type` of the resource `neon_endpoint` replaces the endpoint.
 - Neon API errors name the cause in the summary (rejected API key, missing resource, rejected request, rate limit,
@@ -192,6 +193,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A resource whose create call succeeded but whose follow-up operation failed is kept in state and marked tainted, so Terraform can replace or destroy it. This covers `neon_project`, `neon_branch`, `neon_endpoint`, `neon_role`, `neon_database`, `neon_jwks_url` and `neon_function`.
+- Changing `parent_id`, `parent_lsn` or `parent_timestamp` of `neon_branch` to a value that is unknown at plan time, for example the ID of a replaced parent branch, plans a replacement instead of failing during apply. Setting `parent_lsn` and `parent_timestamp` together is rejected at plan time, including on create.
 - An organization API key used for an operation that requires a personal API key no longer removes the resource from state as if it were deleted. The error says to use a personal API key.
 - Neon operations that end with the status `failed`, `error` or `cancelled` now fail the apply instead of being treated as finished, and waiting for operations stops when Terraform is interrupted.
 - [[#52](https://github.com/neondatabase/terraform-provider-neon/issues/52)] Fixed silent removal of the `neon_project` resource from the state if the API returns the status code 422, e.g., when the project contains protected branches.

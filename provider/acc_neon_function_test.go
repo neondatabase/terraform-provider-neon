@@ -225,6 +225,27 @@ resource "neon_function" "this" {
 						),
 					},
 					{
+						// The value is unknown until terraform_data.foo exists.
+						Config: config(`  environment_variables = {
+    FOO = terraform_data.foo.output
+  }`) + `
+resource "terraform_data" "foo" {
+  input = "3"
+}
+`,
+						Check: resource.ComposeTestCheckFunc(
+							sameFunctionNewDeployment,
+							func(state *terraform.State) error {
+								return invokeUntil(state, func(env map[string]string) error {
+									if env["FOO"] != "3" {
+										return fmt.Errorf("function returned FOO=%q; want 3", env["FOO"])
+									}
+									return nil
+								})
+							},
+						),
+					},
+					{
 						Config: config(""),
 						Check: resource.ComposeTestCheckFunc(
 							sameFunctionNewDeployment,

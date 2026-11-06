@@ -241,20 +241,7 @@ func (r *neonSnapshotResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	// Read uses ListSnapshots and filters by ID in-process rather than a
-	// dedicated GetSnapshot call because the Neon Go SDK
-	// (github.com/kislerdm/neon-sdk-go, imported as `neon`) does not
-	// expose one. The Neon REST API does have a GET-by-ID endpoint
-	// (`GET /projects/{project_id}/snapshots/{snapshot_id}`), but the Go
-	// SDK v0.27.0 only ships ListSnapshots; a single-snapshot getter is
-	// not generated. Filtering client-side is acceptable here because:
-	//   - typical projects have a small number of snapshots, so the
-	//     response size is bounded;
-	//   - ListSnapshots is the only SDK primitive available today, and
-	//     using it avoids hand-rolling HTTP calls against a path that
-	//     might change.
-	// If the Go SDK adds a GetSnapshot method in a future release, this
-	// loop should be replaced with a single GetSnapshot call.
+	// The Neon Go SDK has no single-snapshot getter, so Read lists the project's snapshots and filters by ID.
 	var found *neon.Snapshot
 	resp.Diagnostics.Append(
 		projectReadiness.Retry(ctx,

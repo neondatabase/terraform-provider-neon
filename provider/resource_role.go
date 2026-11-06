@@ -118,24 +118,19 @@ func (r neonRole) Create(ctx context.Context, req resource.CreateRequest, resp *
 		},
 	}
 
-	var role neon.Role
+	var created neon.RoleOperations
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
-		re, err := r.client.CreateProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(), cfg)
-		if err != nil {
-			return err
-		}
-		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
-			return err
-		}
-		role = re.RoleResponse.Role
-		return nil
+		var err error
+		created, err = r.client.CreateProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(), cfg)
+		return err
 	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	state.inferAttr(role)
+	state.inferAttr(created.RoleResponse.Role)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations))...)
 }
 
 func (r neonRole) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

@@ -478,14 +478,14 @@ func createBucketObjectFixture(t *testing.T, client *neon.Client, projectName, k
 	}
 	req, err := http.NewRequest(presigned.Method, presigned.URL, bytes.NewReader(content))
 	if err != nil {
-		return "", "", err
+		return "", "", withoutRequestURL(err)
 	}
 	for key, value := range presigned.Headers {
 		req.Header.Set(key, fmt.Sprint(value))
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", "", err
+		return "", "", withoutRequestURL(err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode > 299 {

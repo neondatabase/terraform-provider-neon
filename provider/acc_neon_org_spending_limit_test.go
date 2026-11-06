@@ -91,19 +91,20 @@ func TestAccNeonOrgSpendingLimit(t *testing.T) {
 			Steps: []resource.TestStep{
 				{
 					Config: newOrgSpendingLimitConfig(orgID, 14000),
-					Check: resource.ComposeTestCheckFunc(
-						recordOrgSpendingLimitID(t),
-					),
 				},
 				{
+					// The ID is the org ID, so only the plan shows that Read noticed the deletion.
 					PreConfig: func() {
 						_, deleteErr := client.DeleteOrganizationSpendingLimit(orgID)
 						require.NoError(t, deleteErr)
 					},
+					Config:             newOrgSpendingLimitConfig(orgID, 14000),
+					PlanOnly:           true,
+					ExpectNonEmptyPlan: true,
+				},
+				{
 					Config: newOrgSpendingLimitConfig(orgID, 15000),
-					Check: resource.ComposeTestCheckFunc(
-						assertOrgSpendingLimitRecreated(t, client, orgID, 15000),
-					),
+					Check:  assertOrgSpendingLimitInAPI(client, orgID, 15000),
 				},
 			},
 		})
@@ -134,40 +135,11 @@ func newOrgSpendingLimitConfig(orgID string, cents int64) string {
 `, orgID, cents)
 }
 
-var recordedOrgSpendingLimitID string
-
-func recordOrgSpendingLimitID(t *testing.T) resource.TestCheckFunc {
-	return func(state *terraform.State) error {
-		rawResource, ok := state.RootModule().Resources["neon_org_spending_limit.this"]
-		if !ok {
-			return fmt.Errorf("neon_org_spending_limit.this not found in state")
-		}
-		recordedOrgSpendingLimitID = rawResource.Primary.ID
-		if recordedOrgSpendingLimitID == "" {
-			return fmt.Errorf("resource ID is empty")
-		}
-		return nil
-	}
-}
-
-func assertOrgSpendingLimitRecreated(
-	t *testing.T,
-	client *neon.Client,
-	orgID string,
-	expectedCents int64,
-) resource.TestCheckFunc {
-	return func(state *terraform.State) error {
-		rawResource, ok := state.RootModule().Resources["neon_org_spending_limit.this"]
-		if !ok {
-			return fmt.Errorf("neon_org_spending_limit.this not found in state")
-		}
-		if rawResource.Primary.ID == recordedOrgSpendingLimitID {
-			return fmt.Errorf("resource ID %q was not recreated after out-of-band deletion", recordedOrgSpendingLimitID)
-		}
-
+func assertOrgSpendingLimitInAPI(client *neon.Client, orgID string, expectedCents int64) resource.TestCheckFunc {
+	return func(*terraform.State) error {
 		response, err := client.GetOrganizationSpendingLimit(orgID)
 		if err != nil {
-			return fmt.Errorf("get recreated organization spending limit: %w", err)
+			return fmt.Errorf("get organization spending limit: %w", err)
 		}
 		if response.SpendingLimitCents != expectedCents {
 			return fmt.Errorf("API spending limit is %d cents, want %d", response.SpendingLimitCents, expectedCents)

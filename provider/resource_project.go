@@ -1133,27 +1133,19 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		}
 	}
 
-	var project neon.Project
-	var defaultBranch neon.Branch
-	var endpoints []neon.Endpoint
-	var databases []neon.Database
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
-		result, err := r.client.CreateProject(cfg)
-		if err != nil {
-			return err
-		}
-		if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
-			return err
-		}
-		project = result.ProjectResponse.Project
-		defaultBranch = result.BranchResponse.Branch
-		endpoints = result.EndpointsResponse.Endpoints
-		databases = result.DatabasesResponse.Databases
-		return nil
+	var created neon.CreatedProject
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		var err error
+		created, err = r.client.CreateProject(cfg)
+		return err
 	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	project := created.ProjectResponse.Project
+	defaultBranch := created.BranchResponse.Branch
+	endpoints := created.EndpointsResponse.Endpoints
+	databases := created.DatabasesResponse.Databases
 
 	primaryComputeSettings := state.PrimaryCompute
 	branchSettings := state.Branch
@@ -1169,6 +1161,7 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations))...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -21,7 +22,7 @@ import (
 
 var _ resource.ResourceWithConfigure = (*neonBranchResource)(nil)
 var _ resource.ResourceWithUpgradeState = (*neonBranchResource)(nil)
-var _ resource.ResourceWithModifyPlan = (*neonBranchResource)(nil)
+var _ resource.ResourceWithConfigValidators = (*neonBranchResource)(nil)
 var _ resource.ResourceWithImportState = (*neonBranchResource)(nil)
 
 type neonBranchResource struct {
@@ -97,6 +98,7 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Parent branch ID.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"parent_lsn": schema.StringAttribute{
@@ -105,6 +107,7 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Parent branch Log Sequence Number (LSN).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"parent_timestamp": schema.Int64Attribute{
@@ -114,6 +117,7 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
+					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"logical_size": schema.Int64Attribute{
@@ -181,24 +185,19 @@ func (r *neonBranchResource) Create(ctx context.Context, req resource.CreateRequ
 		cfg.BranchCreateRequest.Branch.ParentTimestamp = &parentTimestamp
 	}
 
-	var branch neon.Branch
+	var created neon.CreatedBranch
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
-		re, err := r.client.CreateProjectBranch(state.ProjectID.ValueString(), cfg)
-		if err != nil {
-			return err
-		}
-		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
-			return err
-		}
-		branch = re.BranchResponse.Branch
-		return nil
+		var err error
+		created, err = r.client.CreateProjectBranch(state.ProjectID.ValueString(), cfg)
+		return err
 	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	state.inferAttr(branch)
+	state.inferAttr(created.BranchResponse.Branch)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations))...)
 }
 
 func (r *neonBranchResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -319,43 +318,9 @@ func (r *neonBranchResource) Delete(ctx context.Context, req resource.DeleteRequ
 	resp.State.RemoveResource(ctx)
 }
 
-func (r *neonBranchResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest,
-	resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
-		return
-	}
-
-	var planned neonBranchResourceModel
-	var config neonBranchResourceModel
-	var state neonBranchResourceModel
-	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &planned)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	parentLsnDefined := !config.ParentLsn.IsNull() && !config.ParentLsn.IsUnknown()
-	parentTimestampDefined := !config.ParentTimestamp.IsNull() && !config.ParentTimestamp.IsUnknown()
-	if parentLsnDefined && parentTimestampDefined {
-		resp.Diagnostics.AddError("Invalid Configuration",
-			"parent_lsn and parent_timestamp cannot be set together")
-	}
-
-	if !planned.ParentID.IsNull() && !planned.ParentID.IsUnknown() && !planned.ParentID.Equal(state.ParentID) {
-		resp.RequiresReplace.Append(path.Root("parent_id"))
-		resp.Diagnostics.AddWarning("the resource requires replacement", "parent_id has changed")
-	}
-
-	if !planned.ParentLsn.IsNull() && !planned.ParentLsn.IsUnknown() && !planned.ParentLsn.Equal(state.ParentLsn) {
-		resp.RequiresReplace.Append(path.Root("parent_lsn"))
-		resp.Diagnostics.AddWarning("the resource requires replacement", "parent_lsn has changed")
-	}
-
-	if !planned.ParentTimestamp.IsNull() && !planned.ParentTimestamp.IsUnknown() &&
-		!planned.ParentTimestamp.Equal(state.ParentTimestamp) {
-		resp.RequiresReplace.Append(path.Root("parent_timestamp"))
-		resp.Diagnostics.AddWarning("the resource requires replacement", "parent_timestamp has changed")
+func (r *neonBranchResource) ConfigValidators(context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.Conflicting(path.MatchRoot("parent_lsn"), path.MatchRoot("parent_timestamp")),
 	}
 }
 

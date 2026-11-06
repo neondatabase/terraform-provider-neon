@@ -187,10 +187,10 @@ func (r *neonFunctionResource) ModifyPlan(ctx context.Context, req resource.Modi
 	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
 		return
 	}
-	var plan, state neonFunctionResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() || maps.Equal(plan.EnvironmentVariables, state.EnvironmentVariables) {
+	var planEnv, stateEnv types.Map
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("environment_variables"), &planEnv)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("environment_variables"), &stateEnv)...)
+	if resp.Diagnostics.HasError() || planEnv.Equal(stateEnv) {
 		return
 	}
 	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("environment_variable_names"),
@@ -370,6 +370,11 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 
 	resp.Diagnostics.Append(r.deploy(ctx, plan, plan.EnvironmentVariables)...)
 	if resp.Diagnostics.HasError() {
+		// A failed build or rollout still leaves the function in Neon. Track it so Terraform can replace or destroy it.
+		if fn, diags := r.getFunction(ctx, plan); !diags.HasError() {
+			setNeonFunctionModel(&plan, fn)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+		}
 		return
 	}
 

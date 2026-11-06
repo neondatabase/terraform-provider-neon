@@ -461,27 +461,22 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 		cfg.Settings = nil
 	}
 
-	var endpoint neon.Endpoint
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
-		result, err := r.client.CreateProjectEndpoint(
+	var created neon.EndpointOperations
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		var err error
+		created, err = r.client.CreateProjectEndpoint(
 			state.ProjectID.ValueString(),
 			neon.EndpointCreateRequest{Endpoint: cfg},
 		)
-		if err != nil {
-			return err
-		}
-		if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
-			return err
-		}
-		endpoint = result.EndpointResponse.Endpoint
-		return nil
+		return err
 	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	state.inferAttr(ctx, endpoint, &resp.Diagnostics)
+	state.inferAttr(ctx, created.EndpointResponse.Endpoint, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations))...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

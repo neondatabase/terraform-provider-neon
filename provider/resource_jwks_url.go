@@ -165,24 +165,20 @@ func (r *jwksURLResource) Create(ctx context.Context, req resource.CreateRequest
 		cfg.JwtAudience = pointer(state.JWTAudience.ValueString())
 	}
 
-	var result neon.JWKSCreationOperation
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
+	var created neon.JWKSCreationOperation
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		var err error
-		result, err = r.client.AddProjectJWKS(state.ProjectID.ValueString(), cfg)
-		if err == nil {
-			if err := waitUnfinishedOperations(ctx, r.client, result.OperationsResponse.Operations); err != nil {
-				return err
-			}
-		}
+		created, err = r.client.AddProjectJWKS(state.ProjectID.ValueString(), cfg)
 		return err
 	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	state.ID = types.StringValue(result.Jwks.ID)
-	setJWKSModel(&state, result.JWKSResponse.Jwks, cfg.RoleNames)
+	state.ID = types.StringValue(created.Jwks.ID)
+	setJWKSModel(&state, created.JWKSResponse.Jwks, cfg.RoleNames)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations))...)
 }
 
 func (r *jwksURLResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

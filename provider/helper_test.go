@@ -42,3 +42,18 @@ func TestPersonalAPIKeyRequiredIsNotNotFound(t *testing.T) {
 		t.Errorf("detail lacks the fix: %q", diags[0].Detail())
 	}
 }
+
+func TestWithoutRequestURLDropsPresignedQuery(t *testing.T) {
+	const signature = "X-Amz-Signature=secret"
+	req, err := http.NewRequest(http.MethodPut, "http://127.0.0.1:1/bucket/key?"+signature, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = http.DefaultClient.Do(req)
+	if err == nil || !strings.Contains(err.Error(), signature) {
+		t.Fatalf("expected a transport error carrying the URL, got %v", err)
+	}
+	if got := withoutRequestURL(err).Error(); strings.Contains(got, signature) {
+		t.Errorf("error still carries the presigned URL: %s", got)
+	}
+}

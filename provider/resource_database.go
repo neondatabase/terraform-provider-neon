@@ -114,25 +114,20 @@ func (r neonDatabase) Create(ctx context.Context, req resource.CreateRequest, re
 		},
 	}
 
-	var db neon.Database
+	var created neon.DatabaseOperations
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
-		re, err := r.client.CreateProjectBranchDatabase(state.ProjectID.ValueString(), state.BranchID.ValueString(),
+		var err error
+		created, err = r.client.CreateProjectBranchDatabase(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			cfg)
-		if err != nil {
-			return err
-		}
-		if err := waitUnfinishedOperations(ctx, r.client, re.OperationsResponse.Operations); err != nil {
-			return err
-		}
-		db = re.DatabaseResponse.Database
-		return nil
+		return err
 	}, nil)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	state.inferAttr(db)
+	state.inferAttr(created.DatabaseResponse.Database)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, created.OperationsResponse.Operations))...)
 }
 
 func (r neonDatabase) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

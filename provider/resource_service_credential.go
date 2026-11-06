@@ -431,9 +431,6 @@ func (r *neonServiceCredentialResource) Delete(ctx context.Context, req resource
 		http.StatusNotFound: func(_ context.Context) error {
 			return nil
 		},
-		http.StatusConflict: func(_ context.Context) error {
-			return nil
-		},
 	})...)
 
 	if resp.Diagnostics.HasError() {

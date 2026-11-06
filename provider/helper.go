@@ -530,7 +530,7 @@ func describeAPIError(code int) (summary, hint string) {
 		return "Neon API rate limit reached", "Requests were retried and kept hitting the rate limit. Wait, then run Terraform again."
 	case code >= http.StatusInternalServerError:
 		return "Neon API unavailable",
-			"Requests were retried without success. Try again later, and include the request ID when contacting Neon support."
+			"Try again later, and include the request ID when contacting Neon support."
 	default:
 		return "Neon API request failed", ""
 	}

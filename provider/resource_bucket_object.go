@@ -481,7 +481,7 @@ func upload(ctx context.Context, sdk *neon.Client, httpClient httpClient, conten
 
 	httpReq, err := http.NewRequestWithContext(ctx, presignResp.Method, presignResp.URL, body)
 	if err != nil {
-		return "", 0, "", fmt.Errorf("unable to create HTTP request: %w", err)
+		return "", 0, "", fmt.Errorf("unable to create HTTP request: %w", withoutRequestURL(err))
 	}
 
 	for k, v := range presignResp.Headers {
@@ -491,7 +491,8 @@ func upload(ctx context.Context, sdk *neon.Client, httpClient httpClient, conten
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return "", 0, "",
-			fmt.Errorf("unable to upload object %q to bucket %s/%s/%s: %w", key, projectID, branchID, bucket, err)
+			fmt.Errorf("unable to upload object %q to bucket %s/%s/%s: %w", key, projectID, branchID, bucket,
+				withoutRequestURL(err))
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 	if httpResp.StatusCode < 200 || httpResp.StatusCode > 299 {
@@ -565,4 +566,14 @@ func folderObjectKey(key string) string {
 // bucketObjectID is the <project_id>/<branch_id>/<bucket>/<key> state ID; the key keeps its own slashes.
 func bucketObjectID(projectID, branchID, bucket, key string) string {
 	return strings.Join([]string{projectID, branchID, bucket, key}, "/")
+}
+
+// withoutRequestURL drops the request URL that net/http and net/url errors carry: a presigned URL is a credential
+// until it expires.
+func withoutRequestURL(err error) error {
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		return fmt.Errorf("%s request: %w", urlErr.Op, urlErr.Err)
+	}
+	return err
 }

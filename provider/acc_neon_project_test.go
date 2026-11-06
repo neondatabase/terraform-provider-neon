@@ -413,8 +413,9 @@ func TestProject(t *testing.T) {
 							resource.TestCheckResourceAttr("neon_project.this", "primary_compute.passwordless_access", "true"),
 							resource.TestCheckResourceAttrPair("neon_project.this", "primary_compute.enabled_libraries",
 								"neon_project.this", "enabled_libraries"),
-							resource.TestCheckResourceAttrPair("neon_project.this", "primary_compute.enabled_libraries_use_defaults",
-								"neon_project.this", "enabled_libraries_use_defaults"),
+							// Neon omits use_defaults when it is off: the endpoint reports false, the unset project setting stays null.
+							resource.TestCheckResourceAttr("neon_project.this", "primary_compute.enabled_libraries_use_defaults", "false"),
+							resource.TestCheckNoResourceAttr("neon_project.this", "enabled_libraries_use_defaults"),
 
 							// TODO: remove after off. release: database_host is present for BW compatibility reasons only
 							resource.TestCheckResourceAttrSet("neon_project.this", "default_endpoint_id"),

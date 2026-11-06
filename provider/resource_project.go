@@ -931,13 +931,14 @@ func (r neonProjectResource) Read(ctx context.Context, req resource.ReadRequest,
 			errs <- nil
 		}()
 
+		// Both requests finish before a retry reuses the variables they write.
+		var firstErr error
 		for i := 0; i < cap(errs); i++ {
-			if e := <-errs; e != nil {
-				return e
+			if e := <-errs; e != nil && firstErr == nil {
+				firstErr = e
 			}
 		}
-
-		return nil
+		return firstErr
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error {
 			return nil

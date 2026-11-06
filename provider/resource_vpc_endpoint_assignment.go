@@ -173,8 +173,6 @@ func (r neonVPCEndpointAssignment) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
-	state.ID = types.StringValue(state.OrgID.ValueString() + "/" + state.RegionID.ValueString() + "/" +
-		state.VPCEndpointID.ValueString())
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

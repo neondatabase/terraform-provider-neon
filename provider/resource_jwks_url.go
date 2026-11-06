@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
@@ -83,12 +84,14 @@ func (r *jwksURLResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			"branch_id": schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: requiresReplace,
-				Description:   "Branch ID.",
+				Validators:    []validator.String{stringvalidator.LengthAtLeast(1)},
+				Description:   "Branch ID. Omit it instead of setting an empty string.",
 			},
 			"jwt_audience": schema.StringAttribute{
 				Optional:      true,
 				PlanModifiers: requiresReplace,
-				Description:   "The name of the required JWT Audience to be used.",
+				Validators:    []validator.String{stringvalidator.LengthAtLeast(1)},
+				Description:   "The name of the required JWT Audience to be used. Omit it instead of setting an empty string.",
 			},
 		},
 	}

@@ -129,6 +129,11 @@ ephemeral "neon_connection_uri" "app" {
 Pass `ephemeral.neon_connection_uri.app.uri` to a write-only argument of another resource, for example `value_wo` of
 `aws_ssm_parameter`. See the [ephemeral resources documentation](https://developer.hashicorp.com/terraform/language/resources/ephemeral).
 
+### `neon_jwks_url`
+
+`branch_id` and `jwt_audience` no longer accept an empty string. If your configuration sets `branch_id = ""` or
+`jwt_audience = ""`, remove the line; the plan then shows no changes. Leaving the empty string fails validation.
+
 ### Data sources
 
 | v0.18.0 | Now |

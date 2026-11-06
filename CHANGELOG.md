@@ -161,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **[BREAKING]** `protected` of the resource `neon_branch` takes `true` or `false` instead of `"yes"` or `"no"`.
 - **[BREAKING]** Renamed the attribute `host_pooling` of the resource `neon_endpoint` to `host_pooler`.
 - Changing `type` of the resource `neon_endpoint` replaces the endpoint.
+- **[BREAKING]** `branch_id` and `jwt_audience` of the resource `neon_jwks_url` reject empty strings. Omit them instead.
 - Neon API errors name the cause in the summary (rejected API key, missing resource, rejected request, rate limit,
   API outage) and end with the next step to take.
 - See the [migration guide](docs/guides/migrate-from-kislerdm-neon.md) to move existing state from `kislerdm/neon`.
@@ -193,6 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Updating `label` of a `neon_vpc_endpoint_assignment` created with v0.18.0 keeps its ID instead of failing with an inconsistent result.
 - `compute_provisioner` of `neon_project` has no default. A configuration that omits it keeps the provisioner in state, so projects created with `k8s-pod` are not replaced.
 - `neon_trigger` accepts `cron` and `bucket_name` values that are unknown at plan time, and checks them against `type` on create as well as on update.
 - `environment_variables` of `neon_function` accepts values that are unknown at plan time.

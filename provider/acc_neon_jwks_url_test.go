@@ -196,4 +196,24 @@ resource "neon_jwks_url" "_" {
 				},
 			})
 	})
+
+	t.Run("shall reject empty branch_id and jwt_audience", func(t *testing.T) {
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: fmt.Sprintf(`resource "neon_jwks_url" "_" {
+	project_id    = "project-id"
+	role_names    = ["role"]
+	provider_name = "Stack"
+	jwks_url      = "%s"
+	branch_id     = ""
+	jwt_audience  = ""
+}`, wantJwksUrl),
+					PlanOnly:    true,
+					ExpectError: regexp.MustCompile(`(?s)branch_id.*string length must be at least 1`),
+				},
+			},
+		})
+	})
 }

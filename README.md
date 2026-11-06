@@ -1,28 +1,30 @@
 # Terraform Provider Neon
 
------
-
-<div align="center">
-    ⭐ The project needs your support! Please leave a star and become a GitHub sponsor! ⭐
-</div>
-
------
-
-Terraform provider to manage the [Neon](https://neon.tech/) Postgres projects.
+Terraform provider to manage [Neon](https://neon.com/) resources: projects, branches, computes, roles, databases,
+Functions, Object Storage, and more.
 
 ## Using the provider
 
 ```terraform
 terraform {
-    required_providers {
-        neon = {
-            source = "neondatabase/neon"
-        }
+  required_providers {
+    neon = {
+      source  = "neondatabase/neon"
+      version = "0.19.0-beta.0"
     }
+  }
 }
 
 provider "neon" {}
 ```
+
+Beta releases are only installed when the version is pinned exactly.
+
+### Migrating from kislerdm/neon
+
+`neondatabase/neon` continues the community provider `kislerdm/neon`. Existing state from `kislerdm/neon` v0.18.0 is
+upgraded in place; the configuration needs changes. Follow the
+[migration guide](docs/guides/migrate-from-kislerdm-neon.md).
 
 ### Authentication and Configuration
 
@@ -41,7 +43,7 @@ provider "neon" {
 
 ## Requirements
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.14.x
+- [Terraform](https://developer.hashicorp.com/terraform/install) 1.5 or later. Ephemeral resources need Terraform 1.10 or later.
 
 ## Building The Provider
 
@@ -91,7 +93,7 @@ make install
 
 It will yield the path to the built binary.
 
-To generate or update documentation, run `go docu`.
+To generate or update documentation, run `make docu` with Terraform 1.10 or later. Run it from a checkout directory named `terraform-provider-neon`: the docs generator derives the provider name from the directory.
 
 In order to run the full suite of Unit tests, run `make test`.
 

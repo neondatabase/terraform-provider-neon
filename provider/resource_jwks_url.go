@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -244,7 +245,9 @@ func (r *jwksURLResource) Delete(ctx context.Context, req resource.DeleteRequest
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		_, err := r.client.DeleteProjectJWKS(state.ProjectID.ValueString(), state.ID.ValueString())
 		return err
-	}, nil)...)
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error { return nil },
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

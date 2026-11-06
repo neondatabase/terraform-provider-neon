@@ -175,7 +175,6 @@ func (r *branchBackupScheduleResource) ImportState(ctx context.Context, req reso
 		BranchID:  types.StringValue(branchID),
 	}
 	res.Diagnostics.Append(res.State.Set(ctx, &state)...)
-	r.Read(ctx, resource.ReadRequest{State: res.State}, &resource.ReadResponse{State: res.State})
 }
 
 func (r *branchBackupScheduleResource) Create(ctx context.Context, req resource.CreateRequest,
@@ -217,6 +216,13 @@ func (r *branchBackupScheduleResource) Read(ctx context.Context, req resource.Re
 	}
 
 	schedule, err := r.client.GetSnapshotSchedule(v.ProjectID.ValueString(), v.BranchID.ValueString())
+	if isNotFoundError(err) {
+		resp.Diagnostics.AddWarning("Branch not found",
+			fmt.Sprintf("Branch %s in project %s no longer exists, so its backup schedule is removed from the state.",
+				v.BranchID.ValueString(), v.ProjectID.ValueString()))
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Neon Branch Backup Schedule", err.Error())
 		return
@@ -268,7 +274,7 @@ func (r *branchBackupScheduleResource) Delete(ctx context.Context, req resource.
 		state.ProjectID.ValueString(),
 		state.BranchID.ValueString(),
 		neon.BackupSchedule{Schedule: []neon.BackupScheduleItem{}},
-	); err != nil {
+	); err != nil && !isNotFoundError(err) {
 		resp.Diagnostics.AddError("Unable to Delete Branch Backup Schedule", err.Error())
 		return
 	}

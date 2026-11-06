@@ -291,10 +291,18 @@ func (r *neonBucketResource) Read(ctx context.Context, req resource.ReadRequest,
 				branchStorageResp, err = r.client.GetProjectBranchStorage(state.ProjectID.ValueString(),
 					state.BranchID.ValueString())
 				return err
-			}, nil,
+			}, map[int]func(context.Context) error{
+				http.StatusNotFound: func(_ context.Context) error {
+					resp.Diagnostics.AddWarning("Branch not found",
+						fmt.Sprintf("Branch %s in project %s no longer exists, so bucket %q is removed from the state.",
+							state.BranchID.ValueString(), state.ProjectID.ValueString(), state.Name.ValueString()))
+					resp.State.RemoveResource(ctx)
+					return nil
+				},
+			},
 		)...,
 	)
-	if resp.Diagnostics.HasError() {
+	if resp.Diagnostics.HasError() || resp.State.Raw.IsNull() {
 		return
 	}
 

@@ -1,7 +1,9 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 
 	schemaDataSource "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -490,4 +492,10 @@ func newDiagnostics(err error) diag.Diagnostics {
 	var diags diag.Diagnostics
 	diags.AddError("Neon API request failed", err.Error())
 	return diags
+}
+
+// isNotFoundError reports whether the Neon API answered with 404 Not Found.
+func isNotFoundError(err error) bool {
+	var apiErr neon.Error
+	return errors.As(err, &apiErr) && apiErr.HTTPCode == http.StatusNotFound
 }

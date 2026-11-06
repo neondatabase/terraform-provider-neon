@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -250,7 +251,9 @@ func (r *neonOrgSpendingLimitResource) Delete(
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		_, err := r.client.DeleteOrganizationSpendingLimit(state.OrgID.ValueString())
 		return err
-	}, nil)...)
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error { return nil },
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

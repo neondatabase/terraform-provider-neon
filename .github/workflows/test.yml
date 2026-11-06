@@ -8,11 +8,13 @@ on:
     paths-ignore:
       - 'README.md'
       - '.github'
+      - '.agents'
       - 'cmd'
   push:
     paths-ignore:
       - 'README.md'
       - '.github'
+      - '.agents'
       - 'cmd'
     branches:
       - main
@@ -57,7 +59,7 @@ jobs:
           use-jfrog: ${{ !(github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]') }}
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: 1.5.7
+          terraform_version: '1.16.5'
           terraform_wrapper: false
       - run: go generate ./...
       - name: git diff
@@ -82,7 +84,7 @@ jobs:
           use-jfrog: ${{ !(github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]') }}
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: '1.5.*'
+          terraform_version: '1.16.5'
           terraform_wrapper: false
       - run: make test
 
@@ -93,22 +95,18 @@ jobs:
     runs-on:
       group: neondatabase-protected-runner-group
       labels: linux-ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         terraform:
-          - '1.5.*'
-          - '1.6.*'
-          - '1.7.*'
-          - '1.8.*'
-          - '1.9.*'
-          - '1.10.*'
           - '1.11.*'
           - '1.12.*'
           - '1.13.*'
           - '1.14.*'
           - '1.15.*'
+          - '1.16.*'
+          - '1.17.*'
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0

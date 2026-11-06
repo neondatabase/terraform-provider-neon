@@ -1530,3 +1530,210 @@ func TestProjectAllowedIPs(t *testing.T) {
 			)
 		})
 }
+
+func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
+	if os.Getenv("TF_ACC") != "1" {
+		t.Skip("TF_ACC must be set to 1")
+	}
+	if os.Getenv("SCALE_PLAN") != "1" {
+		t.Skip("test requires Scale plan; set env. variable SCALE_PLAN to 1 to run the test")
+	}
+
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY")})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	projectNamePrefix := "prPrimaryComputeEnabledLibs"
+
+	var verify = func(projectName string, libs []string) (neon.Project, error) {
+		project, err := readProjectInfo(client, projectName)
+		if err != nil {
+			return neon.Project{}, err
+		}
+		var exceeding []string
+		missing := map[string]struct{}{}
+		for _, ip := range libs {
+			missing[ip] = struct{}{}
+		}
+		endpoints, err := client.ListProjectEndpoints(project.ID)
+		if err != nil {
+			return neon.Project{}, err
+		}
+		settings := endpoints.Endpoints[0].Settings.PreloadLibraries
+		var got []string
+		if settings != nil {
+			got = settings.EnabledLibraries
+		}
+
+		for _, ip := range got {
+			if _, ok := missing[ip]; ok {
+				delete(missing, ip)
+				continue
+			}
+			exceeding = append(exceeding, ip)
+		}
+
+		if len(exceeding) > 0 || len(missing) > 0 {
+			return neon.Project{}, fmt.Errorf("unexpected allowed ips. want=%v, got=%v",
+				libs, got)
+		}
+		return project, nil
+	}
+
+	t.Run("shall provision a project with primary compute's enabled libraries", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(
+			t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {
+				enabled_libraries = [%s]
+			}
+		}`, projectName, `"uuid-ossp","hstore"`),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "2"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.0", "uuid-ossp"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.1", "hstore"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, []string{"uuid-ossp", "hstore"})
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {
+				enabled_libraries = [%q]
+			}
+		}`, projectName, "uuid-ossp"),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "1"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.0", "uuid-ossp"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"allowed_ips_protected_branches_only", "false"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, []string{"uuid-ossp"})
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {
+				enabled_libraries = []
+			}
+		}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "0"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, nil)
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "0"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, nil)
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {
+				enabled_libraries = [%q]
+			}
+		}`, projectName, "uuid-ossp"),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "1"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.0", "uuid-ossp"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"allowed_ips_protected_branches_only", "false"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, []string{"uuid-ossp"})
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {}
+		}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "0"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"allowed_ips_protected_branches_only", "false"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, nil)
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "0"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, nil)
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      		= %q
+			primary_compute = {
+				enabled_libraries = [%q]
+			}
+		}`, projectName, "uuid-ossp"),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "1"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.0", "uuid-ossp"),
+							resource.TestCheckResourceAttr("neon_project.this",
+								"allowed_ips_protected_branches_only", "false"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, []string{"uuid-ossp"})
+								return err
+							},
+						),
+					},
+					{
+						Config: fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName),
+						Check: resource.ComposeTestCheckFunc(
+							resource.TestCheckResourceAttr("neon_project.this",
+								"primary_compute.enabled_libraries.#", "0"),
+							func(_ *terraform.State) error {
+								_, err := verify(projectName, nil)
+								return err
+							},
+						),
+					},
+				},
+			},
+		)
+	})
+}

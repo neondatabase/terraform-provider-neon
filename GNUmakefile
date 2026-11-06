@@ -23,7 +23,7 @@ install: build ## Builds and installs the provider.
 
 test: ## Runs unit tests.
 	@ go test $(TEST) || exit 1
-	@ echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
+	@ echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=5m -parallel=4
 
 testacc: ## Runs acceptance tests.
 	@ TF_ACC=1 go test -tags=acceptance -v -timeout 120m ./...

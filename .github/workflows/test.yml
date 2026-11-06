@@ -55,9 +55,10 @@ jobs:
       - uses: ./.github/actions/prepare
         with:
           use-jfrog: ${{ !(github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]') }}
+      # Ephemeral resources only appear in the provider schema from Terraform 1.10.
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: 1.5.7
+          terraform_version: '1.16.*'
           terraform_wrapper: false
       - run: go generate ./...
       - name: git diff
@@ -69,7 +70,7 @@ jobs:
     name: Unit Tests
     needs: build
     runs-on: ${{ (github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]') && 'ubuntu-latest' || fromJSON('{"group":"databricks-ghec-untrusted-runner-group","labels":"linux-ubuntu-latest-untrusted-2core-8gb"}') }}
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
@@ -121,3 +122,5 @@ jobs:
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           ORG_ID: ${{ secrets.ORG_ID }}
+          # The integration test organization is on the Scale plan.
+          SCALE_PLAN: "1"

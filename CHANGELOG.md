@@ -194,6 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `neon_database` rename is recorded in state even if waiting for the operation afterwards fails, so the next refresh does not lose the database.
+- `neon_org_member_role` is removed from state when the member left the organization outside Terraform, instead of failing the refresh.
 - A `neon_function` update whose deployment became active records the deployed inputs even if the rename or the read after it fails, so a later change still reaches Neon.
 - `neon_jwks_url` is removed from state when its project was deleted outside Terraform, instead of failing the refresh.
 - Updating `label` of a `neon_vpc_endpoint_assignment` created with v0.18.0 keeps its ID instead of failing with an inconsistent result.

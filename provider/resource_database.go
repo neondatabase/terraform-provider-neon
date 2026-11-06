@@ -190,14 +190,11 @@ func (r neonDatabase) Update(ctx context.Context, req resource.UpdateRequest, re
 		cfg.Database.OwnerName = plan.OwnerName.ValueStringPointer()
 	}
 
-	var db neon.Database
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
-		dbResp, err := r.client.UpdateProjectBranchDatabase(state.ProjectID.ValueString(),
+	var updated neon.DatabaseOperations
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		var err error
+		updated, err = r.client.UpdateProjectBranchDatabase(state.ProjectID.ValueString(),
 			state.BranchID.ValueString(), state.Name.ValueString(), cfg)
-		if err := waitUnfinishedOperations(ctx, r.client, dbResp.OperationsResponse.Operations); err != nil {
-			return err
-		}
-		db = dbResp.Database
 		return err
 	}, map[int]func(context.Context) error{
 		http.StatusNotFound: func(_ context.Context) error { return nil },
@@ -206,6 +203,7 @@ func (r neonDatabase) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	db := updated.Database
 	if db.BranchID == "" {
 		resp.Diagnostics.AddWarning("database not found",
 			fmt.Sprintf("database %q not found in the project/branch \"%s/%s\"", state.Name.ValueString(),
@@ -214,8 +212,10 @@ func (r neonDatabase) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	// The database ID includes its name, so state records a rename before the wait can fail.
 	state.inferAttr(db)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(newDiagnostics(waitUnfinishedOperations(ctx, r.client, updated.OperationsResponse.Operations))...)
 }
 
 func (r neonDatabase) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

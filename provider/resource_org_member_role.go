@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -194,9 +195,18 @@ func (r *neonOrgMemberRoleResource) Read(ctx context.Context, req resource.ReadR
 		var err error
 		member, err = r.client.GetOrganizationMember(state.OrgID.ValueString(), state.MemberID.ValueString())
 		return err
-	}, nil)...)
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(context.Context) error { return nil },
+	})...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	if member.ID == "" {
+		resp.Diagnostics.AddWarning("Organization member not found",
+			fmt.Sprintf("Member %s is no longer in organization %s; removing its role from the state.",
+				state.MemberID.ValueString(), state.OrgID.ValueString()))
+		resp.State.RemoveResource(ctx)
 		return
 	}
 

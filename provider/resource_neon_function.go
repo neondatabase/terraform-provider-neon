@@ -506,6 +506,16 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 		if resp.Diagnostics.HasError() {
 			return
 		}
+		// The active deployment now runs these inputs; state must say so even if the rename or read below fails.
+		deployed := state
+		deployed.ZipFilePath = plan.ZipFilePath
+		deployed.SourceCodeHash = plan.SourceCodeHash
+		deployed.Runtime = plan.Runtime
+		deployed.EnvironmentVariables = plan.EnvironmentVariables
+		resp.Diagnostics.Append(resp.State.Set(ctx, &deployed)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	if !plan.Name.IsUnknown() && !plan.Name.Equal(state.Name) {

@@ -216,4 +216,29 @@ resource "neon_jwks_url" "_" {
 			},
 		})
 	})
+
+	t.Run("shall refresh after its project was deleted outside of terraform", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		config := resourceDefinition(projectName)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{Config: config},
+				{
+					PreConfig: func() {
+						ref, err := readProjectInfo(client, projectName)
+						if err != nil {
+							panic(err)
+						}
+						if _, err := client.DeleteProject(ref.ID); err != nil {
+							panic(err)
+						}
+					},
+					Config:             config,
+					PlanOnly:           true,
+					ExpectNonEmptyPlan: true,
+				},
+			},
+		})
+	})
 }

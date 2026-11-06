@@ -194,6 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `neon_function` update whose deployment became active records the deployed inputs even if the rename or the read after it fails, so a later change still reaches Neon.
+- `neon_jwks_url` is removed from state when its project was deleted outside Terraform, instead of failing the refresh.
 - Updating `label` of a `neon_vpc_endpoint_assignment` created with v0.18.0 keeps its ID instead of failing with an inconsistent result.
 - `compute_provisioner` of `neon_project` has no default. A configuration that omits it keeps the provisioner in state, so projects created with `k8s-pod` are not replaced.
 - `neon_trigger` accepts `cron` and `bucket_name` values that are unknown at plan time, and checks them against `type` on create as well as on update.

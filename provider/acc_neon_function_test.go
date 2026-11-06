@@ -377,4 +377,49 @@ resource "neon_function" "other" {
 			},
 		})
 	})
+
+	t.Run("shall record a successful deploy when the rename after it fails", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		config := func(name, env string) string {
+			return fmt.Sprintf(`resource "neon_project" "this" {
+  name      = %q
+  org_id    = %q
+  region_id = "aws-us-east-2"
+}
+
+resource "neon_function" "this" {
+  project_id    = neon_project.this.id
+  branch_id     = neon_project.this.branch.id
+  slug          = "hello"
+  runtime       = "nodejs24"
+  name          = %q
+  zip_file_path = %q
+
+  environment_variables = {
+%s
+  }
+}
+`, projectName, orgID, name, zipPath, env)
+		}
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{Config: config("hello", `    FOO = "1"`)},
+				{
+					// Neon rejects the empty name after the deployment that adds BAR is active.
+					Config:      config("", "    FOO = \"1\"\n    BAR = \"baz\""),
+					ExpectError: regexp.MustCompile("Neon rejected the request"),
+				},
+				{
+					// Removing BAR only reaches Neon if state recorded the deployment that added it. The names come
+					// from Neon's current deployment, which traffic can lag behind.
+					Config: config("hello", `    FOO = "1"`),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_function.this", "environment_variable_names.#", "1"),
+						resource.TestCheckResourceAttr("neon_function.this", "environment_variable_names.0", "FOO"),
+					),
+				},
+			},
+		})
+	})
 }

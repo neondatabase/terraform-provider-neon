@@ -201,7 +201,13 @@ func (r *jwksURLResource) Read(ctx context.Context, req resource.ReadRequest, re
 		var err error
 		result, err = r.client.GetProjectJWKS(state.ProjectID.ValueString())
 		return err
-	}, nil)...)
+	}, map[int]func(context.Context) error{
+		// The project is gone, and its JWKS with it.
+		http.StatusNotFound: func(context.Context) error {
+			result = neon.ProjectJWKSResponse{}
+			return nil
+		},
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

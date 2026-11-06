@@ -2,10 +2,12 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,10 +25,11 @@ import (
 )
 
 var (
-	_ resource.Resource                = (*neonFunctionResource)(nil)
-	_ resource.ResourceWithConfigure   = (*neonFunctionResource)(nil)
-	_ resource.ResourceWithImportState = (*neonFunctionResource)(nil)
-	_ resource.ResourceWithModifyPlan  = (*neonFunctionResource)(nil)
+	_ resource.Resource                   = (*neonFunctionResource)(nil)
+	_ resource.ResourceWithConfigure      = (*neonFunctionResource)(nil)
+	_ resource.ResourceWithImportState    = (*neonFunctionResource)(nil)
+	_ resource.ResourceWithModifyPlan     = (*neonFunctionResource)(nil)
+	_ resource.ResourceWithValidateConfig = (*neonFunctionResource)(nil)
 )
 
 type neonFunctionResource struct {
@@ -492,8 +495,14 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 
 	if !plan.ZipFilePath.Equal(state.ZipFilePath) || !plan.SourceCodeHash.Equal(state.SourceCodeHash) ||
 		!plan.Runtime.Equal(state.Runtime) || !maps.Equal(plan.EnvironmentVariables, state.EnvironmentVariables) {
+		uploadedKeys, diags := uploadedEnvironmentKeys(ctx, req.Private)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		// Neon carries variables over from the previous deployment unless they are sent empty.
 		env := maps.Clone(plan.EnvironmentVariables)
-		for key := range state.EnvironmentVariables {
+		for _, key := range append(slices.Collect(maps.Keys(state.EnvironmentVariables)), uploadedKeys...) {
 			if _, ok := plan.EnvironmentVariables[key]; !ok {
 				if env == nil {
 					env = map[string]string{}
@@ -501,11 +510,19 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 				env[key] = ""
 			}
 		}
-		_, diags := r.deploy(ctx, plan, env)
+		uploaded, diags := r.deploy(ctx, plan, env)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
+			// State keeps the previous inputs so the next apply deploys again. An accepted upload may still go live,
+			// so its keys are remembered for that deploy to delete if they are gone from the configuration by then.
+			if uploaded {
+				keys := slices.Sorted(maps.Keys(plan.EnvironmentVariables))
+				resp.Diagnostics.Append(setUploadedEnvironmentKeys(ctx, resp.Private,
+					slices.Compact(slices.Sorted(slices.Values(append(keys, uploadedKeys...)))))...)
+			}
 			return
 		}
+		resp.Diagnostics.Append(setUploadedEnvironmentKeys(ctx, resp.Private, nil)...)
 		// The active deployment now runs these inputs; state must say so even if the rename or read below fails.
 		deployed := state
 		deployed.ZipFilePath = plan.ZipFilePath
@@ -608,4 +625,53 @@ func setNeonFunctionModel(model *neonFunctionResourceModel, fn neon.NeonFunction
 
 func neonFunctionID(projectID, branchID, slug string) string {
 	return fmt.Sprintf("%s/%s/%s", projectID, branchID, slug)
+}
+
+const uploadedEnvironmentKeysPrivateKey = "uploaded_environment_variable_names"
+
+type privateState interface {
+	GetKey(ctx context.Context, key string) ([]byte, diag.Diagnostics)
+	SetKey(ctx context.Context, key string, value []byte) diag.Diagnostics
+}
+
+func uploadedEnvironmentKeys(ctx context.Context, private privateState) ([]string, diag.Diagnostics) {
+	raw, diags := private.GetKey(ctx, uploadedEnvironmentKeysPrivateKey)
+	if diags.HasError() || len(raw) == 0 {
+		return nil, diags
+	}
+	var keys []string
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		diags.AddError("Unreadable private state", fmt.Sprintf("Decode %s: %s", uploadedEnvironmentKeysPrivateKey, err))
+	}
+	return keys, diags
+}
+
+func setUploadedEnvironmentKeys(ctx context.Context, private privateState, keys []string) diag.Diagnostics {
+	if len(keys) == 0 {
+		return private.SetKey(ctx, uploadedEnvironmentKeysPrivateKey, nil)
+	}
+	raw, err := json.Marshal(keys)
+	if err != nil {
+		var diags diag.Diagnostics
+		diags.AddError("Unwritable private state", err.Error())
+		return diags
+	}
+	return private.SetKey(ctx, uploadedEnvironmentKeysPrivateKey, raw)
+}
+
+func (r *neonFunctionResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest,
+	resp *resource.ValidateConfigResponse) {
+	var env types.Map
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("environment_variables"), &env)...)
+	if resp.Diagnostics.HasError() || env.IsNull() || env.IsUnknown() {
+		return
+	}
+	for key, value := range env.Elements() {
+		if v, ok := value.(types.String); ok && !v.IsNull() && !v.IsUnknown() && v.ValueString() == "" {
+			resp.Diagnostics.AddAttributeError(path.Root("environment_variables").AtMapKey(key),
+				"Empty environment variable",
+				fmt.Sprintf("Neon deletes a function environment variable whose value is empty. "+
+					"Remove %s from environment_variables instead.", key))
+		}
+	}
 }

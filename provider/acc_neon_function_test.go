@@ -422,4 +422,24 @@ resource "neon_function" "this" {
 			},
 		})
 	})
+
+	t.Run("shall reject an empty environment variable", func(t *testing.T) {
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{{
+				Config: fmt.Sprintf(`resource "neon_function" "this" {
+  project_id    = "project-id"
+  branch_id     = "br-id"
+  slug          = "hello"
+  runtime       = "nodejs24"
+  zip_file_path = %q
+  environment_variables = {
+    FOO = ""
+  }
+}`, zipPath),
+				PlanOnly:    true,
+				ExpectError: regexp.MustCompile("Empty environment variable"),
+			}},
+		})
+	})
 }

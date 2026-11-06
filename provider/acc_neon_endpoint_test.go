@@ -198,7 +198,7 @@ func TestEndpoint(t *testing.T) {
 							// the autoscaling configs remain as set in the prev. step despite the config removal from the manifest
 							resource.TestCheckResourceAttr("neon_endpoint.this", "autoscaling_limit_min_cu", "0.25"),
 							resource.TestCheckResourceAttr("neon_endpoint.this", "autoscaling_limit_max_cu", "0.5"),
-							resource.TestCheckResourceAttr("neon_endpoint.this", "suspend_timeout_seconds", "0"),
+							resource.TestCheckResourceAttr("neon_endpoint.this", "suspend_timeout_seconds", "120"),
 							resource.TestCheckResourceAttr("neon_endpoint.this", "disabled", "true"),
 							verify,
 						),

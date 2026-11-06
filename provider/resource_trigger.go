@@ -108,8 +108,9 @@ func (r *neonTriggerResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "Optional object-key prefix matched against uploaded object keys. Max 1024 UTF-8 bytes. Used only when `type` is `storage_object_created`.",
 			},
 			"trigger_id": schema.StringAttribute{
-				Computed:    true,
-				Description: "Opaque, server-minted trigger ID.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "Opaque, server-minted trigger ID.",
 			},
 			"version": schema.Int64Attribute{
 				Computed:    true,

@@ -72,8 +72,9 @@ func (r *neonSnapshotResource) Schema(_ context.Context, _ resource.SchemaReques
 				Description:   "The Neon branch ID to capture. Immutable after creation.",
 			},
 			"snapshot_id": schema.StringAttribute{
-				Computed:    true,
-				Description: "Server-generated snapshot identifier.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "Server-generated snapshot identifier.",
 			},
 			"name": schema.StringAttribute{
 				Optional:    true,

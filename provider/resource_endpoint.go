@@ -276,12 +276,14 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				},
 			},
 			"host": schema.StringAttribute{
-				Description: "The hostname of the compute endpoint.",
-				Computed:    true,
+				Description:   "The hostname of the compute endpoint.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"host_pooler": schema.StringAttribute{
-				Description: "The hostname of the compute endpoint accessible through the connection pool (pgbouncer).",
-				Computed:    true,
+				Description:   "The hostname of the compute endpoint accessible through the connection pool (pgbouncer).",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 	}

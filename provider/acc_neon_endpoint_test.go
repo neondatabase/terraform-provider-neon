@@ -198,7 +198,7 @@ func TestEndpoint(t *testing.T) {
 							// the autoscaling configs remain as set in the prev. step despite the config removal from the manifest
 							resource.TestCheckResourceAttr("neon_endpoint.this", "autoscaling_limit_min_cu", "0.25"),
 							resource.TestCheckResourceAttr("neon_endpoint.this", "autoscaling_limit_max_cu", "0.5"),
-							resource.TestCheckResourceAttr("neon_endpoint.this", "suspend_timeout_seconds", "120"),
+							resource.TestCheckResourceAttr("neon_endpoint.this", "suspend_timeout_seconds", "0"),
 							resource.TestCheckResourceAttr("neon_endpoint.this", "disabled", "true"),
 							verify,
 						),
@@ -277,11 +277,9 @@ func TestEndpoint(t *testing.T) {
 					`, projectName),
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries.#",
-								"1"),
-							resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries.0",
-								"uuid-ossp"),
+								"0"),
 							resource.TestCheckResourceAttr("neon_endpoint.this",
-								"enabled_libraries_use_defaults", "true"),
+								"enabled_libraries_use_defaults", "false"),
 							verify,
 						),
 					},
@@ -513,6 +511,77 @@ func TestEndpoint(t *testing.T) {
 					verify,
 				),
 			}},
+		})
+	})
+
+	t.Run("shall update custom libraries", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: endpointConfig(projectName, `enabled_libraries = ["uuid-ossp", "hstore"]`),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.#", "2"),
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.0", "uuid-ossp"),
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.1", "hstore"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
+						verify,
+					),
+				},
+				{
+					Config: endpointConfig(projectName, `enabled_libraries = ["uuid-ossp"]`),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.#", "1"),
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.0", "uuid-ossp"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
+						verify,
+					),
+				},
+				{
+					Config: endpointConfig(projectName, `enabled_libraries = []`),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.#", "0"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
+						verify,
+					),
+				},
+				{
+					Config: endpointConfig(projectName, ``),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.#", "0"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
+						verify,
+					),
+				},
+				{
+					Config: endpointConfig(projectName, `enabled_libraries = ["uuid-ossp"]`),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.#", "1"),
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.0", "uuid-ossp"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
+						verify,
+					),
+				},
+				{
+					Config: endpointConfig(projectName, ``),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_endpoint.this",
+							"enabled_libraries.#", "0"),
+						resource.TestCheckResourceAttr("neon_endpoint.this", "enabled_libraries_use_defaults", "false"),
+						verify,
+					),
+				},
+			},
 		})
 	})
 

@@ -249,7 +249,7 @@ Optional:
 	A disabled compute endpoint cannot be enabled by a connection or
 	console action. However, the compute endpoint is periodically
 	enabled by check_availability operations.
-- `enabled_libraries` (List of String) Names of shared preload libraries to enable for the project.
+- `enabled_libraries` (List of String) Names of shared preload libraries to enable on the endpoint. Removing the attribute keeps the current libraries; set it to `[]` to clear them.
 - `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
 - `name` (String) Name of the compute endpoint.
 - `passwordless_access` (Boolean) When true, the endpoint allows passwordless access.

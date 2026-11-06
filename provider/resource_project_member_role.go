@@ -111,17 +111,17 @@ func (r *neonProjectMemberRoleResource) Configure(_ context.Context, req resourc
 }
 
 func (r *neonProjectMemberRoleResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	var state neonProjectMemberRoleResourceModel
-	switch {
-	case !req.Plan.Raw.IsNull():
-		resp.Diagnostics.Append(req.Plan.Get(ctx, &state)...)
-	case !req.State.Raw.IsNull():
-		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	default:
+	// Nothing to validate on destroy.
+	if req.Plan.Raw.IsNull() {
 		return
 	}
-
+	var state neonProjectMemberRoleResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
+		return
+	}
+	// Values from resources that are not created yet are validated in a later plan.
+	if state.ProjectID.IsUnknown() || state.MemberID.IsUnknown() || state.Role.IsUnknown() {
 		return
 	}
 

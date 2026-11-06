@@ -169,7 +169,7 @@ func (d *neonBranchEndpointsDataSource) Read(ctx context.Context, req datasource
 			ProxyHost:             types.StringValue(endpoint.ProxyHost),
 			Name:                  types.StringValue(name),
 			AutoscalingLimitMinCU: types.Float64Value(float64(endpoint.AutoscalingLimitMinCu)),
-			AutoscalingLimitMaxCU: types.Float64Value(float64(endpoint.AutoscalingLimitMinCu)),
+			AutoscalingLimitMaxCU: types.Float64Value(float64(endpoint.AutoscalingLimitMaxCu)),
 			SuspendTimeoutSeconds: types.Int64Value(int64(endpoint.SuspendTimeoutSeconds)),
 		})
 	}

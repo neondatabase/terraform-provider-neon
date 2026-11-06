@@ -33,7 +33,7 @@ resource "neon_snapshot" "example" {
 
 ### Optional
 
-- `expires_at` (String) RFC 3339 timestamp when the snapshot expires. Omit to leave the current expiration unchanged; set to null in configuration to clear it.
+- `expires_at` (String) RFC 3339 timestamp when the snapshot expires. Omit or remove it to clear the expiration.
 - `lsn` (String) WAL position (LSN) at which to capture the snapshot, in Postgres LSN format.
 - `name` (String) Human-readable label for the snapshot.
 - `timestamp` (String) Point in time captured by the snapshot, in RFC 3339 format.

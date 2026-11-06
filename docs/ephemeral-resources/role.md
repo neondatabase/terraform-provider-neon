@@ -1,12 +1,12 @@
 ---
 page_title: "neon_role Ephemeral Resource - terraform-provider-neon"
 description: |-
-  Ephemeral resource to retrieve the Neon PostgreSQL Role's password.
+  Ephemeral resource to retrieve the password of a Neon Postgres role. The password is never stored in the Terraform state.
 ---
 
 # neon_role (Ephemeral Resource)
 
-Ephemeral resource to retrieve the Neon PostgreSQL Role's password.
+Ephemeral resource to retrieve the password of a Neon Postgres role. The password is never stored in the Terraform state.
 
 ## Example Usage
 
@@ -52,4 +52,4 @@ resource "aws_ssm_parameter" "default_neon_role_password" {
 
 ### Read-Only
 
-- `password` (String) Database authentication password.
+- `password` (String, Sensitive) Database authentication password.

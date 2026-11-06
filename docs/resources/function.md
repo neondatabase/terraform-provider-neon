@@ -48,14 +48,15 @@ resource "neon_function" "example" {
 
 - `branch_id` (String) The Neon branch ID.
 - `project_id` (String) The Neon project ID.
-- `runtime` (String) Runtime for the function. Currently only `nodejs24` is supported.
+- `runtime` (String) Runtime for the function. Currently only `nodejs24` is supported. Changing it deploys the function again.
 - `slug` (String) Branch-unique identifier for the function. Forms the invocation URL host together with the branch ID.
 
 ### Optional
 
-- `environment_variables` (Map of String, Sensitive) Environment variables to expose to the function. The API never returns their values. Terraform stores configured values in state and marks them sensitive. Changes require replacing the function.
+- `environment_variables` (Map of String, Sensitive) Environment variables to expose to the function. The API never returns their values. Terraform stores configured values in state and marks them sensitive. Changing them deploys the function again.
 - `name` (String) Free-form display name for the function. Updatable in place.
-- `zip_file_path` (String, Sensitive) Path to a local ZIP archive of the function source. Required on create.
+- `source_code_hash` (String) Hash of the ZIP archive, for example `filebase64sha256("function.zip")`. Set it so that a new archive at the same `zip_file_path` deploys the function again.
+- `zip_file_path` (String, Sensitive) Path to a local ZIP archive of the function source. Required on create. Changing it deploys the function again.
 
 ### Read-Only
 

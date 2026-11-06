@@ -1,12 +1,12 @@
 ---
 page_title: "neon_connection_uri Ephemeral Resource - terraform-provider-neon"
 description: |-
-  Ephemeral resource to retrieve the Neon PostgreSQL Role's password.
+  Ephemeral resource to retrieve the connection URIs of a Neon database for a role. The URIs contain the role's password and are never stored in the Terraform state.
 ---
 
 # neon_connection_uri (Ephemeral Resource)
 
-Ephemeral resource to retrieve the Neon PostgreSQL Role's password.
+Ephemeral resource to retrieve the connection URIs of a Neon database for a role. The URIs contain the role's password and are never stored in the Terraform state.
 
 ## Example Usage
 
@@ -62,5 +62,5 @@ resource "aws_ssm_parameter" "default_neon_connection_uri" {
 
 ### Read-Only
 
-- `uri` (String) URI of the direct database connection.
-- `uri_pooler` (String) URI of the connection from the pool.
+- `uri` (String, Sensitive) URI of the direct database connection. It contains the role's password.
+- `uri_pooler` (String, Sensitive) URI of the pooled connection. It contains the role's password.

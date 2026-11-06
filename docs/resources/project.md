@@ -158,7 +158,6 @@ Note that it is not retrospectively applicable, i.e., existing compute resources
 - `compute_provisioner` (String) Project-wide compute provisioner. `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.
 - `database_name` (String) Default database name.
 - `database_user` (String) Default database role.
-- `default_branch_protected` (Boolean, Deprecated) Set default branch as protected. **Note** that the default value is false.
 - `enable_logical_replication` (Boolean) Sets wal_level=logical for all compute endpoints in this project.
 All active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication
 **Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.
@@ -214,9 +213,6 @@ See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configur
 Optional:
 
 - `name` (String) Branch name.
-- `parent_id` (String) Parent branch ID.
-- `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
-- `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.
 - `protected` (Boolean) Protected branch flag.
 
 Read-Only:
@@ -224,6 +220,9 @@ Read-Only:
 - `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
 - `logical_size` (Number) Branch logical size in bytes.
+- `parent_id` (String) Parent branch ID.
+- `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
+- `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.
 - `project_id` (String) Project ID.
 
 
@@ -271,7 +270,7 @@ Read-Only:
 - `region_id` (String) Cloud region where the resource's Postgres compute and storage reside.
 Find the list here: https://neon.com/docs/introduction/regions.
 Alternatively, use the data source `neon_active_regions`.
-- `type` (String) Compute endpoint type.
+- `type` (String) Compute endpoint type. Changing it replaces the endpoint.
 
 
 <a id="nestedatt--quota"></a>

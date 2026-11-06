@@ -58,7 +58,7 @@ Alternatively, use the data source `neon_active_regions`.
    - `604800` sec. (1 week) is the maximum.
    - `60` sec. (1 minute) is the minimum.
 See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configuration).
-- `type` (String) Compute endpoint type.
+- `type` (String) Compute endpoint type. Changing it replaces the endpoint.
 
 ### Read-Only
 

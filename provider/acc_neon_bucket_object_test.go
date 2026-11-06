@@ -31,6 +31,27 @@ func TestBucketObject(t *testing.T) {
 
 	projectNamePrefix := "bucketObject"
 
+	t.Run("shall plan a folder whose is_directory is unknown until apply", func(t *testing.T) {
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{{
+				Config: `resource "terraform_data" "folder" {
+  input = true
+}
+
+resource "neon_bucket_object" "this" {
+  project_id   = "foo"
+  branch_id    = "br"
+  bucket       = "foo"
+  key          = "foo"
+  is_directory = terraform_data.folder.output
+}`,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: true,
+			}},
+		})
+	})
+
 	t.Run("shall fail plan: content, content_base64, source, is_directory are set", func(t *testing.T) {
 		resource.UnitTest(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),

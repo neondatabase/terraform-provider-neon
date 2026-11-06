@@ -195,6 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `expires_at` and `timestamp` of `neon_snapshot` keep the configured RFC 3339 offset when Neon returns the same instant in UTC, instead of failing with an inconsistent result.
+- `neon_bucket_object` accepts an `is_directory` value that is unknown at plan time.
 - Omitting `retention_seconds` in a `neon_branch_backup_schedule` uses Neon's default of 3024000 seconds instead of planning a change on every run.
 - Importing a `neon_bucket_object` whose key contains `%`, `?` or `#` works instead of crashing the provider, and the first plan after an import updates the object in place instead of replacing it. Import keeps the key as given and imports a folder when only its placeholder object exists.
 - `environment_variables` of `neon_function` rejects empty values, which Neon treats as deleting the variable. After a deployment that Neon accepted but that did not become active, the next plan deploys the configured inputs again, even if the configuration was reverted, and deletes the variables that deployment added.

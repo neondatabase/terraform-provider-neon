@@ -349,6 +349,7 @@ func (r *neonSnapshotResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	state.ExpiresAt = plan.ExpiresAt
 	setNeonSnapshotModel(&state, updated)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -427,23 +428,34 @@ func setNeonSnapshotModel(model *neonSnapshotResourceModel, snap neon.Snapshot) 
 	} else {
 		model.DiffSize = types.Int64Null()
 	}
-	if snap.ExpiresAt != nil {
-		model.ExpiresAt = types.StringValue(*snap.ExpiresAt)
-	} else {
+	if snap.ExpiresAt == nil {
 		model.ExpiresAt = types.StringNull()
+	} else if !sameInstant(model.ExpiresAt, *snap.ExpiresAt) {
+		// Neon returns UTC; a configured value with another offset that names the same instant stays as written,
+		// here and for timestamp below.
+		model.ExpiresAt = types.StringValue(*snap.ExpiresAt)
 	}
 	if snap.Lsn != nil {
 		model.Lsn = types.StringValue(*snap.Lsn)
 	} else {
 		model.Lsn = types.StringNull()
 	}
-	if snap.Timestamp != nil {
-		model.Timestamp = types.StringValue(*snap.Timestamp)
-	} else {
+	if snap.Timestamp == nil {
 		model.Timestamp = types.StringNull()
+	} else if !sameInstant(model.Timestamp, *snap.Timestamp) {
+		model.Timestamp = types.StringValue(*snap.Timestamp)
 	}
 }
 
 func snapshotCompositeID(projectID, snapID string) string {
 	return fmt.Sprintf("%s/%s", projectID, snapID)
+}
+
+func sameInstant(configured types.String, rfc3339 string) bool {
+	if configured.IsNull() || configured.IsUnknown() {
+		return false
+	}
+	a, errA := time.Parse(time.RFC3339, configured.ValueString())
+	b, errB := time.Parse(time.RFC3339, rfc3339)
+	return errA == nil && errB == nil && a.Equal(b)
 }

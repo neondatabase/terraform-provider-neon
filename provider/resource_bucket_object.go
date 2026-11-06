@@ -190,7 +190,8 @@ func (r *neonBucketObjectResource) ModifyPlan(ctx context.Context, req resource.
 	}
 
 	// Values supplied by other resources are unknown until apply; Terraform plans again then with known values.
-	if config.Content.IsUnknown() || config.ContentBase64.IsUnknown() || config.Source.IsUnknown() {
+	if config.Content.IsUnknown() || config.ContentBase64.IsUnknown() || config.Source.IsUnknown() ||
+		config.IsDirectory.IsUnknown() {
 		return
 	}
 

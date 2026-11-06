@@ -86,6 +86,8 @@ func TestAccNeonSnapshot(t *testing.T) {
 	t.Run("shall set and clear expires_at and verify against the live API", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
 		expiry := time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339)
+		// Neon returns UTC, so a value with another offset has to survive the round trip as written.
+		offsetExpiry := time.Now().Add(72 * time.Hour).In(time.FixedZone("", 3600)).Format(time.RFC3339)
 		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
@@ -94,6 +96,13 @@ func TestAccNeonSnapshot(t *testing.T) {
 					Check: resource.ComposeTestCheckFunc(
 						resource.TestCheckResourceAttr("neon_snapshot.this", "expires_at", expiry),
 						verifySnapshotExpiryAgainstAPI(t, client, expiry),
+					),
+				},
+				{
+					Config: newSnapshotConfig(projectName, orgID, "expiry", offsetExpiry),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_snapshot.this", "expires_at", offsetExpiry),
+						verifySnapshotExpiryAgainstAPI(t, client, offsetExpiry),
 					),
 				},
 				{

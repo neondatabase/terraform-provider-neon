@@ -73,7 +73,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `block_public_connections`;
   - `block_vpc_connections`;
   - `compute_provisioner`;
-  - `default_branch_protected`;
   - `default_endpoint_id`;
   - `enable_logical_replication`;
   - `hipaa`;
@@ -169,12 +168,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecated the following fields of the resource `neon_project`: 
   - `default_branch_id`: use `branch.id` instead;
   - `default_endpoint_id`: use `primary_compute.id` instead;
-  - `default_branch_protected`: use `branch.protected` instead;
   - `database_host`: use `primary_compute.host` instead;
   - `database_host_pooler`: use `primary_compute.host_pooler` instead.
 
 ### Removed
 
+- **[BREAKING]** Removed the attribute `default_branch_protected` from the resource `neon_project`. Use `branch.protected` instead.
 - [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attribute `password` from the resource `neon_role`.
 - [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the data source `neon_branch_role_password`.
 - [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attributes `connection_uri`, `connection_uri_pooler` and `database_password` from the resource and data-source `neon_project`.

@@ -389,13 +389,8 @@ func TestProject(t *testing.T) {
 							// TODO: remove after off. release: database_host is present for BW compatibility reasons only
 							resource.TestCheckResourceAttrSet("neon_project.this", "default_branch_id"),
 							// TODO: remove after off. release: database_host is present for BW compatibility reasons only
-							resource.TestCheckResourceAttrSet("neon_project.this", "default_branch_protected"),
-							// TODO: remove after off. release: database_host is present for BW compatibility reasons only
 							resource.TestCheckResourceAttrPair("neon_project.this", "branch.id",
 								"neon_project.this", "default_branch_id"),
-							// TODO: remove after off. release: database_host is present for BW compatibility reasons only
-							resource.TestCheckResourceAttrPair("neon_project.this", "branch.protected",
-								"neon_project.this", "default_branch_protected"),
 
 							resource.TestCheckResourceAttr("neon_project.this", "primary_compute.%",
 								fmt.Sprintf("%d", len(endpointSchemaAttributes))),
@@ -1165,13 +1160,7 @@ func TestProject(t *testing.T) {
 }`, projectName),
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
-								"neon_project.this", "default_branch_protected", "true",
-							),
-							resource.TestCheckResourceAttr(
 								"neon_project.this", "branch.protected", "true",
-							),
-							resource.TestCheckResourceAttr(
-								"neon_project.this", "default_branch_protected", "true",
 							),
 							func(state *terraform.State) error {
 								r, ok := state.RootModule().Resources["neon_project.this"]
@@ -1199,13 +1188,7 @@ func TestProject(t *testing.T) {
 }`, projectName),
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
-								"neon_project.this", "default_branch_protected", "false",
-							),
-							resource.TestCheckResourceAttr(
 								"neon_project.this", "branch.protected", "false",
-							),
-							resource.TestCheckResourceAttr(
-								"neon_project.this", "default_branch_protected", "false",
 							),
 							func(state *terraform.State) error {
 								r, ok := state.RootModule().Resources["neon_project.this"]
@@ -1241,9 +1224,6 @@ func TestProject(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
 								"neon_project.this", "branch.protected", "false",
-							),
-							resource.TestCheckResourceAttr(
-								"neon_project.this", "default_branch_protected", "false",
 							),
 						),
 					},

@@ -31,7 +31,6 @@ import (
 
 var _ resource.ResourceWithConfigure = (*neonProjectResource)(nil)
 var _ resource.ResourceWithUpgradeState = (*neonProjectResource)(nil)
-var _ resource.ResourceWithModifyPlan = (*neonProjectResource)(nil)
 var _ resource.ResourceWithImportState = (*neonProjectResource)(nil)
 
 func NewNeonProjectResource() resource.Resource {
@@ -135,7 +134,6 @@ type neonProjectResourceModel struct {
 	// TODO: delete after the off. release: it's here for BW compatibility only
 	DefaultBranchID types.String `tfsdk:"default_branch_id"`
 	// TODO: delete after the off. release: it's here for BW compatibility only
-	DefaultBranchProtected types.Bool `tfsdk:"default_branch_protected"`
 	// TODO: delete after the off. release: it's here for BW compatibility only
 	DefaultEndpointID types.String `tfsdk:"default_endpoint_id"`
 	// TODO: delete after the off. release: it's here for BW compatibility only
@@ -289,7 +287,6 @@ func (v *neonProjectResourceModel) inferAttr(ctx context.Context, project neon.P
 	v.Branch = &neonBranchResourceModel{}
 	v.Branch.inferAttr(branch)
 	v.DefaultBranchID = v.Branch.ID
-	v.DefaultBranchProtected = v.Branch.Protected
 
 	v.PrimaryCompute = &neonEndpointResourceModel{
 		EnabledLibraries: v.PrimaryCompute.EnabledLibraries,
@@ -451,11 +448,6 @@ func (r *neonProjectResource) Configure(ctx context.Context, req resource.Config
 	if resp.Diagnostics.HasError() {
 		return
 	}
-}
-
-func (r *neonProjectResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest,
-	resp *resource.ModifyPlanResponse) {
-	planProjectProtection(ctx, req, resp)
 }
 
 type boolReplacerFromTrue struct{}
@@ -712,13 +704,6 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			DeprecationMessage: "Use the `id` attribute in the block `branch` instead.",
 			Computed:           true,
 			PlanModifiers:      keepPriorString,
-		},
-		"default_branch_protected": schema.BoolAttribute{
-			Description: "Set default branch as protected. Defaults to false when neither this attribute nor branch.protected is configured. " +
-				"If both are configured, their values must agree.",
-			DeprecationMessage: "Use the `protected` attribute in the block `branch` instead.",
-			Optional:           true,
-			Computed:           true,
 		},
 		"default_endpoint_id": schema.StringAttribute{
 			Description:        "Default endpoint ID.",
@@ -987,7 +972,6 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 
 	var state neonProjectResourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &state)...)
-	protection := configuredProjectProtection(ctx, req.Config, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -1194,20 +1178,12 @@ func (r neonProjectResource) Create(ctx context.Context, req resource.CreateRequ
 		}
 	}
 
-	// Start with the API result when no nested branch settings were supplied.
-	// Otherwise preserve configured branch settings, including a custom name.
-	if defaultBranch.ID != "" && (branchSettings != nil || !state.Branch.Protected.Equal(protection)) {
-		branchPlan := *state.Branch
-		if branchSettings != nil {
-			branchPlan = *branchSettings
-		}
-		branchPlan.Protected = protection
-		state.Branch = r.updateBranch(ctx, state.Branch, &branchPlan, &resp.Diagnostics)
+	if branchSettings != nil && defaultBranch.ID != "" {
+		state.Branch = r.updateBranch(ctx, state.Branch, branchSettings, &resp.Diagnostics)
 		if resp.Diagnostics.HasError() {
 			return
 		}
 	}
-	state.DefaultBranchProtected = state.Branch.Protected
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -1225,7 +1201,6 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
-	protection := configuredProjectProtection(ctx, req.Config, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -1450,17 +1425,12 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 	}
 
-	if prior.Branch != nil {
-		branchPlan := *prior.Branch
-		if config.Branch != nil && plan.Branch != nil {
-			branchPlan = *plan.Branch
-		}
-		branchPlan.Protected = protection
-		if !branchPlan.Name.Equal(prior.Branch.Name) || !branchPlan.Protected.Equal(prior.Branch.Protected) {
-			plan.Branch = r.updateBranch(ctx, prior.Branch, &branchPlan, &resp.Diagnostics)
-			if resp.Diagnostics.HasError() {
-				return
-			}
+	if config.Branch != nil && plan.Branch != nil && prior.Branch != nil &&
+		(!plan.Branch.Name.Equal(prior.Branch.Name) ||
+			!plan.Branch.Protected.Equal(prior.Branch.Protected)) {
+		plan.Branch = r.updateBranch(ctx, prior.Branch, plan.Branch, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 

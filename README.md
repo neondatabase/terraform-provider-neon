@@ -41,7 +41,7 @@ provider "neon" {
 
 ## Requirements
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.14.x
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.11.x
 
 ## Building The Provider
 

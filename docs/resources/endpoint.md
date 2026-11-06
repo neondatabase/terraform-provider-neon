@@ -37,26 +37,34 @@ resource "neon_endpoint" "example" {
 
 ### Optional
 
-- `autoscaling_limit_max_cu` (Number) Maximal value of the compute autoscaling limit.
-- `autoscaling_limit_min_cu` (Number) Minimal value of the compute autoscaling limit.
-- `compute_provisioner` (String) Provisioner The Neon compute provisioner.
-Specify the k8s-neonvm provisioner to create a compute endpoint that supports Autoscaling.
-- `disabled` (Boolean) Disable the endpoint.
-- `name` (String) Compute name.
-- `pg_settings` (Map of String)
-- `region_id` (String) Deployment region: https://neon.tech/docs/introduction/regions
-- `suspend_timeout_seconds` (Number) Duration of inactivity in seconds after which the compute endpoint is automatically suspended.
-The value 0 means use the global default.
-The value -1 means never suspend. The default value is 300 seconds (5 minutes).
-The maximum value is 604800 seconds (1 week)
-- `type` (String) Access type. **Note** that a single branch can have only one "read_write" endpoint.
+- `autoscaling_limit_max_cu` (Number) Maximum compute units for autoscaling.
+- `autoscaling_limit_min_cu` (Number) Minimum compute units for autoscaling.
+- `compute_provisioner` (String) Compute provisioner: `k8s-neonvm` (default) supports Autoscaling; `k8s-pod` is fixed-size compute. Also `docker` and `serverless-platform`.
+- `disabled` (Boolean) Whether to restrict connections to the compute endpoint.
+	Enabling this option schedules a suspend compute operation.
+	A disabled compute endpoint cannot be enabled by a connection or
+	console action. However, the compute endpoint is periodically
+	enabled by check_availability operations.
+- `enabled_libraries` (List of String) Names of shared preload libraries to enable on the endpoint. Removing the attribute keeps the current libraries; set it to `[]` to clear them.
+- `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
+- `name` (String) Name of the compute endpoint.
+- `passwordless_access` (Boolean) When true, the endpoint allows passwordless access.
+- `region_id` (String) Cloud region where the resource's Postgres compute and storage reside.
+Find the list here: https://neon.com/docs/introduction/regions.
+Alternatively, use the data source `neon_active_regions`.
+- `suspend_timeout_seconds` (Number) Scale-to-zero idle timeout, in seconds, before the compute suspends.
+   - `0` means the plan default (`300` sec.) applies;
+   - `-1` means scale-to-zero is disabled (never suspends), can be set only on paid plans;
+   - `604800` sec. (1 week) is the maximum.
+   - `60` sec. (1 minute) is the minimum.
+See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configuration).
+- `type` (String) Compute endpoint type. Changing it replaces the endpoint.
 
 ### Read-Only
 
-- `host` (String) Endpoint URI.
-- `host_pooling` (String) Endpoint URI for connection pooling.
+- `host` (String) The hostname of the compute endpoint.
+- `host_pooler` (String) The hostname of the compute endpoint accessible through the connection pool (pgbouncer).
 - `id` (String) Endpoint ID.
-- `proxy_host` (String)
 
 
 

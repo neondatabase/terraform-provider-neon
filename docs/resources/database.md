@@ -41,12 +41,12 @@ resource "neon_database" "example" {
 
 - `branch_id` (String) Branch ID.
 - `name` (String) Database name.
-- `owner_name` (String) Role name of the database owner.
+- `owner_name` (String) Database owner name.
 - `project_id` (String) Project ID.
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
+- `id` (String) The database ID.
 
 
 

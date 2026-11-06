@@ -4,7 +4,6 @@ description: |-
   A key to access the Neon API.
 
 ~>**WARNING** The resource does not support import.
-
 ---
 
 # neon_api_key (Resource)
@@ -12,7 +11,6 @@ description: |-
 A key to access the Neon API.
 
 ~>**WARNING** The resource does not support import.
-
 
 ## Example Usage
 

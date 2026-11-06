@@ -2,153 +2,99 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	neon "github.com/kislerdm/neon-sdk-go"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 )
 
-func dataSourceProject() *schema.Resource {
-	return &schema.Resource{
-		Description:   `Fetch Project.`,
-		SchemaVersion: 3,
-		ReadContext:   dataSourceProjectRead,
-		Schema: map[string]*schema.Schema{
-			"id": {
-				Type:        schema.TypeString,
-				Description: "Project ID.",
-				Required:    true,
-			},
-			"name": {
-				Type:        schema.TypeString,
-				Description: "Project Name.",
-				Computed:    true,
-			},
-			"default_branch_id": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Default branch ID.",
-			},
-			"database_host": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Default database host.",
-			},
-			"database_host_pooler": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Default endpoint host via pooler.",
-			},
-			"database_name": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Default database name.",
-			},
-			"database_user": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "Default database role.",
-			},
-			"database_password": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Sensitive:   true,
-				Description: "Default database access password.",
-			},
-			"connection_uri": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Sensitive:   true,
-				Description: "Default connection uri. **Note** that it contains access credentials.",
-			},
-			"connection_uri_pooler": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Sensitive:   true,
-				Description: "Default connection uri with the traffic via pooler. **Note** that it contains access credentials.",
-			},
-		},
-	}
+var _ datasource.DataSource = (*neonProject)(nil)
+var _ datasource.DataSourceWithConfigure = (*neonProject)(nil)
+
+type neonProject struct {
+	r *neonProjectResource
 }
 
-func dataSourceProjectRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	tflog.Trace(ctx, "get Project")
+func NewProjectDataSource() datasource.DataSource {
+	return &neonProject{}
+}
 
-	client := meta.(*neon.Client)
+func (d *neonProject) Metadata(_ context.Context, _ datasource.MetadataRequest,
+	resp *datasource.MetadataResponse) {
+	resp.TypeName = "neon_project"
+}
 
-	resp, err := client.GetProject(d.Get("id").(string))
-	if err != nil {
-		return diag.FromErr(err)
+func (d neonProject) Schema(ctx context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	r := &neonProjectResource{}
+	resourceResp := &resource.SchemaResponse{}
+	r.Schema(ctx, resource.SchemaRequest{}, resourceResp)
+	resp.Diagnostics.Append(resourceResp.Diagnostics...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	project := resp.Project
-
-	d.SetId(project.ID)
-	if err := d.Set("name", project.Name); err != nil {
-		return diag.FromErr(err)
+	attsResource := resourceResp.Schema.Attributes
+	blocksResource := resourceResp.Schema.Blocks
+	resp.Schema = schema.Schema{
+		Description: "Reads a Neon project by ID, including its default branch, primary compute, and settings.",
+		Attributes:  make(map[string]schema.Attribute, len(attsResource)),
+		Blocks:      make(map[string]schema.Block, len(blocksResource)),
 	}
-
-	branches, err := client.ListProjectBranches(project.ID, nil, nil, nil, nil, nil, nil)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	var defaultBranch neon.Branch
-	for _, v := range branches.Branches {
-		if v.Primary != nil && *v.Primary {
-			defaultBranch = v
-			break
+	for k, v := range attsResource {
+		converted := newReadOnlyDataSourceAttrFromResourceAttr(v)
+		if converted == nil {
+			resp.Diagnostics.AddError(
+				"Unsupported project attribute",
+				fmt.Sprintf("%q has unsupported type %T", k, v.GetType()),
+			)
+			return
+		}
+		resp.Schema.Attributes[k] = converted
+		// id is always required
+		if k == "id" {
+			tmp := resp.Schema.Attributes[k].(schema.StringAttribute)
+			tmp.Computed = false
+			tmp.Required = true
+			resp.Schema.Attributes[k] = tmp
 		}
 	}
 
-	if err := d.Set("default_branch_id", defaultBranch.ID); err != nil {
-		return diag.FromErr(err)
+	for k, v := range blocksResource {
+		resp.Schema.Blocks[k] = newReadOnlyDataSourceBlockFromResourceBlock(v)
+	}
+}
+
+func (d *neonProject) Configure(ctx context.Context, req datasource.ConfigureRequest,
+	resp *datasource.ConfigureResponse) {
+	d.r = &neonProjectResource{}
+	resourceResp := &resource.ConfigureResponse{}
+	d.r.Configure(ctx, resource.ConfigureRequest{ProviderData: req.ProviderData}, resourceResp)
+	resp.Diagnostics.Append(resourceResp.Diagnostics...)
+}
+
+func (d neonProject) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	var data neonProjectResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	endpoints, err := client.ListProjectBranchEndpoints(project.ID, defaultBranch.ID)
-	if err != nil {
-		return diag.FromErr(err)
+	initializeProjectBlocks(&data)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	databases, err := client.ListProjectBranchDatabases(project.ID, defaultBranch.ID)
-	if err != nil {
-		return diag.FromErr(err)
+	readResp := resource.ReadResponse{State: resp.State}
+	d.r.Read(ctx, resource.ReadRequest{State: resp.State}, &readResp)
+	resp.Diagnostics.Append(readResp.Diagnostics...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	info, err := newDbConnectionInfo(client, project.ID, defaultBranch.ID, endpoints.Endpoints,
-		databases.Databases)
-	if err != nil {
-		return diag.FromErr(err)
+	if readResp.State.Raw.IsNull() {
+		resp.Diagnostics.AddError("project not found", "")
 	}
-
-	if err := d.Set("database_host", info.host); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("database_name", info.dbName); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("database_user", info.userName); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("database_password", info.pass); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("connection_uri", info.connectionURI()); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("database_host_pooler", info.poolerHost); err != nil {
-		return diag.FromErr(err)
-	}
-
-	if err := d.Set("connection_uri_pooler", info.poolerConnectionURI()); err != nil {
-		return diag.FromErr(err)
-	}
-
-	return diag.FromErr(nil)
+	resp.State = readResp.State
 }

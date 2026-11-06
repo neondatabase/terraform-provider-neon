@@ -1,14 +1,16 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"net/http"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
@@ -18,7 +20,7 @@ var _ resource.Resource = (*branchBackupScheduleResource)(nil)
 var _ resource.ResourceWithConfigure = (*branchBackupScheduleResource)(nil)
 
 type branchBackupScheduleResource struct {
-	client *neonClient
+	client *neon.Client
 }
 
 type branchBackupScheduleModel struct {
@@ -51,16 +53,19 @@ func (r *branchBackupScheduleResource) Schema(_ context.Context, _ resource.Sche
 		Description: "Manages the automatic snapshot backup schedule for a Neon branch.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Description: "The ID of the backup schedule.",
-				Computed:    true,
+				Description:   "The ID of the backup schedule.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"project_id": schema.StringAttribute{
-				Description: "The Neon project ID.",
-				Required:    true,
+				Description:   "The Neon project ID. Changing it replaces the schedule.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"branch_id": schema.StringAttribute{
-				Description: "The Neon branch ID.",
-				Required:    true,
+				Description:   "The Neon branch ID. Changing it replaces the schedule.",
+				Required:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"schedule": schema.ListNestedAttribute{
 				Description: "Snapshot frequencies configured for the branch.",
@@ -77,18 +82,24 @@ func (r *branchBackupScheduleResource) Schema(_ context.Context, _ resource.Sche
 						"day": schema.Int64Attribute{
 							Description: "Day of the week or month, when applicable.",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(0, 31)},
 						},
 						"hour": schema.Int64Attribute{
-							Description: "Hour of the day, when applicable.",
+							Description: "Hour of the day (0-23), when applicable.",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(0, 23)},
 						},
 						"month": schema.Int64Attribute{
-							Description: "Month of the year, when applicable.",
+							Description: "Month of the year (1-12), when applicable.",
 							Optional:    true,
+							Validators:  []validator.Int64{int64validator.Between(1, 12)},
 						},
 						"retention_seconds": schema.Int64Attribute{
-							Description: "How long to retain scheduled snapshots, in seconds.",
+							Description: "How long to retain scheduled snapshots, in seconds. The maximum and default is 3024000 (35 days).",
 							Optional:    true,
+							Computed:    true,
+							Default:     int64default.StaticInt64(3024000),
+							Validators:  []validator.Int64{int64validator.Between(1, 3024000)},
 						},
 					},
 				},
@@ -131,16 +142,21 @@ func (r *branchBackupScheduleResource) Configure(_ context.Context, req resource
 		return
 	}
 
-	client, ok := req.ProviderData.(*neonClient)
+	client, ok := req.ProviderData.(*providerAdapter)
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			"Expected *neon.Client, got an unexpected type.",
+			"Expected *providerAdapter, got an unexpected type.",
 		)
 		return
 	}
 
-	r.client = client
+	if client.sdk == nil {
+		resp.Diagnostics.AddError("SDK is not configured", "")
+		return
+	}
+
+	r.client = client.sdk
 }
 
 func (r *branchBackupScheduleResource) ImportState(ctx context.Context, req resource.ImportStateRequest,
@@ -162,7 +178,6 @@ func (r *branchBackupScheduleResource) ImportState(ctx context.Context, req reso
 		BranchID:  types.StringValue(branchID),
 	}
 	res.Diagnostics.Append(res.State.Set(ctx, &state)...)
-	r.Read(ctx, resource.ReadRequest{State: res.State}, &resource.ReadResponse{State: res.State})
 }
 
 func (r *branchBackupScheduleResource) Create(ctx context.Context, req resource.CreateRequest,
@@ -178,7 +193,7 @@ func (r *branchBackupScheduleResource) Create(ctx context.Context, req resource.
 		return
 	}
 
-	if _, err := r.client.sdk.SetSnapshotSchedule(
+	if _, err := r.client.SetSnapshotSchedule(
 		v.ProjectID.ValueString(),
 		v.BranchID.ValueString(),
 		newBackupSchedule(v.Schedule),
@@ -203,7 +218,14 @@ func (r *branchBackupScheduleResource) Read(ctx context.Context, req resource.Re
 		return
 	}
 
-	schedule, err := r.client.sdk.GetSnapshotSchedule(v.ProjectID.ValueString(), v.BranchID.ValueString())
+	schedule, err := r.client.GetSnapshotSchedule(v.ProjectID.ValueString(), v.BranchID.ValueString())
+	if isNotFoundError(err) {
+		resp.Diagnostics.AddWarning("Branch not found",
+			fmt.Sprintf("Branch %s in project %s no longer exists, so its backup schedule is removed from the state.",
+				v.BranchID.ValueString(), v.ProjectID.ValueString()))
+		resp.State.RemoveResource(ctx)
+		return
+	}
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Read Neon Branch Backup Schedule", err.Error())
 		return
@@ -226,7 +248,7 @@ func (r *branchBackupScheduleResource) Update(ctx context.Context, req resource.
 		return
 	}
 
-	if _, err := r.client.sdk.SetSnapshotSchedule(
+	if _, err := r.client.SetSnapshotSchedule(
 		v.ProjectID.ValueString(),
 		v.BranchID.ValueString(),
 		newBackupSchedule(v.Schedule),
@@ -251,24 +273,16 @@ func (r *branchBackupScheduleResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
-	// workaround to send an `[]` as the request payload to delete the backup schedule
-	reqURL := "https://console.neon.tech/api/v2/projects/" + state.ProjectID.ValueString() +
-		"/branches/" + state.BranchID.ValueString() + "/backup_schedule"
-	httpReq, err := http.NewRequest(http.MethodPut, reqURL, bytes.NewReader([]byte(`[]`)))
-	if err != nil {
-		resp.Diagnostics.AddError("Could not create the HTTP request to delete Neon Branch Backup Schedule",
-			err.Error())
-		return
-	}
-	_, err = r.client.sdkCfg.HTTPClient.Do(httpReq)
-	if err != nil {
-		resp.Diagnostics.AddError("Could not send the HTTP request to delete Neon Branch Backup Schedule",
-			err.Error())
+	if _, err := r.client.SetSnapshotSchedule(
+		state.ProjectID.ValueString(),
+		state.BranchID.ValueString(),
+		neon.BackupSchedule{Schedule: []neon.BackupScheduleItem{}},
+	); err != nil && !isNotFoundError(err) {
+		resp.Diagnostics.AddError("Unable to Delete Branch Backup Schedule", err.Error())
 		return
 	}
 
-	state.ID = types.StringValue("")
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.State.RemoveResource(ctx)
 }
 
 func newBackupScheduleID(projectID, branchID string) string {

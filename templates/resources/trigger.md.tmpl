@@ -1,0 +1,26 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_trigger/resource.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Import a branch-local schedule or storage trigger using `<project_id>/<branch_id>/<trigger_id>`.
+Use literal identifiers, without URL encoding, query or fragment delimiters, or dot segments.
+
+```shell
+terraform import neon_trigger.example "project-id/branch-id/trigger-id"
+```
+
+Inherited triggers cannot be imported because updating them creates branch-local shadows and deleting them creates tombstones.

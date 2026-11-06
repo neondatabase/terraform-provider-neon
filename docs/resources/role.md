@@ -42,9 +42,8 @@ resource "neon_role" "example" {
 
 ### Read-Only
 
-- `id` (String) The ID of this resource.
-- `password` (String, Sensitive) Database authentication password.
-- `protected` (Boolean)
+- `id` (String) The role ID.
+- `protected` (Boolean) Indicates if the role is protected.
 
 
 

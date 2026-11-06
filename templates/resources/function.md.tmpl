@@ -1,0 +1,39 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+~> **Note:** Neon Functions is a beta service. The schema may shift as the service evolves; see the [Neon Functions documentation](https://neon.tech/docs/functions/overview) for the current contract.
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_function/resource.tf" }}
+
+{{.SchemaMarkdown}}
+
+## Import
+
+The Neon Function can be imported to the terraform state by its composite identifier that consists of
+`ProjectID`, `BranchID` and the function `slug` separated by a forward slash.
+
+Import using the [import block](https://developer.hashicorp.com/terraform/language/import):
+
+For example:
+
+```hcl
+import {
+  to = {{.Name}}.example
+  id = "curly-poetry-30604233/br-snowy-mountain-a5jkb18i/hello"
+}
+```
+
+Import using the command `terraform import`:
+
+```commandline
+terraform import {{.Name}}.example "curly-poetry-30604233/br-snowy-mountain-a5jkb18i/hello"
+```

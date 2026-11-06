@@ -2,45 +2,61 @@ package provider
 
 import (
 	"context"
-	"errors"
-	"slices"
+	"fmt"
+	"net/http"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
 
-func resourceAPIKey() *schema.Resource {
-	return &schema.Resource{
+var _ resource.Resource = (*apiKeyResource)(nil)
+var _ resource.ResourceWithUpgradeState = (*apiKeyResource)(nil)
+var _ resource.ResourceWithConfigure = (*apiKeyResource)(nil)
+
+type apiKeyResource struct {
+	client *neon.Client
+}
+
+type apiKeyResourceModel struct {
+	ID   types.String `tfsdk:"id"`
+	Name types.String `tfsdk:"name"`
+	Key  types.String `tfsdk:"key"`
+}
+
+func NewAPIKeyResource() resource.Resource {
+	return &apiKeyResource{}
+}
+
+func (r *apiKeyResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "neon_api_key"
+}
+
+func (r *apiKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Version: 2,
 		Description: `A key to access the Neon API.
 
-~>**WARNING** The resource does not support import.
-`,
-		SchemaVersion: 1,
-		Importer: &schema.ResourceImporter{
-			StateContext: func(_ context.Context, _ *schema.ResourceData, _ interface{}) ([]*schema.ResourceData, error) {
-				return nil, errors.New("the resource does not support import, please recreate it instead")
+~>**WARNING** The resource does not support import.`,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The API key ID.",
 			},
-		},
-		CreateContext: resourceAPIKeyCreateRetry,
-		ReadContext:   resourceAPIKeyReadRetry,
-		DeleteContext: resourceAPIKeyDeleteRetry,
-		Schema: map[string]*schema.Schema{
-			"name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
+			"name": schema.StringAttribute{
+				Required: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 				Description: "The name of the API Key.",
 			},
-			"id": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "The API key ID.",
-			},
-			"key": {
-				Type:        schema.TypeString,
+			"key": schema.StringAttribute{
 				Computed:    true,
 				Sensitive:   true,
 				Description: "The generated 64-bit token required to access the Neon API.",
@@ -49,69 +65,133 @@ func resourceAPIKey() *schema.Resource {
 	}
 }
 
-func resourceAPIKeyCreateRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return projectReadiness.Retry(resourceAPIKeyCreate, ctx, d, meta)
-}
-
-func resourceAPIKeyCreate(_ context.Context, d *schema.ResourceData, meta interface{}) error {
-	resp, err := meta.(*neon.Client).CreateApiKey(
-		neon.ApiKeyCreateRequest{
-			KeyName: d.Get("name").(string),
-		},
-	)
-	if err != nil {
-		return err
+func (r *apiKeyResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
 	}
-	d.SetId(strconv.FormatInt(resp.ID, 10))
-	return d.Set("key", resp.Key)
+
+	client, ok := req.ProviderData.(*providerAdapter)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			"Expected *providerAdapter, got an unexpected type.",
+		)
+		return
+	}
+
+	if client.sdk == nil {
+		resp.Diagnostics.AddError("SDK is not configured", "")
+		return
+	}
+
+	r.client = client.sdk
 }
 
-func resourceAPIKeyReadRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return projectReadiness.Retry(resourceAPIKeyRead, ctx, d, meta)
+func (r *apiKeyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
+
+	var state apiKeyResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var result neon.ApiKeyCreateResponse
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		var err error
+		result, err = r.client.CreateApiKey(neon.ApiKeyCreateRequest{KeyName: state.Name.ValueString()})
+		return err
+	}, nil)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	state.ID = types.StringValue(strconv.FormatInt(result.ID, 10))
+	state.Key = types.StringValue(result.Key)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func resourceAPIKeyRead(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-	resp, err := meta.(*neon.Client).ListApiKeys()
+func (r *apiKeyResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
 
-	if err == nil {
-		keyName := d.Get("name").(string)
+	var state apiKeyResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-		found := slices.ContainsFunc(resp, func(key neon.ApiKeysListResponseItem) bool {
-			if keyName == key.Name {
-				d.SetId(strconv.FormatInt(key.ID, 10))
-			}
-			return keyName == key.Name
-		})
+	var keys []neon.ApiKeysListResponseItem
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		var err error
+		keys, err = r.client.ListApiKeys()
+		return err
+	}, nil)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-		if !found {
-			tflog.Debug(ctx, "API key not found, removing from state", map[string]interface{}{"name": keyName})
-			d.SetId("")
+	id, err := strconv.ParseInt(state.ID.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Parse API Key ID",
+			fmt.Sprintf("The API key ID %q in the Terraform state is not a number: %s", state.ID.ValueString(), err))
+		return
+	}
+	for _, key := range keys {
+		if key.ID == id {
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			return
 		}
 	}
 
-	return err
+	tflog.Debug(ctx, "API key not found, removing from state", map[string]any{"id": state.ID.ValueString()})
+	resp.State.RemoveResource(ctx)
 }
 
-func resourceAPIKeyDeleteRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return projectReadiness.Retry(resourceAPIKeyDelete, ctx, d, meta)
+func (r *apiKeyResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError("API Key Update Not Supported",
+		"Changing the API key name requires replacing the resource.")
 }
 
-func resourceAPIKeyDelete(_ context.Context, d *schema.ResourceData, meta interface{}) error {
-	id, err := strconv.ParseInt(d.Get("id").(string), 10, 64)
+func (r *apiKeyResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
+
+	var state apiKeyResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	id, err := strconv.ParseInt(state.ID.ValueString(), 10, 64)
 	if err != nil {
-		return err
+		resp.Diagnostics.AddError("Unable to Parse API Key ID", err.Error())
+		return
 	}
 
-	if _, err := meta.(*neon.Client).RevokeApiKey(id); err != nil {
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		_, err := r.client.RevokeApiKey(id)
 		return err
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error { return nil },
+	})...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if err = d.Set("key", ""); err != nil {
-		return err
+	resp.State.RemoveResource(ctx)
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *apiKeyResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		1: legacyStateUpgrader(r.Schema, nil),
 	}
-	if err = d.Set("name", ""); err != nil {
-		return err
-	}
-	d.SetId("")
-	return nil
 }

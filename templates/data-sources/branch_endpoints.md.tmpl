@@ -1,0 +1,15 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/data-sources/neon_branch_endpoints/data-source.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}

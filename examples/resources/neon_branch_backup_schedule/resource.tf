@@ -4,7 +4,7 @@ resource "neon_project" "example" {
 
 resource "neon_branch_backup_schedule" "example" {
   project_id = neon_project.example.id
-  branch_id  = neon_project.example.default_branch_id
+  branch_id  = neon_project.example.branch.id
   schedule = [
     {
       frequency         = "weekly"

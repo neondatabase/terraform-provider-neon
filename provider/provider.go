@@ -2,129 +2,68 @@ package provider
 
 import (
 	"context"
-	"math/rand"
+	"net/http"
 	"os"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	frameworkprovider "github.com/hashicorp/terraform-plugin-framework/provider"
-	providerschema "github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/ephemeral"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov5"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-mux/tf5to6server"
-	"github.com/hashicorp/terraform-plugin-mux/tf6muxserver"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	neon "github.com/kislerdm/neon-sdk-go"
 	"github.com/neondatabase/terraform-provider-neon/provider/telemetry"
 )
 
 const Name = "neondatabase/neon"
 
-func init() {
-	rand.New(rand.NewSource(time.Now().Unix()))
-	// Set descriptions to support markdown syntax, this will be used in document generation
-	// and the language server.
-	schema.DescriptionKind = schema.StringMarkdown
+type httpClient interface {
+	Do(r *http.Request) (*http.Response, error)
 }
 
-var p = &schema.Provider{
-	Schema: map[string]*schema.Schema{
-		"api_key": {
-			Type:        schema.TypeString,
-			Optional:    true,
-			Description: "API access key. Default is read from the environment variable `NEON_API_KEY`.",
-			Default:     os.Getenv("NEON_API_KEY"),
-		},
-	},
-	ResourcesMap: map[string]*schema.Resource{
-		"neon_api_key":                  resourceAPIKey(),
-		"neon_project":                  resourceProject(),
-		"neon_branch":                   resourceBranch(),
-		"neon_endpoint":                 resourceEndpoint(),
-		"neon_role":                     resourceRole(),
-		"neon_database":                 resourceDatabase(),
-		"neon_project_permission":       resourceProjectPermission(),
-		"neon_jwks_url":                 resourceJwksUrl(),
-		"neon_vpc_endpoint_assignment":  resourceVPCEndpointAssignment(),
-		"neon_vpc_endpoint_restriction": resourceVPCEndpointRestriction(),
-		"neon_org_api_key":              resourceOrgAPIKey(),
-	},
-	DataSourcesMap: map[string]*schema.Resource{
-		"neon_project":              dataSourceProject(),
-		"neon_branches":             dataSourceBranches(),
-		"neon_branch_endpoints":     dataSourceBranchEndpoints(),
-		"neon_branch_roles":         dataSourceBranchRoles(),
-		"neon_branch_role_password": dataSourceBranchRolePassword(),
-	},
+type providerAdapter struct {
+	sdk        *neon.Client
+	httpClient httpClient
 }
 
-// New returns the provider.
-func New(version string) *schema.Provider {
-	var o = new(schema.Provider)
-	*o = *p
-	o.ConfigureContextFunc = func(ctx context.Context, d *schema.ResourceData) (c interface{},
-		errs diag.Diagnostics) {
-		var err error
-		c, err = neon.NewClient(neon.Config{
-			Key:        d.Get("api_key").(string),
-			HTTPClient: telemetry.NewHTTPClient(Name, version, o.TerraformVersion),
-		})
-		if err != nil {
-			errs = diag.FromErr(err)
-		}
-		return c, errs
-	}
-	return o
-}
+var _ provider.ProviderWithEphemeralResources = (*Provider)(nil)
 
-func newAccTest() *schema.Provider {
-	return New("accTest")
-}
-
-// NewFramework returns the Framework provider used by the protocol mux.
-func NewFramework(version string) frameworkprovider.Provider {
-	return &frameworkProvider{version: version}
-}
-
-var _ frameworkprovider.Provider = (*frameworkProvider)(nil)
-
-// frameworkProvider is the Framework portion of the provider. It is served
-// through terraform-plugin-mux alongside the legacy SDK provider.
-type frameworkProvider struct {
-	version string
+type Provider struct {
+	version     string
+	neonAdapter *providerAdapter
 }
 
 type frameworkProviderConfigModel struct {
 	APIKey types.String `tfsdk:"api_key"`
 }
 
-func (p *frameworkProvider) Metadata(_ context.Context, _ frameworkprovider.MetadataRequest, resp *frameworkprovider.MetadataResponse) {
+func (p *Provider) Metadata(_ context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
 	resp.TypeName = "neon"
 	resp.Version = p.version
 }
 
-func (p *frameworkProvider) Schema(_ context.Context, _ frameworkprovider.SchemaRequest, resp *frameworkprovider.SchemaResponse) {
-	resp.Schema = providerschema.Schema{
-		Attributes: map[string]providerschema.Attribute{
-			"api_key": providerschema.StringAttribute{
+func (p *Provider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"api_key": schema.StringAttribute{
 				Optional:            true,
+				Sensitive:           true,
 				MarkdownDescription: "API access key. Default is read from the environment variable `NEON_API_KEY`.",
 			},
 		},
 	}
 }
 
-type neonClient struct {
-	sdk    *neon.Client
-	sdkCfg neon.Config
-}
+func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
+	resp *provider.ConfigureResponse) {
+	if p.neonAdapter != nil {
+		resp.ResourceData = p.neonAdapter
+		resp.DataSourceData = p.neonAdapter
+		return
+	}
 
-func (p *frameworkProvider) Configure(ctx context.Context, req frameworkprovider.ConfigureRequest,
-	resp *frameworkprovider.ConfigureResponse) {
 	var config frameworkProviderConfigModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	if resp.Diagnostics.HasError() {
@@ -146,41 +85,79 @@ func (p *frameworkProvider) Configure(ctx context.Context, req frameworkprovider
 		return
 	}
 
-	resp.ResourceData = &neonClient{
-		sdk:    client,
-		sdkCfg: cfg,
+	providerClient := providerAdapter{
+		sdk:        client,
+		httpClient: cfg.HTTPClient,
 	}
+
+	resp.ResourceData = &providerClient
+	resp.DataSourceData = &providerClient
+	resp.EphemeralResourceData = &providerClient
 }
 
-func (p *frameworkProvider) Resources(_ context.Context) []func() resource.Resource {
+func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		NewAPIKeyResource,
+		NewOrgAPIKeyResource,
+		NewJWKSURLResource,
 		NewBranchBackupScheduleResource,
+		NewNeonBucketResource,
+		NewNeonServiceCredentialResource,
+		NewNeonBucketObjectResource,
+		NewNeonFunctionResource,
+		NewNeonProjectMemberRoleResource,
+		NewNeonTriggerResource,
+		NewSnapshotResource,
+		NewNeonOrgMemberRoleResource,
+		NewNeonOrgSpendingLimitResource,
+		NewNeonCustomBranchDomainResource,
+		NewNeonBranchResource,
+		NewNeonRoleResource,
+		NewNeonDataAPIResource,
+		NewNeonDatabaseResource,
+		NewNeonProjectPermissionResource,
+		NewNeonVPCEndpointAssignmentResource,
+		NewNeonVPCEndpointRestrictionResource,
+		NewNeonEndpointResource,
+		NewNeonProjectResource,
 	}
 }
 
-func (p *frameworkProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return nil
+func (p *Provider) DataSources(_ context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		NewAIGatewayDataSource,
+		NewBucketDataSource,
+		NewActiveRegionsDataSource,
+		NewBranchRolesDataSource,
+		NewBranchEndpointsDataSource,
+		NewProjectDataSource,
+		NewBranchesDataSource,
+	}
 }
 
-func NewServer(version string) (tfprotov6.ProviderServer, error) {
-	legacyServer, err := tf5to6server.UpgradeServer(context.Background(), func() tfprotov5.ProviderServer {
-		return New(version).GRPCProvider()
-	})
-	if err != nil {
-		return nil, err
+func (p *Provider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
+	return []func() ephemeral.EphemeralResource{
+		NewNeonRoleEphemeralResource,
+		NewNeonConnectionURIEphemeralResource,
 	}
-	return tf6muxserver.NewMuxServer(context.Background(),
-		func() tfprotov6.ProviderServer {
-			return legacyServer
+}
+
+func NewServer(version string) tfprotov6.ProviderServer {
+	return providerserver.NewProtocol6(&Provider{version: version})()
+}
+
+func newProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) {
+	return map[string]func() (tfprotov6.ProviderServer, error){
+		"neon": func() (tfprotov6.ProviderServer, error) {
+			return NewServer("accTest"), nil
 		},
-		providerserver.NewProtocol6(NewFramework(version)),
-	)
+	}
 }
 
-func newAccTestFramework() tfprotov6.ProviderServer {
-	o, err := NewServer("accTest")
-	if err != nil {
-		panic(err)
+func newUnitTestProviderFactories(neonAdapter *providerAdapter) map[string]func() (tfprotov6.ProviderServer, error) {
+	return map[string]func() (tfprotov6.ProviderServer, error){
+		"neon": func() (tfprotov6.ProviderServer, error) {
+			return providerserver.NewProtocol6WithError(&Provider{version: "unitTest", neonAdapter: neonAdapter})()
+		},
 	}
-	return o
 }

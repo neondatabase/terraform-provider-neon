@@ -27,7 +27,7 @@ resource "neon_project" "example" {
 resource "neon_project" "example" {
   name = "foo"
 
-  primary_compute {
+  primary_compute = {
     autoscaling_limit_min_cu = 0.5
     autoscaling_limit_max_cu = 1
     suspend_timeout_seconds  = 10
@@ -39,7 +39,7 @@ resource "neon_project" "example" {
 resource "neon_project" "example" {
   name = "foo"
 
-  branch {
+  branch = {
     name          = "bar"
     database_name = "baz"
     role_name     = "qux"
@@ -51,7 +51,7 @@ resource "neon_project" "example" {
 resource "neon_project" "example_with_logical_replication" {
   name = "my-project-with-logical-replication"
 
-  enable_logical_replication = "yes"
+  enable_logical_replication = true
 }
 
 ### Set the allow list of IP addresses
@@ -70,7 +70,7 @@ resource "neon_project" "example_with_allowed_ips_protected_branch_only" {
   name = "my-project-with-allowed-list-of-ips-for-protected-branch"
 
   allowed_ips                         = ["1.2.3.4/24", "99.1.20.93"]
-  allowed_ips_protected_branches_only = "yes"
+  allowed_ips_protected_branches_only = true
 }
 
 ### Block public connections to the project's endpoints
@@ -79,7 +79,7 @@ resource "neon_project" "example_with_allowed_ips_protected_branch_only" {
 resource "neon_project" "example_with_blocked_public_connections" {
   name = "my-project-with-blocked-public-connections"
 
-  block_public_connections = "yes"
+  block_public_connections = true
 }
 
 ### Create project in the organisation
@@ -104,5 +104,5 @@ resource "neon_project" "custom_maintenance_window" {
 resource "neon_project" "example_with_blocked_vpc_connections" {
   name = "my-project-with-blocked-vpc-connections"
 
-  block_vpc_connections = "yes"
+  block_vpc_connections = true
 }

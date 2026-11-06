@@ -1,0 +1,54 @@
+---
+page_title: "{{ .Name }} Resource - {{ .ProviderName }}"
+subcategory: ""
+description: |-
+  {{ .Description | plainmarkdown }}
+---
+
+# {{ .Name }} (Resource)
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_data_api/resource.tf" }}
+
+## Configuration and drift
+
+Authentication options apply only during creation.
+Changing them requires replacement and can interrupt requests to the endpoint.
+GET does not return these options, so Terraform cannot detect external authentication changes or recover authentication values during import.
+
+Only explicitly configured settings are managed.
+Omitted members remain unmanaged instead of adopting API defaults.
+Removing a managed setting requires replacement because the pinned SDK cannot send a reset request.
+An explicit empty `db_schemas` list returns an SDK-mapping diagnostic rather than silently omitting the requested value.
+
+Some backends return null settings or omit individual settings.
+The provider retains last applied values and warns that it cannot detect remote drift for those members.
+Deleting the endpoint does not revoke database grants or remove authentication schema objects created during setup.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+Import using `<project_id>/<branch_id>/<database_name>`:
+
+```hcl
+import {
+  to = {{ .Name }}.this
+  id = "cool-moon-123/br-cool-moon-456/neondb"
+}
+```
+
+Or use the CLI:
+
+```commandline
+terraform import {{ .Name }}.this "cool-moon-123/br-cool-moon-456/neondb"
+```
+
+Import reads identity and URL.
+It leaves authentication options and settings null.
+Adding settings after import starts managing those members with an update.
+Adding creation-only options after import requires replacement.
+Review the plan before applying.

@@ -5,6 +5,232 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.19.0-beta.0] - 2026-11-03
+
+### Added
+
+- Added the following resources:
+  - [[#27](https://github.com/neondatabase/terraform-provider-neon/issues/27)] `neon_project_member_role`;
+  - [[#27](https://github.com/neondatabase/terraform-provider-neon/issues/27)] `neon_org_member_role`.
+  - [[#29](https://github.com/neondatabase/terraform-provider-neon/issues/29)] `neon_function`;
+  - [[#30](https://github.com/neondatabase/terraform-provider-neon/issues/30)] `neon_bucket`;
+  - [[#30](https://github.com/neondatabase/terraform-provider-neon/issues/30)] `neon_bucket_object`;
+  - [[#34](https://github.com/neondatabase/terraform-provider-neon/issues/34)] `neon_trigger`;
+  - [[#35](https://github.com/neondatabase/terraform-provider-neon/issues/35)] `neon_service_credential`;
+  - [[#36](https://github.com/neondatabase/terraform-provider-neon/issues/36)] `neon_custom_branch_domain`;
+  - [[#39](https://github.com/neondatabase/terraform-provider-neon/issues/39)] `neon_org_spending_limit`;
+  - [[#40](https://github.com/neondatabase/terraform-provider-neon/issues/40)] `neon_data_api`;
+  - [[#41](https://github.com/neondatabase/terraform-provider-neon/issues/41)] `neon_snapshot`;
+
+- Added the following data sources:
+  - [[#43](https://github.com/neondatabase/terraform-provider-neon/issues/43)] `neon_active_regions`;
+  - [[#45](https://github.com/neondatabase/terraform-provider-neon/issues/45)] `neon_ai_gateway`;
+  - [[#46](https://github.com/neondatabase/terraform-provider-neon/issues/46)] `neon_bucket`.
+
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] Added the following ephemeral resources:
+  - `neon_role`;
+  - `neon_connection_uri`.
+
+- Added the following attributes to the resource `neon_endpoint`:
+  - `passwordless_access`;
+  - `enabled_libraries`;
+  - `enabled_libraries_use_defaults`.
+
+- Added the following attributes to the resource `neon_project`:
+  - `enabled_libraries`;
+  - `enabled_libraries_use_defaults`.
+  - `branch.project_id`;
+  - `branch.parent_id`;
+  - `branch.parent_lsn`;
+  - `branch.parent_timestamp`;
+  - `branch.logical_size`;
+  - `branch.protected`;
+  - `primary_compute.project_id`;
+  - `primary_compute.branch_id`;
+  - `primary_compute.region_id`;
+  - `primary_compute.type`;
+  - `primary_compute.compute_provisioner`;
+  - `primary_compute.disabled`;
+  - `primary_compute.enabled_libraries`;
+  - `primary_compute.enabled_libraries_use_defaults`;
+  - `primary_compute.passwordless_access`;
+  - `primary_compute.host`;
+  - `primary_compute.host_pooler`.
+
+- Added the attribute `filter` to the data source `neon_branches`.
+
+- Added import to the resource `neon_jwks_url`, with the ID `<project_id>/<jwks_id>`.
+
+- Added the following attributes to the elements of the `branches` list in the data source `neon-branches`:
+  - `project_id`;
+  - `parent_lsn`;
+  - `parent_timestamp`;
+  - `protected`.
+
+- Added the following attribute to the data source `neon_project`:
+  - `allowed_ips`;
+  - `allowed_ips_protected_branches_only`;
+  - `autoscaling_limit_max_cu`;
+  - `autoscaling_limit_min_cu`;
+  - `block_public_connections`;
+  - `block_vpc_connections`;
+  - `compute_provisioner`;
+  - `default_endpoint_id`;
+  - `enable_logical_replication`;
+  - `hipaa`;
+  - `history_retention_seconds`;
+  - `org_id`;
+  - `pg_version`;
+  - `region_id`;
+  - `store_password`;
+  - `suspend_timeout_seconds`;
+  - `enabled_libraries`;
+  - `enabled_libraries_use_defaults`;
+  - `branch.id`;
+  - `branch.name`;
+  - `branch.project_id`;
+  - `branch.parent_id`;
+  - `branch.parent_lsn`;
+  - `branch.parent_timestamp`;
+  - `branch.logical_size`;
+  - `branch.protected`;
+  - `maintenance_window.end_time`;
+  - `maintenance_window.start_time`;
+  - `maintenance_window.weekdays`;
+  - `primary_compute.autoscaling_limit_max_cu`;
+  - `primary_compute.autoscaling_limit_min_cu`;
+  - `primary_compute.id`;
+  - `primary_compute.name`;
+  - `primary_compute.suspend_timeout_seconds`;
+  - `primary_compute.project_id`;
+  - `primary_compute.branch_id`;
+  - `primary_compute.region_id`;
+  - `primary_compute.type`;
+  - `primary_compute.compute_provisioner`;
+  - `primary_compute.disabled`;
+  - `primary_compute.enabled_libraries`;
+  - `primary_compute.enabled_libraries_use_defaults`;
+  - `primary_compute.passwordless_access`;
+  - `primary_compute.host`;
+  - `primary_compute.host_pooler`;
+  - `quota.active_time_seconds`;
+  - `quota.compute_time_seconds`;
+  - `quota.data_transfer_bytes`;
+  - `quota.logical_size_bytes`;
+  - `quota.written_data_bytes`.
+
+### Changed
+
+- [[#28](https://github.com/neondatabase/terraform-provider-neon/issues/28)] Migrated the provider to Terraform Plugin Framework from Terraform Plugin SDK v2.
+  State written by `kislerdm/neon` v0.18.0 is upgraded in place on the first plan; upgrade to v0.18.0 first when coming from an older version.
+- Changed the following attributes of the resource `neon_project`:
+  - **[BREAKING]** `branch` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    branch = {
+      // default branch' attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `primary_compute` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    primary_compute = {
+    // primary compute's attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `maintenance_window` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    maintenance_window = {
+      // maintenance window attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `quota` is the nested attribute instead of block now:
+  ```hcl
+  resource "neon_project" "_" {
+    quota = {
+      // quota attributes go here
+    }
+  }
+  ```
+  - **[BREAKING]** `allowed_ips_protected_branches_only`, `block_public_connections`, `block_vpc_connections`,
+    `enable_logical_replication`, `hipaa` and `store_password` take `true` or `false` instead of `"yes"` or `"no"`.
+- **[BREAKING]** `protected` of the resource `neon_branch` takes `true` or `false` instead of `"yes"` or `"no"`.
+- **[BREAKING]** Renamed the attribute `host_pooling` of the resource `neon_endpoint` to `host_pooler`.
+- Changing `type` of the resource `neon_endpoint` replaces the endpoint.
+- Removing `enabled_libraries`, `enabled_libraries_use_defaults` or `suspend_timeout_seconds` from a `neon_project`, `neon_project.primary_compute` or `neon_endpoint` configuration keeps the current value, including when another attribute changes. Set `enabled_libraries = []` to clear the libraries.
+- **[BREAKING]** `branch_id` and `jwt_audience` of the resource `neon_jwks_url` reject empty strings. Omit them instead.
+- Neon API errors name the cause in the summary (rejected API key, missing resource, rejected request, rate limit,
+  API outage) and end with the next step to take.
+- See the [migration guide](docs/guides/migrate-from-kislerdm-neon.md) to move existing state from `kislerdm/neon`.
+
+- Updated dependencies:
+  - github.com/hashicorp/terraform-plugin-docs: [v0.25.0](https://github.com/hashicorp/terraform-plugin-docs/compare/v0.21.0...v0.25.0)
+  - github.com/hashicorp/terraform-plugin-framework: [v1.19.0](https://github.com/hashicorp/terraform-plugin-framework/compare/v1.14.1...v1.19.0)
+  - github.com/hashicorp/terraform-plugin-go: [v0.31.0](https://github.com/hashicorp/terraform-plugin-go/compare/v0.26.0...v0.31.0)
+  - github.com/hashicorp/terraform-plugin-log: [v0.11.0](https://github.com/hashicorp/terraform-plugin-log/compare/v0.9.0...v0.11.0)
+  - github.com/hashicorp/terraform-plugin-sdk/v2: [v2.40.1](https://github.com/hashicorp/terraform-plugin-sdk/v2/compare/v2.36.1...v2.40.1)
+  - Neon Go SDK: [v0.36.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.22.0...v0.36.0)
+
+### Deprecated
+
+- Deprecated the following fields of the resource `neon_project`: 
+  - `default_branch_id`: use `branch.id` instead;
+  - `default_endpoint_id`: use `primary_compute.id` instead;
+  - `database_host`: use `primary_compute.host` instead;
+  - `database_host_pooler`: use `primary_compute.host_pooler` instead.
+
+### Removed
+
+- **[BREAKING]** Removed the attribute `default_branch_protected` from the resource `neon_project`. Use `branch.protected` instead.
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attribute `password` from the resource `neon_role`.
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the data source `neon_branch_role_password`.
+- [[#51](https://github.com/neondatabase/terraform-provider-neon/issues/51)] **[BREAKING]** Removed the read-only attributes `connection_uri`, `connection_uri_pooler` and `database_password` from the resource and data-source `neon_project`.
+- **[BREAKING]** Removed the attributes `database_name`, `role_name` from the nested attribute `branch` of the resource `neon_project`.
+- **[BREAKING]** Removed the attributes `proxy_host` and `pg_settings` from the resource `neon_endpoint`. Note that `pg_settings` is removed temporarily until the Neon API is fixed.
+- **[BREAKING]** Removed the attributes `primary` from the element of the `branches` list in the data-source `neon_branches`.
+
+### Fixed
+
+- `expires_at` and `timestamp` of `neon_snapshot` keep the configured RFC 3339 offset when Neon returns the same instant in UTC, instead of failing with an inconsistent result.
+- `neon_bucket_object` accepts an `is_directory` value that is unknown at plan time.
+- Omitting `retention_seconds` in a `neon_branch_backup_schedule` uses Neon's default of 3024000 seconds instead of planning a change on every run.
+- Importing a `neon_bucket_object` whose key contains `%`, `?` or `#` works instead of crashing the provider, and the first plan after an import updates the object in place instead of replacing it. Import keeps the key as given and imports a folder when only its placeholder object exists.
+- `environment_variables` of `neon_function` rejects empty values, which Neon treats as deleting the variable. After a deployment that Neon accepted but that did not become active, the next plan deploys the configured inputs again, even if the configuration was reverted, and deletes the variables that deployment added.
+- `passwordless_access` of `neon_endpoint` is sent on create. Neon does not support creating or updating an endpoint with it set to `false` yet, and the error now says so instead of the apply failing with an inconsistent result.
+- A `neon_database` rename is recorded in state even if waiting for the operation afterwards fails, so the next refresh does not lose the database.
+- `neon_org_member_role` is removed from state when the member left the organization outside Terraform, instead of failing the refresh.
+- A `neon_function` update whose deployment became active records the deployed inputs even if the rename or the read after it fails, so a later change still reaches Neon.
+- `neon_jwks_url` is removed from state when its project was deleted outside Terraform, instead of failing the refresh.
+- Updating `label` of a `neon_vpc_endpoint_assignment` created with v0.18.0 keeps its ID instead of failing with an inconsistent result.
+- `compute_provisioner` of `neon_project` and `neon_endpoint` has no default. A configuration that omits it keeps the provisioner in state, so projects created with `k8s-pod` are not replaced.
+- `neon_trigger` accepts `cron` and `bucket_name` values that are unknown at plan time, and checks them against `type` on create as well as on update.
+- `environment_variables` of `neon_function` accepts values that are unknown at plan time.
+- A resource whose create call succeeded but whose follow-up operation failed is kept in state and marked tainted, so Terraform can replace or destroy it. This covers `neon_project`, `neon_branch`, `neon_endpoint`, `neon_role`, `neon_database`, `neon_jwks_url` and `neon_function`.
+- Changing `parent_id`, `parent_lsn` or `parent_timestamp` of `neon_branch` to a value that is unknown at plan time, for example the ID of a replaced parent branch, plans a replacement instead of failing during apply. Setting `parent_lsn` and `parent_timestamp` together is rejected at plan time, including on create.
+- An organization API key used for an operation that requires a personal API key no longer removes the resource from state as if it were deleted. The error says to use a personal API key.
+- Neon operations that end with the status `failed`, `error` or `cancelled` now fail the apply instead of being treated as finished, and waiting for operations stops when Terraform is interrupted.
+- [[#52](https://github.com/neondatabase/terraform-provider-neon/issues/52)] Fixed silent removal of the `neon_project` resource from the state if the API returns the status code 422, e.g., when the project contains protected branches.
+- [[#59](https://github.com/neondatabase/terraform-provider-neon/issues/59)] Fixed the provider's attribute `api_key` security flag.
+- [[#60](https://github.com/neondatabase/terraform-provider-neon/issues/60)] Fixed state management of the project's `maintenance_window`.
+
+## [v0.18.0] - 2026-09-12
+
+### Fixed
+
+- Fixed the update logic for the `autoscaling_limit_min_cu` attribute of the `neon_project` resource so that it now reaches the API. The min-CU update was gated on a change to `autoscaling_limit_max_cu`.
+- Fixed the deletion logic of the `neon_branch_backup_schedule` resource.
+- Fixed the password reading of the `neon_role` resource.
+- Fixed the log message when reading non-existing roles.
+
+### Changed
+
+- Updated dependencies:
+  - Neon Go SDK: [v0.22.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.20.0...v0.22.0)
+
 ## [v0.17.0] - 2026-09-08
 
 ### Added
@@ -22,7 +248,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **[BREAKING]** Removed the attr. block `default_endpoint_settings` from the resource `neon_project`. 
+- **[BREAKING]** Removed the attr. block `default_endpoint_settings` from the resource `neon_project`.
 Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscaling_limit_max_cu`, `suspend_timeout_seconds` to configure defaults for the project's compute resources.
 - **[BREAKING]** Removed the attribute `pooler_mode` from the resource `neon_endpoint` because it's no longer supported by the Neon API.
 - **[BREAKING]** Removed the attribute `pooler_enabled` from the resource `neon_endpoint` because the pooling is [always activated](https://neon.com/docs/connect/connection-pooling#enable-disable-and-find-the-pooled-connection-string-in-the-console:~:text=The%20pooled%20endpoint%20is%20always%20available).
@@ -32,7 +258,7 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 - Updated dependencies:
   - Neon Go SDK: [v0.20.0](https://github.com/kislerdm/neon-sdk-go/compare/v0.16.0...v0.20.0)
 
-## [v0.15.0] - 2026-08-02                                                                                                     
+## [v0.15.0] - 2026-08-02
 
 ### Fixed
 
@@ -47,7 +273,7 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 ### Added
 
 - [[203](https://github.com/kislerdm/terraform-provider-neon/issues/203)] Added the attribute `hipaa` to the resource `neon_project` to configure the project's HIPAA compliance.
-- [[221](https://github.com/kislerdm/terraform-provider-neon/issues/221)] Added the attribute `default_branch_protected` to the resource `neon_project` to configure protection of the default branch. 
+- [[221](https://github.com/kislerdm/terraform-provider-neon/issues/221)] Added the attribute `default_branch_protected` to the resource `neon_project` to configure protection of the default branch.
 
 ### Fixed
 
@@ -59,23 +285,23 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 
 ### Added
 
-- Added the following attributes to the resource `neon_project`: 
+- Added the following attributes to the resource `neon_project`:
   - `block_public_connections`;
   - `block_vpc_connections`.
 
 ### Fixed
 
-- [[191](https://github.com/kislerdm/terraform-provider-neon/issues/191)] Fixed the import logic for the resource 
+- [[191](https://github.com/kislerdm/terraform-provider-neon/issues/191)] Fixed the import logic for the resource
   `neon_vpc_endpoint_assignment`.
 - Fixed documentation for the resource `neon_project_permission`.
 - [[193](https://github.com/kislerdm/terraform-provider-neon/issues/193)] Fixed the import logic for the resource
   `neon_endpoint`.
 - [[198](https://github.com/kislerdm/terraform-provider-neon/issues/198)] Fixed the import logic for the resource
-  `neon_branch`. 
+  `neon_branch`.
 
 ### Changed
 
-- **[BREAKING]** Changed the `id` attribute of the `neon_project_permission`. It's identical to the identifier assigned 
+- **[BREAKING]** Changed the `id` attribute of the `neon_project_permission`. It's identical to the identifier assigned
   by Neon now.
 
 ## [v0.12.0] - 2025-11-04
@@ -105,7 +331,7 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 
 ### Fixed
 
-- [[#154](https://github.com/kislerdm/terraform-provider-neon/issues/154)], [[#156](https://github.com/kislerdm/terraform-provider-neon/issues/156)] Fixed projects listing when importing resources.   
+- [[#154](https://github.com/kislerdm/terraform-provider-neon/issues/154)], [[#156](https://github.com/kislerdm/terraform-provider-neon/issues/156)] Fixed projects listing when importing resources.
 - [[#166](https://github.com/kislerdm/terraform-provider-neon/issues/166)] Fixed the `neon_project` resource validation to configure the default endpoint to never suspend.
 - [[#179](https://github.com/kislerdm/terraform-provider-neon/issues/179)] Fixed the `neon_project` resource diff management when the `org_id` is attribute is not set in the terraform module.
 
@@ -119,7 +345,7 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 
 ### Added
 
-- [[#144](https://github.com/kislerdm/terraform-provider-neon/issues/144)] Added the resource `neon_jwks_url` 
+- [[#144](https://github.com/kislerdm/terraform-provider-neon/issues/144)] Added the resource `neon_jwks_url`
   to manage the JWKs URL provided by the 3rd-party IdP required to establish [Neon RLS authorization](https://neon.tech/docs/guides/neon-rls-authorize).
 
 ### Changed
@@ -144,14 +370,14 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 - Added the "User-Agent" header injected to every request to the Neon API for tracking purposes as agreed with
   James Broadhead from Neon.
 - Added the resource `neon_api_key` to manage Neon API keys.
-- Added the output attributes `connection_uri_pooler` and `database_host_pooler` to the resource `neon_project` to connect to the default database in the pooler mode. 
+- Added the output attributes `connection_uri_pooler` and `database_host_pooler` to the resource `neon_project` to connect to the default database in the pooler mode.
 
 ### Fixed
 
 - [[#119](https://github.com/kislerdm/terraform-provider-neon/issues/119)] Fixed the output attribute `host` of the
   resource `neon_endpoint`: it will yield the correct URI for the endpoints with the
   [pooled mode](https://neon.tech/docs/connect/connection-pooling#how-to-use-connection-pooling) activated.
-- [[#137](https://github.com/kislerdm/terraform-provider-neon/issues/137)] Fixed operations execution management 
+- [[#137](https://github.com/kislerdm/terraform-provider-neon/issues/137)] Fixed operations execution management
   by introducing await mechanism to wait until the running operations finish.
 - [[#133](https://github.com/kislerdm/terraform-provider-neon/issues/133)] Fixed state management when configuring network security.
 - Documentation improvements:
@@ -196,7 +422,7 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 
 ### Added
 
-- Added support of Postgres 17. See the Neon [announcement](https://neon.tech/blog/postgres-17) and the Postgres 
+- Added support of Postgres 17. See the Neon [announcement](https://neon.tech/blog/postgres-17) and the Postgres
   [announcement](https://www.postgresql.org/about/news/postgresql-17-released-2936/).
 
 ### Fixed
@@ -212,8 +438,8 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
 
 ### Fixed
 
-- **[BREAKING]** [[#96](https://github.com/kislerdm/terraform-provider-neon/issues/96)] The boolean attributes of the 
-  resource `neon_project` will be treated as strings to work around the 
+- **[BREAKING]** [[#96](https://github.com/kislerdm/terraform-provider-neon/issues/96)] The boolean attributes of the
+  resource `neon_project` will be treated as strings to work around the
   [issue](https://github.com/hashicorp/terraform-plugin-sdk/issues/817) with state management when the attribute gets
   removed from the manifest.
 
@@ -223,17 +449,17 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
   ```terraform
    resource "neon_project" "this" {
       name = "myproject"
-      
+
       allowed_ips = ["1.2.3.4/24"]
 
       allowed_ips_primary_branch_only = "yes"
    }
-  ``` 
+  ```
 - Set allowed_ips to be applicable to all branches, explicitly:
   ```terraform
    resource "neon_project" "this" {
       name = "myproject"
-      
+
       allowed_ips = ["1.2.3.4/24"]
 
       allowed_ips_primary_branch_only = "no"
@@ -243,7 +469,7 @@ Instead, use the `neon_project` attributes `autoscaling_limit_min_cu`, `autoscal
   ```terraform
    resource "neon_project" "this" {
       name = "myproject"
-      
+
       allowed_ips = ["1.2.3.4/24"]
    }
   ```

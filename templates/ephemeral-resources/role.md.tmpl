@@ -1,0 +1,15 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/ephemeral-resources/neon_role/ephemeral-resource.tf" }}
+
+{{ .SchemaMarkdown | trimspace }}

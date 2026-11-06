@@ -1,177 +1,313 @@
-//go:build !acceptance
-// +build !acceptance
-
 package provider
 
 import (
-	"context"
-	"errors"
-	"os"
+	"fmt"
+	"net/http"
+	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 	neon "github.com/kislerdm/neon-sdk-go"
+	"github.com/stretchr/testify/assert"
 )
 
-func Test_resourceVPCEndpointAssignmentImport(t *testing.T) {
-	if os.Getenv("TF_ACC") == "1" {
-		t.Skip("acceptance tests are running")
-	}
+type httpClientPipe struct {
+	cnt  int
+	Pipe []*HTTPClientMock
+}
 
+func (h *httpClientPipe) Do(req *http.Request) (*http.Response, error) {
+	if len(h.Pipe)-1 < h.cnt {
+		panic("pipe is empty")
+	}
+	client := h.Pipe[h.cnt]
+	h.cnt++
+	return client.Do(req)
+}
+
+func TestVpcEndpointAssignment(t *testing.T) {
 	t.Parallel()
 
-	const (
-		orgID         = "org-test-123"
-		regionID      = "aws-eu-central-1"
-		vpcEndpointID = "vpce-abcdef123456"
-		label         = "my-vpc-endpoint"
-		compositeID   = orgID + "/" + regionID + "/" + vpcEndpointID
-	)
+	t.Run("shall create and update in-place the resource", func(t *testing.T) {
+		const (
+			orgID         = "orgID"
+			regionID      = "regionID"
+			vpcEndpointID = "endpointID"
+			labelInit     = "label0"
+			labelUpdate   = "label1"
+		)
 
-	t.Run("shall import the vpc endpoint assignment given composite id", func(t *testing.T) {
-		resource := resourceVPCEndpointAssignment()
-		definition := resource.TestResourceData()
-		definition.SetId(compositeID)
+		var config = func(label string) string {
+			return fmt.Sprintf(`resource "neon_vpc_endpoint_assignment" "this" {
+org_id          = %q
+region_id       = %q
+vpc_endpoint_id = %q
+label           = %q
+}`, orgID, regionID, vpcEndpointID, label)
+		}
 
-		meta := &sdkClientStub{
-			stubVPCEndpoint: stubVPCEndpoint{
-				VPCEndpointDetails: neon.VPCEndpointDetails{
-					Label: label,
+		httpClient := &httpClientPipe{
+			Pipe: []*HTTPClientMock{
+				// mocks creation request's handling
+				{
+					StatusCode: http.StatusOK,
+				},
+				// mocks refresh request's handling
+				{
+					StatusCode: http.StatusOK,
+					Body: []byte(fmt.Sprintf(`{
+"label": %q,
+"vpc_endpoint_id": %q,
+"state":"new",
+"num_restricted_projects": 0
+}`, labelInit, vpcEndpointID)),
+				},
+				// mocks pre-update refresh request's handling
+				{
+					StatusCode: http.StatusOK,
+					Body: []byte(fmt.Sprintf(`{
+"label": %q,
+"vpc_endpoint_id": %q,
+"state":"new",
+"num_restricted_projects": 0
+}`, labelInit, vpcEndpointID)),
+				},
+				// mocks update request's handling
+				{
+					StatusCode: http.StatusOK,
+				},
+				// mocks post-update refresh request's handling
+				{
+					StatusCode: http.StatusOK,
+					Body: []byte(fmt.Sprintf(`{
+"label": %q,
+"vpc_endpoint_id": %q,
+"state":"new",
+"num_restricted_projects": 0
+}`, labelUpdate, vpcEndpointID)),
+				},
+				// mocks delete request's handling
+				{
+					StatusCode: http.StatusOK,
+				},
+			},
+		}
+		sdkMock, err := neon.NewClient(neon.Config{
+			Key:        "foo",
+			HTTPClient: httpClient,
+		})
+		assert.NoErrorf(t, err, "could not create Neon SDK mock")
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newUnitTestProviderFactories(&providerAdapter{
+				sdk: sdkMock,
+			}),
+			Steps: []resource.TestStep{
+				// shall provision the resource
+				{
+					Config: config(labelInit),
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "id",
+							"orgID/regionID/endpointID"),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "org_id",
+							orgID),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "region_id",
+							regionID),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "vpc_endpoint_id",
+							vpcEndpointID),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "label",
+							labelInit),
+						func(_ *terraform.State) error {
+							assert.Equal(t, http.MethodPost, httpClient.Pipe[0].Req.Method)
+							assert.Equal(t,
+								fmt.Sprintf("/api/v2/organizations/%s/vpc/region/%s/vpc_endpoints/%s", orgID,
+									regionID, vpcEndpointID),
+								httpClient.Pipe[0].Req.URL.Path)
+							return nil
+						},
+					),
+				},
+				// shall update the label in-place
+				{
+					Config: config(labelUpdate),
+					Check: resource.ComposeAggregateTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "id",
+							"orgID/regionID/endpointID"),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "org_id",
+							orgID),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "region_id",
+							regionID),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "vpc_endpoint_id",
+							vpcEndpointID),
+						resource.TestCheckResourceAttr("neon_vpc_endpoint_assignment.this", "label",
+							labelUpdate),
+						func(_ *terraform.State) error {
+							assert.Equal(t, http.MethodPost, httpClient.Pipe[3].Req.Method)
+							assert.Equal(t,
+								fmt.Sprintf("/api/v2/organizations/%s/vpc/region/%s/vpc_endpoints/%s", orgID,
+									regionID, vpcEndpointID),
+								httpClient.Pipe[3].Req.URL.Path)
+							return nil
+						},
+					),
+				},
+			},
+		})
+	})
+
+	t.Run("shall import existing resource", func(t *testing.T) {
+		const (
+			orgID         = "orgID"
+			regionID      = "regionID"
+			vpcEndpointID = "endpointID"
+			label         = "label0"
+		)
+
+		httpClient := &httpClientPipe{
+			Pipe: []*HTTPClientMock{
+				// mocks read request's handling
+				{
+					StatusCode: http.StatusOK,
+					Body: []byte(fmt.Sprintf(`{
+"label": %q,
+"vpc_endpoint_id": %q,
+"state":"accepted",
+"num_restricted_projects": 0
+}`, label, vpcEndpointID)),
+				},
+				// mocks refresh request's handling
+				{
+					StatusCode: http.StatusOK,
+					Body: []byte(fmt.Sprintf(`{
+"label": %q,
+"vpc_endpoint_id": %q,
+"state":"new",
+"num_restricted_projects": 0
+}`, label, vpcEndpointID)),
+				},
+				// mocks delete request's handling
+				{
+					StatusCode: http.StatusOK,
+				},
+			},
+		}
+		sdkMock, err := neon.NewClient(neon.Config{
+			Key:        "foo",
+			HTTPClient: httpClient,
+		})
+		assert.NoErrorf(t, err, "could not create Neon SDK mock")
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newUnitTestProviderFactories(&providerAdapter{
+				sdk: sdkMock,
+			}),
+			Steps: []resource.TestStep{
+				{
+					Config: fmt.Sprintf(`resource "neon_vpc_endpoint_assignment" "this" {
+org_id          = %q
+region_id       = %q
+vpc_endpoint_id = %q
+label           = %q
+}`, orgID, regionID, vpcEndpointID, label),
+					ImportState:   true,
+					ResourceName:  "neon_vpc_endpoint_assignment.this",
+					ImportStateId: fmt.Sprintf("%s/%s/%s", orgID, regionID, vpcEndpointID),
+					ImportStateCheck: func(states []*terraform.InstanceState) error {
+						assert.Equal(t, http.MethodGet, httpClient.Pipe[0].Req.Method)
+						s := states[0]
+						assert.Equal(t, label, s.Attributes["label"])
+						assert.Equal(t, orgID, s.Attributes["org_id"])
+						assert.Equal(t, regionID, s.Attributes["region_id"])
+						assert.Equal(t, vpcEndpointID, s.Attributes["vpc_endpoint_id"])
+						assert.Equal(t, fmt.Sprintf("%s/%s/%s", orgID, regionID, vpcEndpointID),
+							s.Attributes["id"])
+						return nil
+					},
+				},
+			},
+		})
+	})
+
+	t.Run("shall fail to import the resource given its ID is invalid", func(t *testing.T) {
+		sdkMock, err := neon.NewClient(neon.Config{
+			Key: "foo",
+		})
+		assert.NoErrorf(t, err, "could not create Neon SDK mock")
+
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newUnitTestProviderFactories(&providerAdapter{
+				sdk: sdkMock,
+			}),
+			Steps: []resource.TestStep{
+				{
+					Config: `resource "neon_vpc_endpoint_assignment" "this" {
+org_id          = "foo"
+region_id       = "foo"
+vpc_endpoint_id = "foo"
+label           = "foo"
+}`,
+					ImportState:   true,
+					ResourceName:  "neon_vpc_endpoint_assignment.this",
+					ImportStateId: "id",
+					ExpectError:   regexp.MustCompile("Invalid Terraform State VPC Endpoint Assignment ID"),
+				},
+				{
+					Config: `resource "neon_vpc_endpoint_assignment" "this" {
+org_id          = "foo"
+region_id       = "foo"
+vpc_endpoint_id = "foo"
+label           = "foo"
+}`,
+					ImportState:   true,
+					ResourceName:  "neon_vpc_endpoint_assignment.this",
+					ImportStateId: "0/1",
+					ExpectError:   regexp.MustCompile("Invalid Terraform State VPC Endpoint Assignment ID"),
+				},
+			},
+		})
+	})
+
+	t.Run("shall fail to import non-existent resource given its invalid ID", func(t *testing.T) {
+		httpClient := &httpClientPipe{
+			Pipe: []*HTTPClientMock{
+				// mocks read request with throttling handling
+				{
+					StatusCode: http.StatusTooManyRequests,
+				},
+
+				// mocks read request
+				{
+					StatusCode: http.StatusNotFound,
+					Body:       []byte(`{"message": "not found"}`),
 				},
 			},
 		}
 
-		resources, err := resourceVPCEndpointAssignmentImport(context.TODO(), definition, meta)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		d := resources[0]
-
-		if got := d.Get("org_id").(string); got != orgID {
-			t.Errorf("org_id = %q, want %q", got, orgID)
-		}
-		if got := d.Get("region_id").(string); got != regionID {
-			t.Errorf("region_id = %q, want %q", got, regionID)
-		}
-		if got := d.Get("vpc_endpoint_id").(string); got != vpcEndpointID {
-			t.Errorf("vpc_endpoint_id = %q, want %q", got, vpcEndpointID)
-		}
-		if got := d.Get("label").(string); got != label {
-			t.Errorf("label = %q, want %q", got, label)
-		}
-
-		// Verify ID is set to vpc_endpoint_id only (not composite) for backwards compatibility
-		if got := d.Id(); got != vpcEndpointID {
-			t.Errorf("id = %q, want %q (vpc_endpoint_id only for backwards compatibility)", got, vpcEndpointID)
-		}
-	})
-
-	t.Run("shall fail with invalid composite id", func(t *testing.T) {
-		resource := resourceVPCEndpointAssignment()
-		definition := resource.TestResourceData()
-		definition.SetId("invalid-id")
-
-		meta := &sdkClientStub{}
-
-		_, err := resourceVPCEndpointAssignmentImport(context.TODO(), definition, meta)
-		if err == nil {
-			t.Fatal("error expected")
-		}
-	})
-
-	t.Run("shall fail when api returns error", func(t *testing.T) {
-		resource := resourceVPCEndpointAssignment()
-		definition := resource.TestResourceData()
-		definition.SetId(compositeID)
-
-		meta := &sdkClientStub{
-			stubVPCEndpoint: stubVPCEndpoint{
-				err: errors.New("api error"),
-			},
-		}
-
-		_, err := resourceVPCEndpointAssignmentImport(context.TODO(), definition, meta)
-		if err == nil {
-			t.Fatal("error expected")
-		}
-	})
-}
-
-func TestParseVPCEndpointAssignmentID(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		want    vpcEndpointAssignmentID
-		wantErr bool
-	}{
-		{
-			name:  "valid composite ID",
-			input: "org-foo-bar-01234567/aws-us-east-1/vpce-1234567890abcdef0",
-			want: vpcEndpointAssignmentID{
-				OrgID:         "org-foo-bar-01234567",
-				RegionID:      "aws-us-east-1",
-				VPCEndpointID: "vpce-1234567890abcdef0",
-			},
-			wantErr: false,
-		},
-		{
-			name:    "missing region",
-			input:   "org-foo/vpce-123",
-			wantErr: true,
-		},
-		{
-			name:    "just vpc endpoint ID",
-			input:   "vpce-1234567890abcdef0",
-			wantErr: true,
-		},
-		{
-			name:    "empty string",
-			input:   "",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseVPCEndpointAssignmentID(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("parseVPCEndpointAssignmentID() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && got != tt.want {
-				t.Errorf("parseVPCEndpointAssignmentID() = %v, want %v", got, tt.want)
-			}
+		sdkMock, err := neon.NewClient(neon.Config{
+			Key:        "foo",
+			HTTPClient: httpClient,
 		})
-	}
-}
+		assert.NoErrorf(t, err, "could not create Neon SDK mock")
 
-func TestSetResourceAttrsFromVPCEndpointAssignmentID(t *testing.T) {
-	// Create a ResourceData using the VPC endpoint assignment schema
-	resourceSchema := map[string]*schema.Schema{
-		"org_id":          {Type: schema.TypeString},
-		"region_id":       {Type: schema.TypeString},
-		"vpc_endpoint_id": {Type: schema.TypeString},
-		"label":           {Type: schema.TypeString},
-	}
-	d := schema.TestResourceDataRaw(t, resourceSchema, map[string]interface{}{})
-
-	// Parse a composite ID and set attributes
-	id := vpcEndpointAssignmentID{
-		OrgID:         "org-test-123",
-		RegionID:      "aws-eu-central-1",
-		VPCEndpointID: "vpce-abcdef123456",
-	}
-	setResourceAttrsFromVPCEndpointAssignmentID(d, id)
-
-	// Verify attributes were set correctly
-	if got := d.Get("org_id").(string); got != id.OrgID {
-		t.Errorf("org_id = %q, want %q", got, id.OrgID)
-	}
-	if got := d.Get("region_id").(string); got != id.RegionID {
-		t.Errorf("region_id = %q, want %q", got, id.RegionID)
-	}
-	if got := d.Get("vpc_endpoint_id").(string); got != id.VPCEndpointID {
-		t.Errorf("vpc_endpoint_id = %q, want %q", got, id.VPCEndpointID)
-	}
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newUnitTestProviderFactories(&providerAdapter{
+				sdk: sdkMock,
+			}),
+			Steps: []resource.TestStep{
+				{
+					Config: `resource "neon_vpc_endpoint_assignment" "this" {
+org_id          = "foo"
+region_id       = "foo"
+vpc_endpoint_id = "foo"
+label           = "foo"
+}`,
+					ImportState:   true,
+					ResourceName:  "neon_vpc_endpoint_assignment.this",
+					ImportStateId: "foo/foo/foo",
+					ExpectError:   regexp.MustCompile("404"),
+				},
+			},
+		})
+	})
 }

@@ -1,0 +1,33 @@
+resource "neon_project" "example" {
+  name = "example"
+}
+
+# store the default connection URI to the AWS SSM Parameters Store instead of the terraform state
+# using ephemeral resource
+ephemeral "neon_connection_uri" "default" {
+  project_id  = neon_project.example.id
+  branch_id   = neon_project.example.branch.id
+  endpoint_id = neon_project.example.primary_compute.id
+  database    = neon_project.example.database_name
+  role        = neon_project.example.database_user
+  lifecycle {
+    postcondition {
+      condition     = self.uri != "" && replace(self.uri_pooler, "-pooler", "") == self.uri
+      error_message = "URI is empty, or does not match URI pooler"
+    }
+  }
+}
+
+locals {
+  secret_name = "${neon_project.example.id}/${neon_project.example.branch.id}/${neon_project.example.primary_compute.id}/${neon_project.example.database_user}/${neon_project.example.database_name}"
+}
+
+resource "aws_ssm_parameter" "default_neon_connection_uri" {
+  name = "/neonConnectionURI/${local.secret_name}"
+  type = "SecureString"
+  value_wo = jsonencode({
+    uri        = ephemeral.neon_connection_uri.default.uri
+    uri_pooler = ephemeral.neon_connection_uri.default.uri_pooler
+  })
+  value_wo_version = 1
+}

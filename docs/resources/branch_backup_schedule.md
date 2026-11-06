@@ -17,7 +17,7 @@ resource "neon_project" "example" {
 
 resource "neon_branch_backup_schedule" "example" {
   project_id = neon_project.example.id
-  branch_id  = neon_project.example.default_branch_id
+  branch_id  = neon_project.example.branch.id
   schedule = [
     {
       frequency         = "weekly"
@@ -51,8 +51,8 @@ resource "neon_branch_backup_schedule" "example" {
 
 ### Required
 
-- `branch_id` (String) The Neon branch ID.
-- `project_id` (String) The Neon project ID.
+- `branch_id` (String) The Neon branch ID. Changing it replaces the schedule.
+- `project_id` (String) The Neon project ID. Changing it replaces the schedule.
 - `schedule` (Attributes List) Snapshot frequencies configured for the branch. (see [below for nested schema](#nestedatt--schedule))
 
 ### Read-Only
@@ -69,9 +69,9 @@ Required:
 Optional:
 
 - `day` (Number) Day of the week or month, when applicable.
-- `hour` (Number) Hour of the day, when applicable.
-- `month` (Number) Month of the year, when applicable.
-- `retention_seconds` (Number) How long to retain scheduled snapshots, in seconds.
+- `hour` (Number) Hour of the day (0-23), when applicable.
+- `month` (Number) Month of the year (1-12), when applicable.
+- `retention_seconds` (Number) How long to retain scheduled snapshots, in seconds. The maximum and default is 3024000 (35 days).
 
 
 

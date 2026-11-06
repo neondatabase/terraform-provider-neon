@@ -2,170 +2,224 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
 
-func resourceProjectPermission() *schema.Resource {
-	return &schema.Resource{
-		SchemaVersion: 1,
-		Description:   `Project's access permission.`,
-		Importer: &schema.ResourceImporter{
-			StateContext: resourceProjectPermissionImport,
+var _ resource.ResourceWithConfigure = (*neonProjectPermission)(nil)
+var _ resource.ResourceWithUpgradeState = (*neonProjectPermission)(nil)
+var _ resource.ResourceWithImportState = (*neonProjectPermission)(nil)
+
+type neonProjectPermission struct {
+	client *neon.Client
+}
+
+type neonProjectPermissionResourceModel struct {
+	ID        types.String `tfsdk:"id"`
+	ProjectID types.String `tfsdk:"project_id"`
+	Grantee   types.String `tfsdk:"grantee"`
+}
+
+func NewNeonProjectPermissionResource() resource.Resource {
+	return &neonProjectPermission{}
+}
+
+func (r *neonProjectPermission) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*providerAdapter)
+	if !ok {
+		resp.Diagnostics.AddError("Unexpected Resource Configure Type",
+			"Expected *providerAdapter, got an unexpected type.")
+		return
+	}
+	if client.sdk == nil {
+		resp.Diagnostics.AddError("SDK is not configured", "")
+		return
+	}
+	r.client = client.sdk
+}
+
+func (r *neonProjectPermission) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = "neon_project_permission"
+}
+
+func (r *neonProjectPermission) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
+
+	resp.Schema = schema.Schema{
+		Version:     2,
+		Description: `Project's access permission.`,
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				PlanModifiers: idPlanModifiers(),
+				Computed:      true,
+				Description:   "The permission ID.",
+			},
+			"project_id": schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: requiresReplace,
+				Description:   "Project ID.",
+			},
+			"grantee": schema.StringAttribute{
+				Required:      true,
+				PlanModifiers: requiresReplace,
+				Description:   "Email of the user whom to grant project permission.",
+			},
 		},
-		CreateContext: resourceProjectPermissionCreateRetry,
-		ReadContext:   resourceProjectPermissionReadRetry,
-		DeleteContext: resourceProjectPermissionDeleteRetry,
-		Schema: map[string]*schema.Schema{
-			"id": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"project_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Project ID.",
-			},
-			"grantee": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "Email of the user whom to grant project permission.",
-			},
-		},
 	}
 }
 
-func resourceProjectPermissionCreateRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return projectReadiness.Retry(resourceProjectPermissionCreate, ctx, d, meta)
+func (r *neonProjectPermission) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
+
+	var state neonProjectPermissionResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	cfg := neon.GrantPermissionToProjectRequest{
+		Email: state.Grantee.ValueString(),
+	}
+
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+		re, err := r.client.GrantPermissionToProject(state.ProjectID.ValueString(), cfg)
+		if err != nil {
+			return err
+		}
+		state.ID = types.StringValue(re.ID)
+		return nil
+	}, nil)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-func resourceProjectPermissionCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-	projectID := d.Get("project_id").(string)
-	email := d.Get("grantee").(string)
+func (r *neonProjectPermission) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
 
-	tflog.Trace(ctx, "grant project permission", map[string]interface{}{"projectID": projectID, "email": email})
+	var state neonProjectPermissionResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	resp, err := meta.(sdkProject).GrantPermissionToProject(projectID, neon.GrantPermissionToProjectRequest{Email: email})
-	if err != nil {
+	var permissions []neon.ProjectPermission
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
+		re, err := r.client.ListProjectPermissions(state.ProjectID.ValueString())
+		permissions = re.ProjectPermissions
 		return err
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error { return nil },
+	})...)
+
+	if resp.Diagnostics.HasError() {
+		return
 	}
-	d.SetId(resp.ID)
-	return nil
+
+	for _, permission := range permissions {
+		if state.Grantee.ValueString() == permission.GrantedToEmail {
+			state.ID = types.StringValue(permission.ID)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			return
+		}
+	}
+
+	resp.Diagnostics.AddWarning("Permission Not Found",
+		fmt.Sprintf("Permission for email %q not found in the project %q", state.Grantee.ValueString(),
+			state.ProjectID.ValueString()))
+	resp.State.RemoveResource(ctx)
 }
 
-func resourceProjectPermissionDeleteRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return projectReadiness.Retry(resourceProjectPermissionDelete, ctx, d, meta)
+func (r *neonProjectPermission) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
 }
 
-func resourceProjectPermissionDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-	projectID := d.Get("project_id").(string)
-	tflog.Trace(ctx, "revoke project permission", map[string]interface{}{
-		"projectID":    projectID,
-		"permissionID": d.Id(),
-	})
+func (r *neonProjectPermission) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	if r.client == nil {
+		resp.Diagnostics.AddError("Client Not Configured", "The Neon provider client is not configured.")
+		return
+	}
 
-	if _, err := meta.(sdkProject).RevokePermissionFromProject(projectID, d.Id()); err != nil {
+	var state neonProjectPermissionResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
+		_, err := r.client.RevokePermissionFromProject(state.ProjectID.ValueString(), state.ID.ValueString())
 		return err
+	}, map[int]func(context.Context) error{
+		http.StatusNotFound: func(_ context.Context) error { return nil },
+	})...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	d.SetId("")
-	return nil
+	resp.State.RemoveResource(ctx)
 }
 
-func resourceProjectPermissionImport(ctx context.Context, d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
-	tflog.Trace(ctx, "import project permission", map[string]interface{}{"id": d.Id()})
-	tflog.Debug(ctx, "parse provided identifier")
-	els := strings.SplitN(d.Id(), "/", 2)
+func (r *neonProjectPermission) ImportState(ctx context.Context, req resource.ImportStateRequest,
+	resp *resource.ImportStateResponse) {
+	els := strings.SplitN(req.ID, "/", 2)
 	if len(els) != 2 {
-		return nil, fmt.Errorf("invalid identifier, expected {{.ProjectID}}/{{.PermissionID}}")
+		resp.Diagnostics.AddError(
+			"Invalid Terraform State Project Permission ID",
+			"Expected an import ID in the form <project_id>/<permission_id>.",
+		)
+		return
 	}
 
 	projectID := els[0]
-	if err := d.Set("project_id", projectID); err != nil {
-		return nil, err
-	}
-	d.SetId(els[1])
-
-	var found bool
-	diags := projectReadiness.Retry(
-		func(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-			return func() error {
-				var err error
-				err, found = readProjectPermission(ctx, d, meta)
-				return err
-			}()
-		},
-		ctx, d, meta,
-	)
-	if diags.HasError() {
-		var errs = make([]error, len(diags))
-		for i, di := range diags {
-			errs[i] = errors.New(di.Summary)
-		}
-		return nil, errors.Join(errs...)
-	}
-
-	if !found {
-		d.SetId("")
-		_ = d.Set("project_id", "")
-		return nil, errors.New("no permission found")
-	}
-
-	return []*schema.ResourceData{d}, nil
-}
-
-func resourceProjectPermissionReadRetry(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return projectReadiness.Retry(resourceProjectPermissionRead, ctx, d, meta)
-}
-
-func resourceProjectPermissionRead(ctx context.Context, d *schema.ResourceData, meta interface{}) error {
-	err, found := readProjectPermission(ctx, d, meta)
-	if err != nil {
+	permissionID := els[1]
+	var permissions []neon.ProjectPermission
+	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(ctx context.Context) error {
+		re, err := r.client.ListProjectPermissions(projectID)
+		permissions = re.ProjectPermissions
 		return err
+	}, nil)...)
+
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if !found {
-		tflog.Debug(ctx, "no project permission found, removing from state", map[string]interface{}{
-			"project_id": d.Get("project_id"),
-			"grantee":    d.Get("grantee"),
-		})
-		d.SetId("")
-	}
-
-	return nil
-}
-
-func readProjectPermission(ctx context.Context, d *schema.ResourceData, meta interface{}) (error, bool) {
-	tflog.Trace(ctx, "parse project permission found", map[string]interface{}{"id": d.Id()})
-
-	projectID := d.Get("project_id").(string)
-	tflog.Trace(ctx, "list project permissions", map[string]interface{}{"projectID": projectID})
-
-	resp, err := meta.(sdkProject).ListProjectPermissions(projectID)
-	if err != nil {
-		return err, false
-	}
-
-	tflog.Trace(ctx, "search project permission", map[string]interface{}{
-		"projectID":    projectID,
-		"permissionID": d.Id(),
-	})
-
-	for _, permission := range resp.ProjectPermissions {
-		if permission.ID == d.Id() {
-			if err := d.Set("grantee", permission.GrantedToEmail); err != nil {
-				return err, false
-			}
-			return nil, true
+	for _, permission := range permissions {
+		if permissionID == permission.ID {
+			resp.Diagnostics.Append(resp.State.Set(ctx, &neonProjectPermissionResourceModel{
+				ID:        types.StringValue(permissionID),
+				ProjectID: types.StringValue(projectID),
+				Grantee:   types.StringValue(permission.GrantedToEmail),
+			})...)
+			return
 		}
 	}
-	return nil, false
+
+	resp.Diagnostics.AddError("Permission Not Found",
+		fmt.Sprintf("Permission %q not found in the project %q", permissionID, projectID))
+}
+
+// UpgradeState migrates state written by kislerdm/neon v0.18.0, the last Terraform Plugin SDK v2 release.
+func (r *neonProjectPermission) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		1: legacyStateUpgrader(r.Schema, nil),
+	}
 }

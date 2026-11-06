@@ -50,7 +50,7 @@ func (r *neonEphemeralRole) Metadata(_ context.Context, _ ephemeral.MetadataRequ
 
 func (r *neonEphemeralRole) Schema(_ context.Context, _ ephemeral.SchemaRequest, resp *ephemeral.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Ephemeral resource to retrieve the Neon PostgreSQL Role's password.",
+		Description: "Ephemeral resource to retrieve the password of a Neon Postgres role. The password is never stored in the Terraform state.",
 		Attributes: map[string]schema.Attribute{
 			"project_id": schema.StringAttribute{
 				Required:    true,

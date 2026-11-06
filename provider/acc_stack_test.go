@@ -19,7 +19,6 @@ func newProjectName(prefix string) string {
 }
 
 func TestResourcesStack(t *testing.T) {
-	t.Skip("TODO after beta.0")
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
@@ -86,10 +85,11 @@ resource "neon_project" "this" {
 		logical_size_bytes 	 = %d
 	}
 
+	database_user = "%s"
+	database_name = "%s"
+
 	branch = {
-		name 	  	  = "%s"
-		role_name 	  = "%s"
-		database_name = "%s"
+		name = "%s"
 	}
 }
 
@@ -127,9 +127,9 @@ resource "neon_database" "this" {
 		quotaWrittenDataBytes,
 		quotaDataTransferBytes,
 		quotaLogicalSizeBytes,
-		branchName,
 		branchRoleName,
 		dbName,
+		branchName,
 		customRoleName,
 	)
 
@@ -169,19 +169,15 @@ resource "neon_database" "this" {
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"branch.#", "1",
+							"branch.name", branchName,
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"branch.0.name", branchName,
+							"database_user", branchRoleName,
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"branch.0.role_name", branchRoleName,
-						),
-						resource.TestCheckResourceAttr(
-							resourceNameProject,
-							"branch.0.database_name", dbName,
+							"database_name", dbName,
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
@@ -204,23 +200,23 @@ resource "neon_database" "this" {
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"quota.0.active_time_seconds", strconv.Itoa(quotaActiveTimeSeconds),
+							"quota.active_time_seconds", strconv.Itoa(quotaActiveTimeSeconds),
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"quota.0.compute_time_seconds", strconv.Itoa(quotaComputeTimeSeconds),
+							"quota.compute_time_seconds", strconv.Itoa(quotaComputeTimeSeconds),
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"quota.0.written_data_bytes", strconv.Itoa(quotaWrittenDataBytes),
+							"quota.written_data_bytes", strconv.Itoa(quotaWrittenDataBytes),
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"quota.0.data_transfer_bytes", strconv.Itoa(quotaDataTransferBytes),
+							"quota.data_transfer_bytes", strconv.Itoa(quotaDataTransferBytes),
 						),
 						resource.TestCheckResourceAttr(
 							resourceNameProject,
-							"quota.0.logical_size_bytes", strconv.Itoa(quotaLogicalSizeBytes),
+							"quota.logical_size_bytes", strconv.Itoa(quotaLogicalSizeBytes),
 						),
 
 						// check the project and its settings

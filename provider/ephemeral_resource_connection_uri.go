@@ -54,7 +54,7 @@ func (r *neonEphemeralConnectionURI) Metadata(_ context.Context, _ ephemeral.Met
 
 func (r *neonEphemeralConnectionURI) Schema(_ context.Context, _ ephemeral.SchemaRequest, resp *ephemeral.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Ephemeral resource to retrieve the Neon PostgreSQL Role's password.",
+		Description: "Ephemeral resource to retrieve the connection URIs of a Neon database for a role. The URIs contain the role's password and are never stored in the Terraform state.",
 		Attributes: map[string]schema.Attribute{
 			"project_id": schema.StringAttribute{
 				Required:    true,

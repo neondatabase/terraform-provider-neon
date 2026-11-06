@@ -252,20 +252,22 @@ func (r *neonFunctionResource) ImportState(ctx context.Context, req resource.Imp
 // deploy uploads the archive at plan.ZipFilePath as a new deployment of the function.
 // The API keeps environment variables a deployment does not mention, so env must also
 // carry every removed key with an empty value, which deletes it.
-func (r *neonFunctionResource) deploy(ctx context.Context, plan neonFunctionResourceModel, env map[string]string) diag.Diagnostics {
+// deploy uploads the ZIP and waits for the deployment to become active. uploaded reports whether Neon accepted the
+// upload, which creates the function when the slug is new.
+func (r *neonFunctionResource) deploy(ctx context.Context, plan neonFunctionResourceModel, env map[string]string) (
+	uploaded bool, diags diag.Diagnostics) {
 	if plan.ZipFilePath.IsNull() || plan.ZipFilePath.IsUnknown() || plan.ZipFilePath.ValueString() == "" {
-		var diags diag.Diagnostics
 		diags.AddAttributeError(
 			path.Root("zip_file_path"),
 			"Missing zip_file_path",
 			"Set zip_file_path to the function's ZIP archive. Neon needs the archive to deploy the function.",
 		)
-		return diags
+		return false, diags
 	}
 	zipPath := plan.ZipFilePath.ValueString()
 	runtime := plan.Runtime.ValueString()
 	var deployment neon.NeonFunctionDeployment
-	diags := projectReadiness.Retry(ctx,
+	diags = projectReadiness.Retry(ctx,
 		func(ctx context.Context) error {
 			// Each attempt reads the archive from the start.
 			zipFile, err := os.Open(zipPath)
@@ -286,9 +288,9 @@ func (r *neonFunctionResource) deploy(ctx context.Context, plan neonFunctionReso
 		}, nil,
 	)
 	if diags.HasError() {
-		return diags
+		return false, diags
 	}
-	return r.waitDeploymentActive(ctx, plan, deployment.ID)
+	return true, r.waitDeploymentActive(ctx, plan, deployment.ID)
 }
 
 const (
@@ -368,9 +370,14 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	resp.Diagnostics.Append(r.deploy(ctx, plan, plan.EnvironmentVariables)...)
+	uploaded, diags := r.deploy(ctx, plan, plan.EnvironmentVariables)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
-		// A failed build or rollout still leaves the function in Neon. Track it so Terraform can replace or destroy it.
+		// After an accepted upload, a failed build or rollout still leaves the function in Neon. Track it so Terraform
+		// can replace or destroy it. Before that, the slug may belong to a function this resource never deployed.
+		if !uploaded {
+			return
+		}
 		if fn, diags := r.getFunction(ctx, plan); !diags.HasError() {
 			setNeonFunctionModel(&plan, fn)
 			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -490,7 +497,8 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 				env[key] = ""
 			}
 		}
-		resp.Diagnostics.Append(r.deploy(ctx, plan, env)...)
+		_, diags := r.deploy(ctx, plan, env)
+		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {
 			return
 		}

@@ -2,10 +2,12 @@ package provider
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -326,5 +328,53 @@ resource "neon_function" "this" {
 				},
 			},
 		)
+	})
+
+	t.Run("shall leave an existing function alone when a create with its slug fails before uploading", func(t *testing.T) {
+		projectName := newProjectName(projectNamePrefix)
+		base := fmt.Sprintf(`resource "neon_project" "this" {
+  name      = %q
+  org_id    = %q
+  region_id = "aws-us-east-2"
+}
+
+resource "neon_function" "this" {
+  project_id    = neon_project.this.id
+  branch_id     = neon_project.this.branch.id
+  slug          = "hello"
+  runtime       = "nodejs24"
+  zip_file_path = %q
+}
+`, projectName, orgID, zipPath)
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{Config: base},
+				{
+					Config: base + `
+resource "neon_function" "other" {
+  project_id    = neon_project.this.id
+  branch_id     = neon_project.this.branch.id
+  slug          = "hello"
+  runtime       = "nodejs24"
+  zip_file_path = "/nonexistent/function.zip"
+}
+`,
+					ExpectError: regexp.MustCompile("could not open the ZIP archive"),
+				},
+				{
+					// Had the failed create adopted the function, dropping it from the configuration would delete it.
+					Config: base,
+					Check: func(state *terraform.State) error {
+						if _, ok := state.RootModule().Resources["neon_function.other"]; ok {
+							return errors.New("neon_function.other is in state after its create failed")
+						}
+						project := state.RootModule().Resources["neon_project.this"].Primary
+						_, err := client.GetProjectBranchFunction(project.ID, project.Attributes["branch.id"], "hello")
+						return err
+					},
+				},
+			},
+		})
 	})
 }

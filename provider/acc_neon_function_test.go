@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
@@ -115,15 +116,10 @@ resource "neon_function" "this" {
 		)
 	})
 
-	t.Run("shall set the environment variables for the runtime", func(t *testing.T) {
+	t.Run("shall set the environment variables and deploy changes in place", func(t *testing.T) {
 		projectName := newProjectName(projectNamePrefix)
-
-		resource.Test(
-			t, resource.TestCase{
-				ProtoV6ProviderFactories: newProviderFactories(),
-				Steps: []resource.TestStep{
-					{
-						Config: fmt.Sprintf(`resource "neon_project" "this" {
+		config := func(env string) string {
+			return fmt.Sprintf(`resource "neon_project" "this" {
   name      = %q
   org_id    = %q
   region_id = "aws-us-east-2"
@@ -136,34 +132,118 @@ resource "neon_function" "this" {
   runtime       = "nodejs24"
   name          = "hello"
   zip_file_path = %q
+%s
+}
+`, projectName, orgID, zipPath, env)
+		}
+		// Neon reports a deployment as active before every request reaches it, so the
+		// invocation is polled until the expected environment answers.
+		invokeUntil := func(state *terraform.State, want func(env map[string]string) error) error {
+			fn, ok := state.RootModule().Resources["neon_function.this"]
+			if !ok {
+				return fmt.Errorf("neon_function.this not found in state")
+			}
+			start := time.Now()
+			var lastErr error
+			for time.Since(start) < 5*time.Minute {
+				resp, err := http.Get(fn.Primary.Attributes["invocation_url"])
+				if err == nil {
+					var env map[string]string
+					if resp.StatusCode == http.StatusOK {
+						err = json.NewDecoder(resp.Body).Decode(&env)
+					} else {
+						err = fmt.Errorf("invoking the function returned HTTP %d", resp.StatusCode)
+					}
+					_ = resp.Body.Close()
+					if err == nil {
+						err = want(env)
+					}
+					if err == nil {
+						t.Logf("new deployment answered after %s", time.Since(start).Round(time.Second))
+						return nil
+					}
+				}
+				lastErr = err
+				time.Sleep(3 * time.Second)
+			}
+			return lastErr
+		}
+		var createdAt string
+		var deploymentID int
+		sameFunctionNewDeployment := func(state *terraform.State) error {
+			fn := state.RootModule().Resources["neon_function.this"].Primary.Attributes
+			if createdAt != "" && fn["created_at"] != createdAt {
+				return fmt.Errorf("function was replaced: created_at %s became %s", createdAt, fn["created_at"])
+			}
+			var id int
+			if _, err := fmt.Sscan(fn["current_deployment_id"], &id); err != nil {
+				return err
+			}
+			if deploymentID != 0 && id <= deploymentID {
+				return fmt.Errorf("current_deployment_id %d did not advance past %d", id, deploymentID)
+			}
+			createdAt, deploymentID = fn["created_at"], id
+			return nil
+		}
 
-  environment_variables = {
+		resource.Test(
+			t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						Config: config(`  environment_variables = {
     FOO = 1
     BAR = "baz"
-  }
-}
-`, projectName, orgID, zipPath),
-						Check: func(state *terraform.State) error {
-							fn, ok := state.RootModule().Resources["neon_function.this"]
-							assert.True(t, ok)
-							invocationURL := fn.Primary.Attributes["invocation_url"]
-							assert.NotEmpty(t, invocationURL)
-
-							resp, err := http.Get(invocationURL)
-							if err != nil {
-								return err
-							}
-							assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-							var setEnvVars map[string]string
-							assert.NoError(t, json.NewDecoder(resp.Body).Decode(&setEnvVars))
-							assert.NoError(t, resp.Body.Close())
-
-							assert.Equal(t, "1", setEnvVars["FOO"])
-							assert.Equal(t, "baz", setEnvVars["BAR"])
-
-							return nil
-						},
+  }`),
+						Check: resource.ComposeTestCheckFunc(
+							sameFunctionNewDeployment,
+							func(state *terraform.State) error {
+								return invokeUntil(state, func(env map[string]string) error {
+									if env["FOO"] != "1" || env["BAR"] != "baz" {
+										return fmt.Errorf("function returned FOO=%q, BAR=%q; want 1 and baz", env["FOO"], env["BAR"])
+									}
+									return nil
+								})
+							},
+						),
+					},
+					{
+						Config: config(`  environment_variables = {
+    FOO = 2
+  }`),
+						Check: resource.ComposeTestCheckFunc(
+							sameFunctionNewDeployment,
+							resource.TestCheckResourceAttr("neon_function.this", "environment_variable_names.#", "1"),
+							func(state *terraform.State) error {
+								return invokeUntil(state, func(env map[string]string) error {
+									if _, hasBar := env["BAR"]; hasBar || env["FOO"] != "2" {
+										return fmt.Errorf("function returned FOO=%q, BAR set=%t; want FOO=\"2\" and no BAR", env["FOO"], hasBar)
+									}
+									return nil
+								})
+							},
+						),
+					},
+					{
+						Config: config(""),
+						Check: resource.ComposeTestCheckFunc(
+							sameFunctionNewDeployment,
+							resource.TestCheckNoResourceAttr("neon_function.this", "environment_variable_names.#"),
+							func(state *terraform.State) error {
+								return invokeUntil(state, func(env map[string]string) error {
+									if _, ok := env["FOO"]; ok {
+										return fmt.Errorf("FOO is still set in the function")
+									}
+									return nil
+								})
+							},
+						),
+					},
+					{
+						ResourceName:            "neon_function.this",
+						ImportState:             true,
+						ImportStateVerify:       true,
+						ImportStateVerifyIgnore: []string{"zip_file_path"},
 					},
 				},
 			},

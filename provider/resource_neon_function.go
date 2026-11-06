@@ -3,16 +3,18 @@ package provider
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -39,6 +41,7 @@ type neonFunctionResourceModel struct {
 	Runtime                  types.String      `tfsdk:"runtime"`
 	Name                     types.String      `tfsdk:"name"`
 	ZipFilePath              types.String      `tfsdk:"zip_file_path"`
+	SourceCodeHash           types.String      `tfsdk:"source_code_hash"`
 	EnvironmentVariables     map[string]string `tfsdk:"environment_variables"`
 	CreatedAt                types.String      `tfsdk:"created_at"`
 	InvocationURL            types.String      `tfsdk:"invocation_url"`
@@ -56,7 +59,6 @@ func (r *neonFunctionResource) Metadata(_ context.Context, _ resource.MetadataRe
 
 func (r *neonFunctionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	requiresReplace := []planmodifier.String{stringplanmodifier.RequiresReplace()}
-	mapRequiresReplace := []planmodifier.Map{mapplanmodifier.RequiresReplace()}
 
 	resp.Schema = schema.Schema{
 		Description: "Manages a Neon Serverless Function on a branch.",
@@ -82,12 +84,11 @@ func (r *neonFunctionResource) Schema(_ context.Context, _ resource.SchemaReques
 				Description:   "Branch-unique identifier for the function. Forms the invocation URL host together with the branch ID.",
 			},
 			"runtime": schema.StringAttribute{
-				Required:      true,
-				PlanModifiers: requiresReplace,
+				Required: true,
 				Validators: []validator.String{
 					functionRuntimeValidator{},
 				},
-				Description: "Runtime for the function. Currently only `nodejs24` is supported.",
+				Description: "Runtime for the function. Currently only `nodejs24` is supported. Changing it deploys the function again.",
 			},
 			"name": schema.StringAttribute{
 				Optional:    true,
@@ -95,25 +96,30 @@ func (r *neonFunctionResource) Schema(_ context.Context, _ resource.SchemaReques
 				Description: "Free-form display name for the function. Updatable in place.",
 			},
 			"zip_file_path": schema.StringAttribute{
-				Optional:      true,
-				Sensitive:     true,
-				PlanModifiers: requiresReplace,
-				Description:   "Path to a local ZIP archive of the function source. Required on create.",
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Path to a local ZIP archive of the function source. Required on create. Changing it deploys the function again.",
+			},
+			"source_code_hash": schema.StringAttribute{
+				Optional: true,
+				Description: "Hash of the ZIP archive, for example `filebase64sha256(\"function.zip\")`. " +
+					"Set it so that a new archive at the same `zip_file_path` deploys the function again.",
 			},
 			"environment_variables": schema.MapAttribute{
-				ElementType:   types.StringType,
-				Optional:      true,
-				Sensitive:     true,
-				PlanModifiers: mapRequiresReplace,
-				Description:   "Environment variables to expose to the function. The API never returns their values. Terraform stores configured values in state and marks them sensitive. Changes require replacing the function.",
+				ElementType: types.StringType,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Environment variables to expose to the function. The API never returns their values. Terraform stores configured values in state and marks them sensitive. Changing them deploys the function again.",
 			},
 			"created_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "RFC3339 timestamp at which the function was created.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "RFC3339 timestamp at which the function was created.",
 			},
 			"invocation_url": schema.StringAttribute{
-				Computed:    true,
-				Description: "URL at which the function is invoked.",
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description:   "URL at which the function is invoked.",
 			},
 			"current_deployment_id": schema.Int64Attribute{
 				Computed:    true,
@@ -175,11 +181,20 @@ func (r *neonFunctionResource) Configure(_ context.Context, req resource.Configu
 	r.client = client.sdk
 }
 
-// ModifyPlan enforces the project convention declared above. All immutable
-// attributes carry RequiresReplace plan modifiers, so any change to them
-// results in a replace plan. Name is the only attribute that may be updated
-// in place; no in-place update needs to be surfaced as an error here.
-func (r *neonFunctionResource) ModifyPlan(_ context.Context, _ resource.ModifyPlanRequest, _ *resource.ModifyPlanResponse) {
+// ModifyPlan marks environment_variable_names unknown when the configured variables change,
+// because a new deployment replaces the names the API reports.
+func (r *neonFunctionResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	var plan, state neonFunctionResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() || maps.Equal(plan.EnvironmentVariables, state.EnvironmentVariables) {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("environment_variable_names"),
+		types.ListUnknown(types.StringType))...)
 }
 
 func (r *neonFunctionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -228,7 +243,117 @@ func (r *neonFunctionResource) ImportState(ctx context.Context, req resource.Imp
 		Slug:      types.StringValue(slug),
 	}
 	setNeonFunctionModel(&state, fn)
+	if fn.CurrentDeployment != nil {
+		state.Runtime = types.StringValue(fn.CurrentDeployment.Runtime)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+// deploy uploads the archive at plan.ZipFilePath as a new deployment of the function.
+// The API keeps environment variables a deployment does not mention, so env must also
+// carry every removed key with an empty value, which deletes it.
+func (r *neonFunctionResource) deploy(ctx context.Context, plan neonFunctionResourceModel, env map[string]string) diag.Diagnostics {
+	if plan.ZipFilePath.IsNull() || plan.ZipFilePath.IsUnknown() || plan.ZipFilePath.ValueString() == "" {
+		var diags diag.Diagnostics
+		diags.AddAttributeError(
+			path.Root("zip_file_path"),
+			"Missing zip_file_path",
+			"Set zip_file_path to the function's ZIP archive. Neon needs the archive to deploy the function.",
+		)
+		return diags
+	}
+	zipPath := plan.ZipFilePath.ValueString()
+	runtime := plan.Runtime.ValueString()
+	var deployment neon.NeonFunctionDeployment
+	diags := projectReadiness.Retry(ctx,
+		func(ctx context.Context) error {
+			// Each attempt reads the archive from the start.
+			zipFile, err := os.Open(zipPath)
+			if err != nil {
+				return fmt.Errorf("could not open the ZIP archive at %q: %w", zipPath, err)
+			}
+			defer zipFile.Close()
+			rsp, err := r.client.CreateProjectBranchFunctionDeployment(
+				plan.ProjectID.ValueString(),
+				plan.BranchID.ValueString(),
+				plan.Slug.ValueString(),
+				zipFile,
+				env,
+				&runtime,
+			)
+			deployment = rsp.Deployment
+			return err
+		}, nil,
+	)
+	if diags.HasError() {
+		return diags
+	}
+	return r.waitDeploymentActive(ctx, plan, deployment.ID)
+}
+
+const (
+	functionDeploymentPollInterval = 2 * time.Second
+	functionDeploymentTimeout      = 10 * time.Minute
+)
+
+// waitDeploymentActive blocks until the deployment has built and serves requests,
+// so that apply finishes once the new code is live.
+func (r *neonFunctionResource) waitDeploymentActive(ctx context.Context, plan neonFunctionResourceModel,
+	deploymentID int32) diag.Diagnostics {
+	var diags diag.Diagnostics
+	ctx, cancel := context.WithTimeout(ctx, functionDeploymentTimeout)
+	defer cancel()
+	for {
+		fn, d := r.getFunction(ctx, plan)
+		if d.HasError() {
+			return d
+		}
+		if current := fn.CurrentDeployment; current != nil && current.ID == deploymentID {
+			switch current.Status {
+			case neon.NeonFunctionDeploymentStatusFailed:
+				reason := "no reason reported"
+				if current.Error != nil && *current.Error != "" {
+					reason = *current.Error
+				}
+				diags.AddAttributeError(path.Root("zip_file_path"), "Function deployment failed",
+					fmt.Sprintf("Deployment %d of function %q failed to build: %s. Fix the function code, then run Terraform again.",
+						deploymentID, plan.Slug.ValueString(), reason))
+				return diags
+			case neon.NeonFunctionDeploymentStatusCompleted:
+				if fn.ActiveDeployment != nil && fn.ActiveDeployment.ID == deploymentID {
+					return nil
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			diags.AddError("Function deployment did not finish",
+				fmt.Sprintf("Deployment %d of function %q was not serving requests after %s: %s. "+
+					"Check the function in the Neon Console, then run Terraform again.",
+					deploymentID, plan.Slug.ValueString(), functionDeploymentTimeout, ctx.Err()))
+			return diags
+		case <-time.After(functionDeploymentPollInterval):
+		}
+	}
+}
+
+func (r *neonFunctionResource) getFunction(ctx context.Context, plan neonFunctionResourceModel) (neon.NeonFunction, diag.Diagnostics) {
+	var fn neon.NeonFunction
+	diags := projectReadiness.Retry(ctx,
+		func(ctx context.Context) error {
+			rsp, err := r.client.GetProjectBranchFunction(
+				plan.ProjectID.ValueString(),
+				plan.BranchID.ValueString(),
+				plan.Slug.ValueString(),
+			)
+			if err != nil {
+				return err
+			}
+			fn = rsp.Function
+			return nil
+		}, nil,
+	)
+	return fn, diags
 }
 
 func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -243,75 +368,19 @@ func (r *neonFunctionResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	if plan.ZipFilePath.IsNull() || plan.ZipFilePath.IsUnknown() || plan.ZipFilePath.ValueString() == "" {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("zip_file_path"),
-			"Missing zip_file_path",
-			"zip_file_path is required when creating a function (the SDK requires a ZIP archive on first deploy).",
-		)
-		return
-	}
-
-	zipPath := plan.ZipFilePath.ValueString()
-	zipFile, err := os.Open(zipPath)
-	if err != nil {
-		resp.Diagnostics.AddAttributeError(
-			path.Root("zip_file_path"),
-			"Cannot open zip_file_path",
-			fmt.Sprintf("Could not open ZIP archive at %q: %s", zipPath, err),
-		)
-		return
-	}
-	defer zipFile.Close()
-
-	runtime := plan.Runtime.ValueString()
-
-	resp.Diagnostics.Append(
-		projectReadiness.Retry(ctx,
-			func(ctx context.Context) error {
-				_, err := r.client.CreateProjectBranchFunctionDeployment(
-					plan.ProjectID.ValueString(),
-					plan.BranchID.ValueString(),
-					plan.Slug.ValueString(),
-					zipFile,
-					plan.EnvironmentVariables,
-					&runtime,
-				)
-				return err
-			}, nil,
-		)...,
-	)
+	resp.Diagnostics.Append(r.deploy(ctx, plan, plan.EnvironmentVariables)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	var fn neon.NeonFunction
-	resp.Diagnostics.Append(
-		projectReadiness.Retry(ctx,
-			func(ctx context.Context) error {
-				rsp, err := r.client.GetProjectBranchFunction(
-					plan.ProjectID.ValueString(),
-					plan.BranchID.ValueString(),
-					plan.Slug.ValueString(),
-				)
-				if err != nil {
-					return err
-				}
-				fn = rsp.Function
-				return nil
-			}, nil,
-		)...,
-	)
+	fn, diags := r.getFunction(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	requestedName := plan.Name
 	setNeonFunctionModel(&plan, fn)
-	// Echo back user-supplied sensitive inputs so subsequent plans are
-	// stable. Computed attributes are filled by setNeonFunctionModel.
-	plan.Runtime = types.StringValue(runtime)
-	plan.ZipFilePath = types.StringValue(zipPath)
 	// Keep the deployed identity available if the separate rename request fails.
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	if resp.Diagnostics.HasError() || requestedName.IsNull() || requestedName.IsUnknown() || requestedName.Equal(plan.Name) {
@@ -405,34 +474,50 @@ func (r *neonFunctionResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	// Only `name` is updatable. All other attrs have RequiresReplace plan
-	// modifiers, so the framework will not call Update when those change.
-	var fn neon.NeonFunction
-	resp.Diagnostics.Append(
-		projectReadiness.Retry(ctx,
-			func(ctx context.Context) error {
-				rsp, err := r.client.UpdateProjectBranchFunction(
-					state.ProjectID.ValueString(),
-					state.BranchID.ValueString(),
-					state.Slug.ValueString(),
-					neon.NeonFunctionUpdateRequest{
-						Name: plan.Name.ValueString(),
-					},
-				)
-				if err != nil {
-					return err
+	if !plan.ZipFilePath.Equal(state.ZipFilePath) || !plan.SourceCodeHash.Equal(state.SourceCodeHash) ||
+		!plan.Runtime.Equal(state.Runtime) || !maps.Equal(plan.EnvironmentVariables, state.EnvironmentVariables) {
+		env := maps.Clone(plan.EnvironmentVariables)
+		for key := range state.EnvironmentVariables {
+			if _, ok := plan.EnvironmentVariables[key]; !ok {
+				if env == nil {
+					env = map[string]string{}
 				}
-				fn = rsp.Function
-				return nil
-			}, nil,
-		)...,
-	)
+				env[key] = ""
+			}
+		}
+		resp.Diagnostics.Append(r.deploy(ctx, plan, env)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if !plan.Name.IsUnknown() && !plan.Name.Equal(state.Name) {
+		resp.Diagnostics.Append(
+			projectReadiness.Retry(ctx,
+				func(ctx context.Context) error {
+					_, err := r.client.UpdateProjectBranchFunction(
+						state.ProjectID.ValueString(),
+						state.BranchID.ValueString(),
+						state.Slug.ValueString(),
+						neon.NeonFunctionUpdateRequest{Name: plan.Name.ValueString()},
+					)
+					return err
+				}, nil,
+			)...,
+		)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	fn, diags := r.getFunction(ctx, plan)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	setNeonFunctionModel(&state, fn)
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	setNeonFunctionModel(&plan, fn)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *neonFunctionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

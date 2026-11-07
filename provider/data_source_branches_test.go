@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	neon "github.com/kislerdm/neon-sdk-go"
 	"github.com/stretchr/testify/require"
 )

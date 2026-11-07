@@ -5,11 +5,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 )
 
 func TestAccEphemeralConnectionURI(t *testing.T) {
-	skipBelowTerraform(t, "1.10.0")
 	if os.Getenv("TF_ACC") != "1" {
 		t.Skip("TF_ACC must be set to 1")
 	}
@@ -19,6 +19,7 @@ func TestAccEphemeralConnectionURI(t *testing.T) {
 	projectName := newProjectName(projectNamePrefix)
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: newProviderFactories(),
+		TerraformVersionChecks:   []tfversion.TerraformVersionCheck{tfversion.SkipBelow(tfversion.Version1_10_0)},
 		Steps: []resource.TestStep{
 			// branch and endpoint specified
 			{

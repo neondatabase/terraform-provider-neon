@@ -8,8 +8,9 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	neon "github.com/kislerdm/neon-sdk-go"
 	"github.com/stretchr/testify/assert"
 )
@@ -407,6 +408,11 @@ resource "neon_branch" "b" {
 				{
 					// The new parent of a forces a's replacement, so b's parent_id is unknown at plan time.
 					Config: config("neon_branch.base.id"),
+					ConfigPlanChecks: resource.ConfigPlanChecks{
+						PreApply: []plancheck.PlanCheck{
+							plancheck.ExpectResourceAction("neon_branch.b", plancheck.ResourceActionReplace),
+						},
+					},
 					Check: resource.ComposeTestCheckFunc(
 						resource.TestCheckResourceAttrPair("neon_branch.b", "parent_id", "neon_branch.a", "id"),
 						func(s *terraform.State) error {

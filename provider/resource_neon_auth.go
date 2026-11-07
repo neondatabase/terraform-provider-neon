@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
@@ -21,6 +22,7 @@ import (
 var (
 	_ resource.ResourceWithConfigure   = (*neonAuthResource)(nil)
 	_ resource.ResourceWithImportState = (*neonAuthResource)(nil)
+	_ resource.ResourceWithModifyPlan  = (*neonAuthResource)(nil)
 )
 
 type neonAuthResource struct {
@@ -108,6 +110,26 @@ func (r *neonAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 	}
 }
 
+// ModifyPlan refuses to replace Neon Auth on the same branch: Neon cannot enable it again there.
+func (r *neonAuthResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	var plan, state neonAuthResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if plan.ProjectID.Equal(state.ProjectID) && plan.BranchID.Equal(state.BranchID) &&
+		!plan.DatabaseName.IsUnknown() && !plan.DatabaseName.Equal(state.DatabaseName) {
+		resp.Diagnostics.AddAttributeError(path.Root("database_name"), "Cannot move Neon Auth to another database",
+			fmt.Sprintf("Changing database_name from %s to %s would disable Neon Auth on branch %s, and Neon cannot "+
+				"enable it on that branch again. Keep database_name, or enable Neon Auth on a new branch.",
+				state.DatabaseName.ValueString(), plan.DatabaseName.ValueString(), state.BranchID.ValueString()))
+	}
+}
+
 func (r *neonAuthResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
@@ -169,25 +191,29 @@ func (r *neonAuthResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+	// An error here would taint the resource, and replacing it disables Neon Auth on a branch where Neon cannot
+	// enable it again. The follow-up failure is reported as a warning; the next refresh and apply finish the setup.
+	var followUp diag.Diagnostics
 	if !plan.AllowLocalhost.IsNull() && !plan.AllowLocalhost.IsUnknown() {
-		resp.Diagnostics.Append(r.setAllowLocalhost(ctx, plan)...)
-		if resp.Diagnostics.HasError() {
-			return
+		followUp.Append(r.setAllowLocalhost(ctx, plan)...)
+	}
+	refreshed := state
+	if !followUp.HasError() {
+		found, diags := r.read(ctx, &refreshed)
+		followUp.Append(diags...)
+		if !found && !followUp.HasError() {
+			followUp.AddError("Neon Auth not found",
+				"Neon Auth was not found right after it was enabled.")
 		}
 	}
-
-	found, diags := r.read(ctx, &state)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
+	if followUp.HasError() {
+		for _, d := range followUp.Errors() {
+			resp.Diagnostics.AddWarning("Neon Auth enabled, setup not finished: "+d.Summary(),
+				d.Detail()+"\n\nNeon Auth is enabled on the branch. Run terraform apply again to finish the setup.")
+		}
 		return
 	}
-	if !found {
-		resp.Diagnostics.AddError("Neon Auth disappeared after it was enabled",
-			fmt.Sprintf("Neon Auth on branch %s of project %s was not found right after it was enabled. Run Terraform again.",
-				plan.BranchID.ValueString(), plan.ProjectID.ValueString()))
-		return
-	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &refreshed)...)
 }
 
 func (r *neonAuthResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {

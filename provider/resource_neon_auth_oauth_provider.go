@@ -93,6 +93,7 @@ func (r *neonAuthOAuthProviderResource) Schema(_ context.Context, _ resource.Sch
 			"microsoft_tenant_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Tenant that `microsoft` sign-in is restricted to. Neon cannot remove a tenant, so removing it replaces the provider.",
+				Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplaceIf(func(_ context.Context, req planmodifier.StringRequest,
 						resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
@@ -103,15 +104,16 @@ func (r *neonAuthOAuthProviderResource) Schema(_ context.Context, _ resource.Sch
 			"apple_key_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Key ID of the Sign in with Apple private key. Required for `apple`.",
+				Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 			},
 			"apple_team_id": schema.StringAttribute{
 				Optional:    true,
 				Description: "Apple Developer Team ID. Required for `apple`.",
+				Validators:  []validator.String{stringvalidator.LengthAtLeast(1)},
 			},
 			"type": schema.StringAttribute{
-				Computed:      true,
-				Description:   "`standard` once your credentials are set.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Computed:    true,
+				Description: "`standard` once your credentials are set.",
 			},
 		},
 	}

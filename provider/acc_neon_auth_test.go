@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -124,6 +125,20 @@ resource "neon_auth" "this" {
 					ImportStateVerify: true,
 					// delete_data_on_destroy only exists in the configuration.
 					ImportStateVerifyIgnore: []string{"delete_data_on_destroy"},
+				},
+				{
+					// Moving Neon Auth to another database would disable it on a branch where it cannot come back.
+					Config: project(projectName, `
+resource "neon_auth" "this" {
+  project_id             = neon_project.this.id
+  branch_id              = neon_project.this.branch.id
+  database_name          = "other"
+  allow_localhost        = true
+  delete_data_on_destroy = true
+}
+`),
+					PlanOnly:    true,
+					ExpectError: regexp.MustCompile("Cannot move Neon Auth to another database"),
 				},
 				{
 					Config: project(projectName, ""),
@@ -326,6 +341,62 @@ resource "neon_auth_oauth_provider" "github" {
 		})
 	})
 
+	t.Run("imports the shared google provider and sets its credentials in place", func(t *testing.T) {
+		projectName := newProjectName(prefix)
+		base := project(projectName, `
+resource "neon_auth" "this" {
+  project_id             = neon_project.this.id
+  branch_id              = neon_project.this.branch.id
+  delete_data_on_destroy = true
+}
+`)
+		google := `
+resource "neon_auth_oauth_provider" "google" {
+  project_id    = neon_auth.this.project_id
+  branch_id     = neon_auth.this.branch_id
+  provider_id   = "google"
+  client_id     = "tf-acc.apps.googleusercontent.com"
+  client_secret = "tf-acc-google-secret"
+}
+`
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{Config: base},
+				{
+					Config:       base + google,
+					ResourceName: "neon_auth_oauth_provider.google",
+					ImportState:  true,
+					ImportStateIdFunc: func(state *terraform.State) (string, error) {
+						projectID, branchID := ids(state)
+						return projectID + "/" + branchID + "/google", nil
+					},
+					ImportStatePersist: true,
+					ImportStateCheck: func(states []*terraform.InstanceState) error {
+						for _, st := range states {
+							if strings.HasSuffix(st.ID, "/google") {
+								if got := st.Attributes["type"]; got != "shared" {
+									return fmt.Errorf("imported type = %q, want shared", got)
+								}
+								return nil
+							}
+						}
+						return errors.New("the google provider was not imported")
+					},
+				},
+				{
+					Config: base + google,
+					ConfigPlanChecks: resource.ConfigPlanChecks{
+						PreApply: []plancheck.PlanCheck{
+							plancheck.ExpectResourceAction("neon_auth_oauth_provider.google", plancheck.ResourceActionUpdate),
+						},
+					},
+					Check: resource.TestCheckResourceAttr("neon_auth_oauth_provider.google", "type", "standard"),
+				},
+			},
+		})
+	})
+
 	t.Run("replaces a microsoft provider when its tenant is removed", func(t *testing.T) {
 		projectName := newProjectName(prefix)
 		config := func(tenant string) string {
@@ -379,6 +450,8 @@ func TestNeonAuthOAuthProviderValidation(t *testing.T) {
   apple_key_id = "K"
   apple_team_id = "T"`, "only applies to apple"},
 		{"unknown provider", `provider_id = "gitlab"`, "value must be one of"},
+		{"empty tenant", `provider_id = "microsoft"
+  microsoft_tenant_id = ""`, "string length must be at least 1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resource.UnitTest(t, resource.TestCase{

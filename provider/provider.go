@@ -120,6 +120,9 @@ func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 		NewNeonVPCEndpointRestrictionResource,
 		NewNeonEndpointResource,
 		NewNeonProjectResource,
+		NewNeonAuthResource,
+		NewNeonAuthTrustedDomainResource,
+		NewNeonAuthOAuthProviderResource,
 	}
 }
 

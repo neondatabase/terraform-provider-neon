@@ -1,0 +1,34 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_auth/resource.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+Neon Auth on a branch is imported by `<project_id>/<branch_id>`. `delete_data_on_destroy` starts as `false` after an import.
+
+Import using the [import block](https://developer.hashicorp.com/terraform/language/import):
+
+```hcl
+import {
+  to = {{.Name}}.example
+  id = "curly-poetry-30604233/br-snowy-mountain-a5jkb18i"
+}
+```
+
+Import using the command `terraform import`:
+
+```commandline
+terraform import {{.Name}}.example "curly-poetry-30604233/br-snowy-mountain-a5jkb18i"
+```

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added the resources `neon_auth`, `neon_auth_trusted_domain` and `neon_auth_oauth_provider` to enable Neon Auth (Managed Better Auth) on a branch, trust redirect domains, and configure OAuth providers with your own credentials.
+
 ## [v0.19.0-beta.0] - 2026-11-06
 
 ### Added

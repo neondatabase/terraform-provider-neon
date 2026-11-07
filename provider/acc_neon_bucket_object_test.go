@@ -13,8 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	neon "github.com/kislerdm/neon-sdk-go"
 	"github.com/stretchr/testify/assert"
 )
@@ -397,6 +398,11 @@ content_type = "text/plain"`),
 						Config:             config,
 						PlanOnly:           true,
 						ExpectNonEmptyPlan: true,
+						ConfigPlanChecks: resource.ConfigPlanChecks{
+							PostApplyPostRefresh: []plancheck.PlanCheck{
+								plancheck.ExpectResourceAction("neon_bucket_object.this", plancheck.ResourceActionUpdate),
+							},
+						},
 					},
 				},
 			})

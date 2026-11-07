@@ -59,7 +59,8 @@ func (r *neonAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 		}
 	}
 	resp.Schema = schema.Schema{
-		Description: "Enables Neon Auth (Managed Better Auth) on a branch.",
+		Description: "Enables Neon Auth (Managed Better Auth) on a branch. Neon cannot enable Neon Auth again on a " +
+			"branch where it was disabled, so destroying or replacing this resource rules out Neon Auth on that branch.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:      true,
@@ -92,12 +93,10 @@ func (r *neonAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			"delete_data_on_destroy": schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(false),
-				Description: "Whether destroying the resource also drops the `neon_auth` schema with its users and sessions. " +
-					"Neon cannot enable Neon Auth again on a branch that still has the schema, so replacing this " +
-					"resource on the same branch requires `true`.",
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "Whether destroying the resource also drops the `neon_auth` schema with its users and sessions.",
 			},
 			"auth_provider":            computed("Auth provider. Always `better_auth`."),
 			"auth_provider_project_id": computed("Project ID assigned by the auth provider."),

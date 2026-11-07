@@ -1,0 +1,34 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_auth_oauth_provider/resource.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+An OAuth provider is imported by `<project_id>/<branch_id>/<provider_id>`. Neon returns the client secret masked, so the first apply after an import sets `client_secret` from the configuration.
+
+Import using the [import block](https://developer.hashicorp.com/terraform/language/import):
+
+```hcl
+import {
+  to = {{.Name}}.example
+  id = "curly-poetry-30604233/br-snowy-mountain-a5jkb18i/github"
+}
+```
+
+Import using the command `terraform import`:
+
+```commandline
+terraform import {{.Name}}.example "curly-poetry-30604233/br-snowy-mountain-a5jkb18i/github"
+```

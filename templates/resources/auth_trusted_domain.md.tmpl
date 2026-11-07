@@ -1,0 +1,34 @@
+---
+page_title: "{{ .Name }} {{ .Type }} - {{.ProviderName}}"
+description: |-
+  {{ .Description }}
+---
+
+# {{ .Name }} ({{ .Type }})
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_auth_trusted_domain/resource.tf" }}
+
+{{ .SchemaMarkdown }}
+
+## Import
+
+A trusted domain is imported by `<project_id>/<branch_id>/<domain>`.
+
+Import using the [import block](https://developer.hashicorp.com/terraform/language/import):
+
+```hcl
+import {
+  to = {{.Name}}.example
+  id = "curly-poetry-30604233/br-snowy-mountain-a5jkb18i/https://app.example.com"
+}
+```
+
+Import using the command `terraform import`:
+
+```commandline
+terraform import {{.Name}}.example "curly-poetry-30604233/br-snowy-mountain-a5jkb18i/https://app.example.com"
+```

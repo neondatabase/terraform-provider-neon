@@ -40,17 +40,17 @@ data "local_file" "source" {
   filename = "/path/to/file/foo.bar"
 }
 
-resource "neon_bucket_object" "example" {
+resource "neon_bucket_object" "from_tracked_file" {
   project_id = neon_bucket.example.project_id
   branch_id  = neon_bucket.example.branch_id
   bucket     = neon_bucket.example.name
-  key        = "object"
+  key        = "tracked-object"
   source     = data.local_file.source.filename
   trigger    = data.local_file.source.content_md5
 }
 
 # provision a prefix, a/k/a folder by setting the attr. is_directory to true
-resource "neon_bucket_object" "example" {
+resource "neon_bucket_object" "folder" {
   project_id   = neon_bucket.example.project_id
   branch_id    = neon_bucket.example.branch_id
   bucket       = neon_bucket.example.name

@@ -6,7 +6,7 @@ resource "neon_project" "example" {
 
 ### Turn off data retention
 
-resource "neon_project" "example" {
+resource "neon_project" "example_without_history" {
   name                      = "foo"
   history_retention_seconds = 0
 }
@@ -14,35 +14,36 @@ resource "neon_project" "example" {
 ### Set custom compute limits. Note that this configurations don't apply to existing compute,
 # e.g., they don't affect the primary compute resources provisioned with the project by default.
 
-resource "neon_project" "example" {
+resource "neon_project" "example_compute_defaults" {
   name = "foo"
 
   autoscaling_limit_min_cu = 0.5
   autoscaling_limit_max_cu = 1
-  suspend_timeout_seconds  = 10
+  suspend_timeout_seconds  = 300
 }
 
 ### Set compute limits for the primary compute resources provisioned with the project.
 
-resource "neon_project" "example" {
+resource "neon_project" "example_primary_compute" {
   name = "foo"
 
   primary_compute = {
     autoscaling_limit_min_cu = 0.5
     autoscaling_limit_max_cu = 1
-    suspend_timeout_seconds  = 10
+    suspend_timeout_seconds  = 300
   }
 }
 
 ### Define custom default branch
 
-resource "neon_project" "example" {
+resource "neon_project" "example_custom_branch" {
   name = "foo"
 
+  database_name = "baz"
+  database_user = "qux"
+
   branch = {
-    name          = "bar"
-    database_name = "baz"
-    role_name     = "qux"
+    name = "bar"
   }
 }
 
@@ -93,7 +94,7 @@ resource "neon_project" "example_in_org" {
 # https://neon.com/docs/manage/updates
 resource "neon_project" "custom_maintenance_window" {
   name = "myproject"
-  maintenance_window {
+  maintenance_window = {
     weekdays   = [6, 7]
     start_time = "07:00"
     end_time   = "08:00"

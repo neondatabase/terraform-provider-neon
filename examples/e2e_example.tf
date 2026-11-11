@@ -1,8 +1,10 @@
 terraform {
+  required_version = ">= 1.11"
+
   required_providers {
     neon = {
       source  = "neondatabase/neon"
-      version = ">= 0.19.0"
+      version = "0.19.0-beta.0"
     }
 
     aws = {
@@ -28,7 +30,7 @@ resource "neon_endpoint" "this" {
 
   autoscaling_limit_min_cu = 0.25
   autoscaling_limit_max_cu = 1
-  suspend_timeout_seconds  = 10
+  suspend_timeout_seconds  = 300
 }
 
 resource "neon_branch" "this" {
@@ -41,6 +43,9 @@ resource "neon_role" "this" {
   project_id = neon_project.this.id
   branch_id  = neon_branch.this.id
   name       = "myrole"
+
+  # Neon creates roles through the branch's read-write compute.
+  depends_on = [neon_endpoint.this]
 }
 
 resource "neon_database" "this" {
@@ -74,7 +79,8 @@ resource "aws_secretsmanager_secret" "this" {
 }
 
 resource "aws_secretsmanager_secret_version" "this" {
-  secret_id = aws_secretsmanager_secret.this.id
+  secret_id                = aws_secretsmanager_secret.this.id
+  secret_string_wo_version = 1
   secret_string_wo = jsonencode({
     user     = ephemeral.neon_role.this.name
     password = ephemeral.neon_role.this.password

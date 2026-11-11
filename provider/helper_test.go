@@ -43,6 +43,36 @@ func TestPersonalAPIKeyRequiredIsNotNotFound(t *testing.T) {
 	}
 }
 
+func TestDiagnosticsNameTheMissingDependency(t *testing.T) {
+	noEndpoint := neon.Error{HTTPCode: http.StatusNotFound, Details: []neon.ErrorDetails{{
+		Message: "no read-write endpoint for branch",
+	}}}
+	if got := newDiagnostics(noEndpoint)[0]; got.Summary() != "Branch has no read-write compute" ||
+		!strings.Contains(got.Detail(), "depends_on = [neon_endpoint.<name>]") {
+		t.Errorf("got %q: %q", got.Summary(), got.Detail())
+	}
+
+	deleteWithoutEndpoint := neon.Error{HTTPCode: http.StatusPreconditionFailed, Details: []neon.ErrorDetails{{
+		Message: "could not apply config without read-write endpoint",
+	}}}
+	if got := newDiagnostics(deleteWithoutEndpoint)[0].Summary(); got != "Branch has no read-write compute" {
+		t.Errorf("summary = %q", got)
+	}
+
+	roleNotFound := neon.Error{HTTPCode: http.StatusNotFound, Details: []neon.ErrorDetails{{
+		Message: `role not found for branch; role_name:"app", branch_id:"br-example-123"`,
+	}}}
+	if got := newEphemeralOpenDiagnostics(roleNotFound, "role")[0]; got.Summary() != "Neon role not found" ||
+		!strings.Contains(got.Detail(), "terraform apply -target=<address>") {
+		t.Errorf("got %q: %q", got.Summary(), got.Detail())
+	}
+
+	rejected := neon.Error{HTTPCode: http.StatusBadRequest, Details: []neon.ErrorDetails{{Message: "invalid role name"}}}
+	if got := newEphemeralOpenDiagnostics(rejected, "role")[0].Summary(); got != "Neon rejected the request" {
+		t.Errorf("summary = %q", got)
+	}
+}
+
 func TestWithoutRequestURLDropsPresignedQuery(t *testing.T) {
 	const signature = "X-Amz-Signature=secret"
 	req, err := http.NewRequest(http.MethodPut, "http://127.0.0.1:1/bucket/key?"+signature, nil)

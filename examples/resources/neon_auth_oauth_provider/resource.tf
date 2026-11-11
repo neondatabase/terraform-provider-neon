@@ -1,3 +1,8 @@
+resource "neon_project" "example" {
+  name      = "app"
+  region_id = "aws-us-east-2"
+}
+
 resource "neon_auth" "example" {
   project_id = neon_project.example.id
   branch_id  = neon_project.example.branch.id
@@ -19,4 +24,25 @@ resource "neon_auth_oauth_provider" "apple" {
   client_secret = file("${path.module}/AuthKey.p8")
   apple_key_id  = var.apple_key_id
   apple_team_id = var.apple_team_id
+}
+
+variable "github_client_id" {
+  type = string
+}
+
+variable "github_client_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "apple_services_id" {
+  type = string
+}
+
+variable "apple_key_id" {
+  type = string
+}
+
+variable "apple_team_id" {
+  type = string
 }

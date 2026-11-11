@@ -8,10 +8,10 @@ resource "neon_branch" "example" {
 }
 
 ### create a protected branch
-resource "neon_branch" "example" {
+resource "neon_branch" "protected" {
   project_id = neon_project.example.id
-  name       = "bar"
-  protected  = "yes"
+  name       = "baz"
+  protected  = true
 }
 
 ### create a branch off of a parent branch

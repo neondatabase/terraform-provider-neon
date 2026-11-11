@@ -118,7 +118,7 @@ func (r *neonEphemeralConnectionURI) Open(ctx context.Context, req ephemeral.Ope
 		}
 		return err
 	}, nil)
-	resp.Diagnostics.Append(newEphemeralOpenDiagnostics(err, "role or database")...)
+	resp.Diagnostics.Append(newEphemeralRoleDiagnostics(err)...)
 
 	if resp.Diagnostics.HasError() {
 		return

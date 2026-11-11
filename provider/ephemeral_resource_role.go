@@ -94,7 +94,7 @@ func (r *neonEphemeralRole) Open(ctx context.Context, req ephemeral.OpenRequest,
 		}
 		return err
 	}, nil)
-	resp.Diagnostics.Append(newEphemeralOpenDiagnostics(err, "role")...)
+	resp.Diagnostics.Append(newEphemeralRoleDiagnostics(err)...)
 
 	if resp.Diagnostics.HasError() {
 		return

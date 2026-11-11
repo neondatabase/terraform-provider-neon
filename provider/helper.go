@@ -564,15 +564,19 @@ func branchHasNoReadWriteEndpoint(err neon.Error) bool {
 	})
 }
 
-// newEphemeralOpenDiagnostics explains a 404 from an ephemeral resource. Terraform opens an ephemeral
-// resource during plan once its arguments are known, which is before the run creates what it reads.
-func newEphemeralOpenDiagnostics(err error, missing string) diag.Diagnostics {
-	if !isNotFoundError(err) {
+// newEphemeralRoleDiagnostics explains a missing role. Terraform opens an ephemeral resource during plan once its
+// arguments are known, which is before the run creates the role it reads.
+func newEphemeralRoleDiagnostics(err error) diag.Diagnostics {
+	var apiErr neon.Error
+	if !errors.As(err, &apiErr) || apiErr.HTTPCode != http.StatusNotFound ||
+		!slices.ContainsFunc(apiErr.Details, func(d neon.ErrorDetails) bool {
+			return strings.Contains(strings.ToLower(d.Message), "role not found")
+		}) {
 		return newDiagnostics(err)
 	}
 	var diags diag.Diagnostics
-	diags.AddError("Neon "+missing+" not found", err.Error()+"\n\nTerraform opens ephemeral resources during plan. "+
-		"If this run also creates the "+missing+", it doesn't exist yet: create it first with "+
+	diags.AddError("Neon role not found", err.Error()+"\n\nTerraform opens ephemeral resources during plan. "+
+		"If this run also creates the role, it doesn't exist yet: create it first with "+
 		"terraform apply -target=<address>, then apply the rest of the configuration.")
 	return diags
 }

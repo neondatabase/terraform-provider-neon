@@ -54,7 +54,7 @@ resource "aws_ssm_parameter" "default_neon_role_password" {
 
 - `password` (String, Sensitive) Database authentication password.
 
-## Roles and databases created in the same run
+## Roles created in the same run
 
 Terraform opens an ephemeral resource during plan as soon as its arguments are known. When the project already exists
 and the same run creates the role, the ephemeral resource is opened before it exists, and the plan fails with

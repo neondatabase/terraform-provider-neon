@@ -65,14 +65,14 @@ resource "aws_ssm_parameter" "default_neon_connection_uri" {
 - `uri` (String, Sensitive) URI of the direct database connection. It contains the role's password.
 - `uri_pooler` (String, Sensitive) URI of the pooled connection. It contains the role's password.
 
-## Roles and databases created in the same run
+## Roles created in the same run
 
 Terraform opens an ephemeral resource during plan as soon as its arguments are known. When the project already exists
-and the same run creates the role or database, the ephemeral resource is opened before it exists, and the plan fails with
-"Neon role or database not found". Create it first, then apply the rest of the configuration, for example for a database in `neon_database.app` and the role it depends on:
+and the same run creates the role, the ephemeral resource is opened before it exists, and the plan fails with
+"Neon role not found". Create it first, then apply the rest of the configuration, for example for a role in `neon_role.app`:
 
 ```shell
-terraform apply -target=neon_database.app
+terraform apply -target=neon_role.app
 terraform apply
 ```
 

@@ -62,13 +62,13 @@ func TestDiagnosticsNameTheMissingDependency(t *testing.T) {
 	roleNotFound := neon.Error{HTTPCode: http.StatusNotFound, Details: []neon.ErrorDetails{{
 		Message: `role not found for branch; role_name:"app", branch_id:"br-example-123"`,
 	}}}
-	if got := newEphemeralOpenDiagnostics(roleNotFound, "role")[0]; got.Summary() != "Neon role not found" ||
+	if got := newEphemeralRoleDiagnostics(roleNotFound)[0]; got.Summary() != "Neon role not found" ||
 		!strings.Contains(got.Detail(), "terraform apply -target=<address>") {
 		t.Errorf("got %q: %q", got.Summary(), got.Detail())
 	}
 
-	rejected := neon.Error{HTTPCode: http.StatusBadRequest, Details: []neon.ErrorDetails{{Message: "invalid role name"}}}
-	if got := newEphemeralOpenDiagnostics(rejected, "role")[0].Summary(); got != "Neon rejected the request" {
+	projectNotFound := neon.Error{HTTPCode: http.StatusNotFound, Details: []neon.ErrorDetails{{Message: "project not found"}}}
+	if got := newEphemeralRoleDiagnostics(projectNotFound)[0].Summary(); got != "Neon resource not found" {
 		t.Errorf("summary = %q", got)
 	}
 }

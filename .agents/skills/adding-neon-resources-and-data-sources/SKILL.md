@@ -1,12 +1,11 @@
 ---
 name: adding-neon-resources-and-data-sources
-description: Use when adding a new `neon_*` resource or data source to the Neon Terraform provider or porting an SDK v2 resource to framework.
+description: Use when adding a new `neon_*` resource or data source to the Neon Terraform provider.
 ---
 
 # Adding Neon resources and data sources
 
 Follow the approved plan and repository conventions when adding provider features.
-For SDK v2 migrations, also use the `migrating-neon-sdkv2-to-framework` skill.
 
 | Before you | Read |
 |---|---|

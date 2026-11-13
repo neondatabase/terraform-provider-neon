@@ -59,7 +59,7 @@ resource "neon_function" "example" {
 - `branch_id` (String) The Neon branch ID.
 - `project_id` (String) The Neon project ID.
 - `runtime` (String) Runtime for the function. Currently only `nodejs24` is supported. Changing it deploys the function again.
-- `slug` (String) Branch-unique identifier for the function. Forms the invocation URL host together with the branch ID.
+- `slug` (String) Branch-unique identifier for the function. Must be 1 to 20 lowercase letters or digits, with no hyphens, underscores, or uppercase letters. Forms the invocation URL host together with the branch ID.
 
 ### Optional
 

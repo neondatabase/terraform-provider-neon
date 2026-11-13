@@ -7,10 +7,12 @@ import (
 	"maps"
 	"net/http"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -84,7 +86,13 @@ func (r *neonFunctionResource) Schema(_ context.Context, _ resource.SchemaReques
 			"slug": schema.StringAttribute{
 				Required:      true,
 				PlanModifiers: requiresReplace,
-				Description:   "Branch-unique identifier for the function. Forms the invocation URL host together with the branch ID.",
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[a-z0-9]{1,20}$`),
+						"must be 1 to 20 lowercase letters or digits, with no hyphens, underscores, or uppercase letters",
+					),
+				},
+				Description: "Branch-unique identifier for the function. Must be 1 to 20 lowercase letters or digits, with no hyphens, underscores, or uppercase letters. Forms the invocation URL host together with the branch ID.",
 			},
 			"runtime": schema.StringAttribute{
 				Required: true,

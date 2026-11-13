@@ -59,6 +59,19 @@ func TestTriggerConfigPlan(t *testing.T) {
 			},
 		})
 	})
+
+	t.Run("hyphenated function slug", func(t *testing.T) {
+		resource.UnitTest(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config:      triggerScheduleConfig("test-project", "test-org", "sched", "my-fn", "*/5 * * * *"),
+					PlanOnly:    true,
+					ExpectError: regexp.MustCompile(`must be 1 to 20 lowercase letters or digits`),
+				},
+			},
+		})
+	})
 }
 
 func TestAccNeonTrigger(t *testing.T) {

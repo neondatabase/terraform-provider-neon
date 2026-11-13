@@ -82,8 +82,10 @@ func (r *neonTriggerResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description:   "Trigger type discriminator. One of `schedule` or `storage_object_created`.",
 			},
 			"function_slug": schema.StringAttribute{
-				Required:    true,
-				Description: "The branch-local Function slug resolved when an occurrence is consumed.",
+				Required:   true,
+				Validators: []validator.String{functionSlugValidator},
+				Description: "The branch-local Function slug resolved when an occurrence is consumed. " +
+					"Must be 1 to 20 lowercase letters or digits.",
 			},
 			"function_path": schema.StringAttribute{
 				Optional:    true,

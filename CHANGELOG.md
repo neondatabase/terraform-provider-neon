@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Changing `allowed_ips` on a `neon_project` with `allowed_ips_protected_branches_only = true` no longer turns the setting off and fails with "Provider produced inconsistent result after apply".
+- `neon_function.slug` and `neon_trigger.function_slug` reject a slug that isn't 1 to 20 lowercase letters or digits during plan, instead of failing during apply after other resources were created.
 
 ## [v0.19.0-beta.0] - 2026-11-06
 

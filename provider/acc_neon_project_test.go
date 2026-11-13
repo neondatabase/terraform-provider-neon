@@ -1505,6 +1505,28 @@ func TestProjectAllowedIPs(t *testing.T) {
 						{
 							Config: fmt.Sprintf(`resource "neon_project" "this" {
 			name      				            = %q
+			allowed_ips                         = [%q]
+			allowed_ips_protected_branches_only = true
+		}`, projectName, wantAllowedIPs[0]),
+							Check: resource.ComposeTestCheckFunc(
+								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.#", "1"),
+								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips_protected_branches_only", "true"),
+								func(_ *terraform.State) error {
+									project, err := verify(projectName, wantAllowedIPs[:1])
+									if err != nil {
+										return err
+									}
+									if project.Settings.AllowedIps.ProtectedBranchesOnly == nil ||
+										!*project.Settings.AllowedIps.ProtectedBranchesOnly {
+										return errors.New("changing allowed_ips reset allowed_ips_protected_branches_only to 'false'")
+									}
+									return nil
+								},
+							),
+						},
+						{
+							Config: fmt.Sprintf(`resource "neon_project" "this" {
+			name      				            = %q
 			allowed_ips                         = %s
 		}`, projectName, ips),
 							Check: resource.ComposeTestCheckFunc(

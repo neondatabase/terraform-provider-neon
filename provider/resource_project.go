@@ -1288,8 +1288,9 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 		}
 		cfg.Project.Settings.AllowedIps.Ips = allowedIPs
 	}
-	if !plan.AllowedIPsProtectedBranchesOnly.IsUnknown() &&
-		!plan.AllowedIPsProtectedBranchesOnly.Equal(prior.AllowedIPsProtectedBranchesOnly) {
+	// Neon resets protected_branches_only to false when a PATCH sets ips without it.
+	if !plan.AllowedIPsProtectedBranchesOnly.IsUnknown() && (updateAllowedIPs ||
+		!plan.AllowedIPsProtectedBranchesOnly.Equal(prior.AllowedIPsProtectedBranchesOnly)) {
 		if cfg.Project.Settings == nil {
 			cfg.Project.Settings = &neon.ProjectSettingsData{}
 		}

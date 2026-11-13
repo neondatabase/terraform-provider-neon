@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the resources `neon_auth`, `neon_auth_trusted_domain` and `neon_auth_oauth_provider` to enable Neon Auth (Managed Better Auth) on a branch, trust redirect domains, and configure OAuth providers with your own credentials.
 
+### Fixed
+
+- Changing `allowed_ips` on a `neon_project` with `allowed_ips_protected_branches_only = true` no longer turns the setting off and fails with "Provider produced inconsistent result after apply".
+
 ## [v0.19.0-beta.0] - 2026-11-06
 
 ### Added

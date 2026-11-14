@@ -94,6 +94,7 @@ func (r *neonAuthTrustedDomainResource) Create(ctx context.Context, req resource
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	defer lockNeonAuthWrites(plan.ProjectID.ValueString(), plan.BranchID.ValueString())()
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
 		return r.client.AddBranchNeonAuthTrustedDomain(plan.ProjectID.ValueString(), plan.BranchID.ValueString(),
 			neon.NeonAuthAddDomainToRedirectURIWhitelistRequest{
@@ -145,6 +146,7 @@ func (r *neonAuthTrustedDomainResource) Delete(ctx context.Context, req resource
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	defer lockNeonAuthWrites(state.ProjectID.ValueString(), state.BranchID.ValueString())()
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
 		return r.client.DeleteBranchNeonAuthTrustedDomain(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			neon.NeonAuthDeleteDomainFromRedirectURIWhitelistRequest{

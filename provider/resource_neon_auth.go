@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -379,6 +380,7 @@ func (r *neonAuthResource) read(ctx context.Context, model *neonAuthResourceMode
 }
 
 func (r *neonAuthResource) setAllowLocalhost(ctx context.Context, plan neonAuthResourceModel) diag.Diagnostics {
+	defer lockNeonAuthWrites(plan.ProjectID.ValueString(), plan.BranchID.ValueString())()
 	return projectReadiness.Retry(ctx, func(context.Context) error {
 		_, err := r.client.UpdateNeonAuthAllowLocalhost(plan.ProjectID.ValueString(), plan.BranchID.ValueString(),
 			neon.UpdateNeonAuthAllowLocalhostRequest{AllowLocalhost: plan.AllowLocalhost.ValueBool()})
@@ -388,4 +390,15 @@ func (r *neonAuthResource) setAllowLocalhost(ctx context.Context, plan neonAuthR
 
 func neonAuthID(projectID, branchID string) string {
 	return projectID + "/" + branchID
+}
+
+// Neon Auth can drop one of two concurrent configuration writes on the same branch, and Terraform
+// creates sibling resources in parallel, so every write takes the branch's lock.
+var neonAuthWriteLocks sync.Map
+
+func lockNeonAuthWrites(projectID, branchID string) (unlock func()) {
+	lock, _ := neonAuthWriteLocks.LoadOrStore(neonAuthID(projectID, branchID), &sync.Mutex{})
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
 }

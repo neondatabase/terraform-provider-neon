@@ -51,7 +51,6 @@ func (d *neonBranchEndpointsDataSource) Schema(_ context.Context, _ datasource.S
 		Description: "Fetch Branch Endpoints",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Optional:            true,
 				Computed:            true,
 				MarkdownDescription: "Endpoint-list scope in the form `<project_id>/<branch_id>`.",
 			},

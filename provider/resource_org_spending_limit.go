@@ -48,7 +48,7 @@ func (r *neonOrgSpendingLimitResource) Schema(
 	resp *resource.SchemaResponse,
 ) {
 	resp.Schema = schema.Schema{
-		Description: "Manages an organization's monthly spending limit in cents.",
+		Description: "Manages an organization's monthly spending alert limit in cents.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				PlanModifiers: idPlanModifiers(),

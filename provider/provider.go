@@ -145,8 +145,14 @@ func (p *Provider) EphemeralResources(_ context.Context) []func() ephemeral.Ephe
 	}
 }
 
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &Provider{version: version}
+	}
+}
+
 func NewServer(version string) tfprotov6.ProviderServer {
-	return providerserver.NewProtocol6(&Provider{version: version})()
+	return providerserver.NewProtocol6(New(version)())()
 }
 
 func newProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) {

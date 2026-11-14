@@ -10,6 +10,13 @@ description: |-
 
 Manages an organization's monthly spending alert limit in cents.
 
+## Prerequisites
+
+Setting or removing the limit requires an organization admin. Reading requires organization read access.
+Available on Launch and Scale plans only. The Neon API for spending limits is beta.
+The limit sends email alerts at 80% and 100% and does not suspend computes.
+See [spending notifications](https://neon.com/docs/introduction/spending-notifications).
+
 {{ tffile "examples/resources/neon_org_spending_limit/resource.tf" }}
 
 {{ .SchemaMarkdown | trimspace }}

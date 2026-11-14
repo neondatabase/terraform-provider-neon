@@ -1,13 +1,45 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/stretchr/testify/require"
 )
+
+func TestBranchEndpointsDataSourceSchema(t *testing.T) {
+	d := NewBranchEndpointsDataSource()
+	var response datasource.SchemaResponse
+	d.Schema(context.Background(), datasource.SchemaRequest{}, &response)
+
+	require.Zero(t, response.Diagnostics.ErrorsCount())
+	require.Contains(t, response.Schema.Attributes, "id")
+	id := response.Schema.Attributes["id"]
+	require.True(t, id.IsComputed())
+	require.False(t, id.IsOptional())
+	require.False(t, id.IsRequired())
+}
+
+func TestBranchEndpointsDataSourceRejectsConfiguredID(t *testing.T) {
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: newUnitTestProviderFactories(&providerAdapter{}),
+		Steps: []resource.TestStep{{
+			Config: `
+data "neon_branch_endpoints" "this" {
+  project_id = "cool-moon-42"
+  branch_id  = "br-cool-moon-42"
+  id         = "configured-id"
+}
+`,
+			ExpectError: regexp.MustCompile(`(?s)Invalid Configuration for Read-Only Attribute.*id`),
+		}},
+	})
+}
 
 func TestBranchEndpointsDataSource(t *testing.T) {
 	t.Parallel()

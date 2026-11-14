@@ -29,13 +29,10 @@ output "endpoint_hosts" {
 - `branch_id` (String) Branch ID.
 - `project_id` (String) Project ID.
 
-### Optional
-
-- `id` (String) Endpoint-list scope in the form `<project_id>/<branch_id>`.
-
 ### Read-Only
 
 - `endpoints` (Block List) (see [below for nested schema](#nestedblock--endpoints))
+- `id` (String) Endpoint-list scope in the form `<project_id>/<branch_id>`.
 
 <a id="nestedblock--endpoints"></a>
 ### Nested Schema for `endpoints`

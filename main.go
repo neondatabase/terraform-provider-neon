@@ -16,8 +16,7 @@ import (
 //go:generate terraform fmt -recursive ./examples/
 
 // Run the docs generation tool, check its repository for more information on how it works and how docs
-// can be customized. The provider name is explicit so checkouts in any directory, such as git
-// worktrees, keep the same page titles instead of using the directory name.
+// can be customized.
 //go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name terraform-provider-neon
 
 var (

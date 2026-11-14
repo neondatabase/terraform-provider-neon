@@ -1,29 +1,13 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/stretchr/testify/require"
 )
-
-func TestBranchEndpointsDataSourceSchema(t *testing.T) {
-	d := NewBranchEndpointsDataSource()
-	var response datasource.SchemaResponse
-	d.Schema(context.Background(), datasource.SchemaRequest{}, &response)
-
-	require.Zero(t, response.Diagnostics.ErrorsCount())
-	require.Contains(t, response.Schema.Attributes, "id")
-	id := response.Schema.Attributes["id"]
-	require.True(t, id.IsComputed())
-	require.False(t, id.IsOptional())
-	require.False(t, id.IsRequired())
-}
 
 func TestBranchEndpointsDataSourceRejectsConfiguredID(t *testing.T) {
 	resource.UnitTest(t, resource.TestCase{

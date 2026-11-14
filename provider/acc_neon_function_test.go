@@ -443,3 +443,72 @@ resource "neon_function" "this" {
 		})
 	})
 }
+
+func TestFunctionSlugValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		slug        string
+		expectError bool
+	}{
+		{
+			name:        "shall reject a hyphenated slug",
+			slug:        "terraform-lab",
+			expectError: true,
+		},
+		{
+			name:        "shall reject an uppercase slug",
+			slug:        "Terraformlab",
+			expectError: true,
+		},
+		{
+			name:        "shall reject a 21-character slug",
+			slug:        "abcdefghijklmnopqr123",
+			expectError: true,
+		},
+		{
+			name:        "shall reject an empty slug",
+			slug:        "",
+			expectError: true,
+		},
+		{
+			name: "shall accept a 20-character slug",
+			slug: "abcdefghijklmnopqr12",
+		},
+		{
+			name: "shall accept terraformlab",
+			slug: "terraformlab",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var expectError *regexp.Regexp
+			if tt.expectError {
+				expectError = regexp.MustCompile(`must be 1 to 20 lowercase letters or digits,\s+with no hyphens,\s+underscores, or uppercase letters`)
+			}
+
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps: []resource.TestStep{
+					{
+						Config: fmt.Sprintf(`provider "neon" {
+  api_key = "test-api-key"
+}
+
+resource "neon_function" "this" {
+  project_id    = "project-id"
+  branch_id     = "br-id"
+  slug          = %q
+  runtime       = "nodejs24"
+  zip_file_path = "testdata/function/function.zip"
+}
+`, tt.slug),
+						PlanOnly:           true,
+						ExpectError:        expectError,
+						ExpectNonEmptyPlan: !tt.expectError,
+					},
+				},
+			})
+		})
+	}
+}

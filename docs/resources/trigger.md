@@ -52,7 +52,7 @@ resource "neon_trigger" "storage" {
 ### Required
 
 - `branch_id` (String) The Neon branch ID.
-- `function_slug` (String) The branch-local Function slug resolved when an occurrence is consumed.
+- `function_slug` (String) The branch-local Function slug resolved when an occurrence is consumed. Must be 1 to 20 lowercase letters or digits.
 - `name` (String) Human-readable trigger name. Unique among triggers visible on the branch.
 - `project_id` (String) The Neon project ID.
 - `type` (String) Trigger type discriminator. One of `schedule` or `storage_object_created`.

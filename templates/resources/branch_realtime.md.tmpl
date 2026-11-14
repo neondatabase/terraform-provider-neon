@@ -12,25 +12,29 @@ description: |-
 
 {{ tffile "examples/resources/neon_branch_realtime/resource.tf" }}
 
-Use `neon_project.x.branch.id` for the default branch, or any `neon_branch.example.id` for another branch. Children inherit enabled Realtime from their parent even when branch creation omits Realtime options. Enable is idempotent: this resource adopts inherited or externally enabled Realtime and applies configured origins without a separate existence check.
+Use `neon_project.x.branch.id` for the default branch, or `neon_branch.example.id` for any other branch.
+A child branch inherits Realtime from a parent that has it enabled.
+If Realtime is already enabled on the branch, this resource adopts it and applies the configured origins.
 
-## Origins ownership
+## Allowed origins
 
-Omitted or null `allowed_origins` preserves current/inherited policy and stays null in state, including on import. Removing a configured list relinquishes management in place; it does not reset policy. Explicit `[]` and `["*"]` both allow any origin; refresh retains the configured spelling when the API returns the other unrestricted spelling. Other lists are refreshed without sorting or normalization so drift remains detectable. If GET omits origins, the previous managed list is retained with a warning that drift could not be observed. Origin syntax, counts, and wildcard combinations are validated by the API.
+- Leave `allowed_origins` unset to keep the branch's current policy. Terraform does not manage origins in that case, including after import.
+- Set `[]` or `["*"]` to allow any origin. Both mean the same thing and do not cause a diff.
+- Set a list of origins to restrict access. Changes made outside Terraform show up as drift.
+- Remove `allowed_origins` from the configuration to stop managing origins. The current policy stays in place.
 
-## Lifecycle and ownership
+## Lifecycle
 
-Enable/update waits for pending work to complete and requires enabled Realtime. Destroy disables this branch and discards its shared secret, including when creation adopted existing enablement. It does not restore pre-adoption origins or promise to undo inheritance on descendants. Refresh removes the resource after external disable or a 404, allowing a later apply to enable it again when its branch exists.
-
-Operations have a five-minute scheduling budget capped by the caller deadline, with immediate polling followed by one-second waits and existing readiness retries. No Terraform `timeouts` block is provided. The SDK cannot cancel an in-flight HTTP request: the budget can overrun by one request, up to the current provider transport's two-minute timeout. Accepted enablement retains identity in state if subsequent polling fails, permitting refresh/destroy recovery.
-
-The persistent resource exposes neither transient pending status nor secrets. Use the ephemeral `neon_branch_realtime_secret` resource for credential-authorized access; secret rotation is not managed here.
+- Create and update wait up to five minutes for Realtime to finish provisioning.
+- Destroy disables Realtime on the branch and discards its secret, even when this resource adopted an existing setup.
+- If Realtime is disabled outside Terraform, the next plan enables it again.
+- Use the ephemeral `neon_branch_realtime_secret` resource to read the secret.
 
 {{ .SchemaMarkdown | trimspace }}
 
 ## Import
 
-Import exactly two non-empty components, `<project_id>/<branch_id>`. Origins remain unmanaged until explicitly configured.
+Import with `<project_id>/<branch_id>`. Origins stay unmanaged until you configure `allowed_origins`.
 
 ```hcl
 import {

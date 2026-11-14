@@ -30,12 +30,10 @@ type neonBranchRealtimeModel struct {
 	ProjectID      types.String `tfsdk:"project_id"`
 	BranchID       types.String `tfsdk:"branch_id"`
 	AllowedOrigins types.List   `tfsdk:"allowed_origins"`
-	Enabled        types.Bool   `tfsdk:"enabled"`
 	InvocationURL  types.String `tfsdk:"invocation_url"`
 	Revision       types.Int64  `tfsdk:"revision"`
 }
 
-// NewNeonBranchRealtimeResource manages enabled Realtime on one branch.
 func NewNeonBranchRealtimeResource() resource.Resource { return &neonBranchRealtimeResource{} }
 func (r *neonBranchRealtimeResource) Metadata(_ context.Context, _ resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = "neon_branch_realtime"
@@ -43,13 +41,12 @@ func (r *neonBranchRealtimeResource) Metadata(_ context.Context, _ resource.Meta
 func (r *neonBranchRealtimeResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	replacement := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
-		Description: "Manages Realtime on a Neon branch, including inherited or already-enabled Realtime. Destroy disables Realtime on this branch and discards its shared secret; it does not restore the pre-adoption policy. Enable, update, and disable wait within a five-minute operation budget.",
+		Description: "Manages Realtime on a Neon branch. Destroy disables Realtime on the branch and discards its secret.",
 		Attributes: map[string]schema.Attribute{
 			"id":              schema.StringAttribute{Computed: true, PlanModifiers: idPlanModifiers(), Description: "Resource identity and import ID: <project_id>/<branch_id>."},
 			"project_id":      schema.StringAttribute{Required: true, PlanModifiers: replacement, Description: "The Neon project ID. Changes require replacement."},
 			"branch_id":       schema.StringAttribute{Required: true, PlanModifiers: replacement, Description: "The Neon branch ID. Changes require replacement."},
 			"allowed_origins": schema.ListAttribute{Optional: true, ElementType: types.StringType, Description: "Browser origins to manage. Omitted or null preserves the current or inherited policy and leaves origins unmanaged. An explicit empty list or [\"*\"] allows any origin. The API validates origin syntax."},
-			"enabled":         schema.BoolAttribute{Computed: true, Description: "Whether Realtime is enabled on the branch."},
 			"invocation_url":  schema.StringAttribute{Computed: true, Description: "Application Realtime endpoint, or null when not returned by the API."},
 			"revision":        schema.Int64Attribute{Computed: true, Description: "Observed Realtime configuration revision, or null when not returned by the API."},
 		},
@@ -91,10 +88,6 @@ func (m neonBranchRealtimeModel) sdkPathIDs() (string, string) {
 	return url.PathEscape(m.ProjectID.ValueString()), url.PathEscape(m.BranchID.ValueString())
 }
 func (m neonBranchRealtimeModel) sdkOptions(ctx context.Context, diags *diag.Diagnostics) *neon.RealtimeOptions {
-	if m.ProjectID.IsUnknown() || m.ProjectID.IsNull() || m.BranchID.IsUnknown() || m.BranchID.IsNull() || m.AllowedOrigins.IsUnknown() {
-		diags.AddError("Unknown Branch Realtime Configuration", "Project, branch, and configured origins must be known before applying Realtime.")
-		return nil
-	}
 	if m.AllowedOrigins.IsNull() {
 		return &neon.RealtimeOptions{}
 	}
@@ -103,7 +96,6 @@ func (m neonBranchRealtimeModel) sdkOptions(ctx context.Context, diags *diag.Dia
 	return &neon.RealtimeOptions{AllowedOrigins: origins}
 }
 func (m *neonBranchRealtimeModel) observe(result neon.Realtime) {
-	m.Enabled = types.BoolValue(result.Enabled)
 	m.InvocationURL = types.StringPointerValue(result.InvocationURL)
 	m.Revision = types.Int64Null()
 	if result.Revision != nil {
@@ -148,10 +140,8 @@ func (r *neonBranchRealtimeResource) enable(ctx context.Context, model *neonBran
 	}, nil)
 	if accepted {
 		model.ID = types.StringValue(model.ProjectID.ValueString() + "/" + model.BranchID.ValueString())
-		model.Enabled = types.BoolNull()
 		model.InvocationURL = types.StringNull()
 		model.Revision = types.Int64Null()
-		// Persist recovery identity before polling, even if cancellation followed POST.
 		diags.Append(state.Set(ctx, model)...)
 	}
 	diags.Append(newDiagnostics(err)...)
@@ -169,7 +159,7 @@ func (r *neonBranchRealtimeResource) enable(ctx context.Context, model *neonBran
 			return false, nil
 		}
 		if !result.Enabled {
-			return false, fmt.Errorf("Realtime enable completed but the branch is disabled")
+			return false, fmt.Errorf("realtime enable completed but the branch is disabled")
 		}
 		return true, nil
 	})

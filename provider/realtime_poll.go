@@ -14,8 +14,6 @@ func realtimeContext(ctx context.Context) (context.Context, context.CancelFunc) 
 	return context.WithTimeout(ctx, realtimeOperationBudget)
 }
 
-// realtimePoll shares the caller's operation deadline across checks and waits.
-// SDK calls cannot be interrupted; check again after each callback returns.
 func realtimePoll(ctx context.Context, interval time.Duration, check func(context.Context) (bool, error)) error {
 	for {
 		if err := ctx.Err(); err != nil {
@@ -41,7 +39,6 @@ func realtimePoll(ctx context.Context, interval time.Duration, check func(contex
 	}
 }
 
-// The existing retry helper does not check cancellation before entering a call.
 func realtimeAttempt(ctx context.Context, call func() error) error {
 	if err := ctx.Err(); err != nil {
 		return err

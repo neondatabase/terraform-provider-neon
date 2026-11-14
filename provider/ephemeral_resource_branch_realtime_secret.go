@@ -20,7 +20,6 @@ type neonEphemeralBranchRealtimeSecretModel struct {
 	Pending   types.Bool   `tfsdk:"pending"`
 }
 
-// NewNeonBranchRealtimeSecretEphemeralResource reads a secret without persistent state.
 func NewNeonBranchRealtimeSecretEphemeralResource() ephemeral.EphemeralResource {
 	return &neonEphemeralBranchRealtimeSecret{}
 }
@@ -44,7 +43,7 @@ func (r *neonEphemeralBranchRealtimeSecret) Configure(_ context.Context, req eph
 }
 func (r *neonEphemeralBranchRealtimeSecret) Schema(_ context.Context, _ ephemeral.SchemaRequest, resp *ephemeral.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Retrieves a branch's Realtime shared signing secret without storing it in Terraform state or plan. Requires Terraform 1.10+ and permission to read project credentials. Returns the first successful response, including the previous usable secret when pending is true; does not rotate secrets or enable Realtime.",
+		Description: "Reads the Realtime secret of a Neon branch without storing it in Terraform state or plan.",
 		Attributes: map[string]schema.Attribute{
 			"project_id": schema.StringAttribute{Required: true, Description: "The Neon project ID."},
 			"branch_id":  schema.StringAttribute{Required: true, Description: "The Neon branch ID."},
@@ -61,10 +60,6 @@ func (r *neonEphemeralBranchRealtimeSecret) Open(ctx context.Context, req epheme
 	var model neonEphemeralBranchRealtimeSecretModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &model)...)
 	if resp.Diagnostics.HasError() {
-		return
-	}
-	if model.ProjectID.IsUnknown() || model.ProjectID.IsNull() || model.BranchID.IsUnknown() || model.BranchID.IsNull() {
-		resp.Diagnostics.AddError("Unknown Branch Realtime Identity", "Project and branch must be known before opening the Realtime secret.")
 		return
 	}
 	ctx, cancel := realtimeContext(ctx)

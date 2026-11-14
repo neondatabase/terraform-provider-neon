@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added the resources `neon_auth`, `neon_auth_trusted_domain` and `neon_auth_oauth_provider` to enable Neon Auth (Managed Better Auth) on a branch, trust redirect domains, and configure OAuth providers with your own credentials.
 
+### Changed
+
+- When a role or database can't be created or deleted because its branch has no read-write compute, the error says so and suggests `depends_on = [neon_endpoint.<name>]`.
+- When `neon_role` or `neon_connection_uri` can't find a role that the same run creates, the error explains that Terraform opens ephemeral resources during plan and how to apply the role first.
+
 ### Fixed
 
 - Changing `allowed_ips` on a `neon_project` with `allowed_ips_protected_branches_only = true` no longer turns the setting off and fails with "Provider produced inconsistent result after apply".

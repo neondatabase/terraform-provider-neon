@@ -53,3 +53,15 @@ resource "aws_ssm_parameter" "default_neon_role_password" {
 ### Read-Only
 
 - `password` (String, Sensitive) Database authentication password.
+
+## Roles created in the same run
+
+Terraform opens an ephemeral resource during plan as soon as its arguments are known. When the project already exists
+and the same run creates the role, the ephemeral resource is opened before it exists, and the plan fails with
+"Neon role not found". Create it first, then apply the rest of the configuration, for example for a role in `neon_role.app`:
+
+```shell
+terraform apply -target=neon_role.app
+terraform apply
+```
+

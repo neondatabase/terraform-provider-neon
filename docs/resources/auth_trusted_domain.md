@@ -11,6 +11,11 @@ Adds a domain that Neon Auth on a branch accepts as a redirect target. Requires 
 ## Example Usage
 
 ```terraform
+resource "neon_project" "example" {
+  name      = "app"
+  region_id = "aws-us-east-2"
+}
+
 resource "neon_auth" "example" {
   project_id = neon_project.example.id
   branch_id  = neon_project.example.branch.id

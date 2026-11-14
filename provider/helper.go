@@ -499,8 +499,14 @@ func newDiagnostics(err error) diag.Diagnostics {
 	}
 	summary, hint := describeAPIError(apiErr.HTTPCode)
 	if requiresPersonalAPIKey(apiErr) {
-		summary, hint = "Neon API key not allowed", "This operation requires a personal API key. Organization API keys "+
-			"cannot manage API keys, project permissions, or members. Set the provider's api_key to a personal API key."
+		summary, hint = "Neon API key not allowed", "Neon refuses organization API keys for this operation. "+
+			"Set the provider's api_key to a personal API key."
+	}
+	if branchHasNoReadWriteEndpoint(apiErr) {
+		summary, hint = "Branch has no read-write compute", "Neon creates roles and databases through the branch's "+
+			"read-write compute. Add a neon_endpoint with type = \"read_write\" for the branch, and add "+
+			"depends_on = [neon_endpoint.<name>] to this resource so that Terraform creates the endpoint before it "+
+			"and deletes the endpoint after it."
 	}
 	detail := err.Error()
 	if hint != "" {
@@ -548,4 +554,29 @@ func requiresPersonalAPIKey(err neon.Error) bool {
 	return slices.ContainsFunc(err.Details, func(d neon.ErrorDetails) bool {
 		return strings.Contains(strings.ToLower(d.Message), "organization api keys")
 	})
+}
+
+func branchHasNoReadWriteEndpoint(err neon.Error) bool {
+	return slices.ContainsFunc(err.Details, func(d neon.ErrorDetails) bool {
+		m := strings.ToLower(d.Message)
+		return strings.Contains(m, "no read-write endpoint for branch") ||
+			strings.Contains(m, "without read-write endpoint")
+	})
+}
+
+// newEphemeralRoleDiagnostics explains a missing role. Terraform opens an ephemeral resource during plan once its
+// arguments are known, which is before the run creates the role it reads.
+func newEphemeralRoleDiagnostics(err error) diag.Diagnostics {
+	var apiErr neon.Error
+	if !errors.As(err, &apiErr) || apiErr.HTTPCode != http.StatusNotFound ||
+		!slices.ContainsFunc(apiErr.Details, func(d neon.ErrorDetails) bool {
+			return strings.Contains(strings.ToLower(d.Message), "role not found")
+		}) {
+		return newDiagnostics(err)
+	}
+	var diags diag.Diagnostics
+	diags.AddError("Neon role not found", err.Error()+"\n\nTerraform opens ephemeral resources during plan. "+
+		"If this run also creates the role, it doesn't exist yet: create it first with "+
+		"terraform apply -target=<address>, then apply the rest of the configuration.")
+	return diags
 }

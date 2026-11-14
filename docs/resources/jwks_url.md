@@ -78,4 +78,12 @@ resource "neon_jwks_url" "custom" {
 
 ## Import
 
-The resource does not support import.
+Import a JWKS configuration using `<project_id>/<jwks_id>`. `neon api /projects/<project_id>/jwks` lists the JWKS
+configurations of a project with their IDs.
+
+```hcl
+import {
+  to = neon_jwks_url.example
+  id = "curly-poetry-30604233/eb1cc8fe-8b8f-4582-a74e-fa873736e473"
+}
+```

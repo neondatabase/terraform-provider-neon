@@ -112,6 +112,7 @@ func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 		NewNeonOrgSpendingLimitResource,
 		NewNeonCustomBranchDomainResource,
 		NewNeonBranchResource,
+		NewNeonBranchRealtimeResource,
 		NewNeonRoleResource,
 		NewNeonDataAPIResource,
 		NewNeonDatabaseResource,
@@ -141,6 +142,7 @@ func (p *Provider) DataSources(_ context.Context) []func() datasource.DataSource
 func (p *Provider) EphemeralResources(_ context.Context) []func() ephemeral.EphemeralResource {
 	return []func() ephemeral.EphemeralResource{
 		NewNeonRoleEphemeralResource,
+		NewNeonBranchRealtimeSecretEphemeralResource,
 		NewNeonConnectionURIEphemeralResource,
 	}
 }

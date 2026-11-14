@@ -63,6 +63,10 @@ resource "neon_branch" "child" {
 
 
 
+## Branch Realtime composition
+
+Manage Realtime separately with `neon_branch_realtime`: use `neon_project.x.branch.id` for the default branch or `neon_branch.example.id` for any other branch. Children inherit enabled Realtime; creating the separate resource idempotently adopts inherited or externally enabled Realtime. Omit `allowed_origins` to preserve policy without managing it, or explicitly set a list (`[]` and `["*"]` allow any origin). Destroy disables the managed branch and discards its shared secret, rather than restoring pre-adoption policy; no descendant inheritance rollback is promised.
+
 ## Import
 
 The Neon Branch can be imported to the terraform state by its composite identifier that consists of

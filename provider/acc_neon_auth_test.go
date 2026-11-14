@@ -281,6 +281,78 @@ resource "neon_auth_oauth_provider" "github" {
 		})
 	})
 
+	t.Run("keeps every trusted domain and OAuth provider that one apply creates", func(t *testing.T) {
+		projectName := newProjectName(prefix)
+		const domains = 8
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: project(projectName, fmt.Sprintf(`
+resource "neon_auth" "this" {
+  project_id             = neon_project.this.id
+  branch_id              = neon_project.this.branch.id
+  delete_data_on_destroy = true
+}
+
+resource "neon_auth_trusted_domain" "app" {
+  count      = %d
+  project_id = neon_auth.this.project_id
+  branch_id  = neon_auth.this.branch_id
+  domain     = "https://app${count.index}.example.com"
+}
+
+resource "neon_auth_oauth_provider" "github" {
+  project_id    = neon_auth.this.project_id
+  branch_id     = neon_auth.this.branch_id
+  provider_id   = "github"
+  client_id     = "tf-acc-github"
+  client_secret = "tf-acc-github-secret"
+}
+
+resource "neon_auth_oauth_provider" "vercel" {
+  project_id    = neon_auth.this.project_id
+  branch_id     = neon_auth.this.branch_id
+  provider_id   = "vercel"
+  client_id     = "tf-acc-vercel"
+  client_secret = "tf-acc-vercel-secret"
+}
+`, domains)),
+					Check: func(state *terraform.State) error {
+						projectID, branchID := ids(state)
+						listed, err := client.ListBranchNeonAuthTrustedDomains(projectID, branchID)
+						if err != nil {
+							return err
+						}
+						var got []string
+						for _, d := range listed.Domains {
+							got = append(got, d.Domain)
+						}
+						for i := range domains {
+							if want := fmt.Sprintf("https://app%d.example.com", i); !slices.Contains(got, want) {
+								return fmt.Errorf("trusted domains %v lack %s", got, want)
+							}
+						}
+						providers, err := client.ListBranchNeonAuthOauthProviders(projectID, branchID)
+						if err != nil {
+							return err
+						}
+						var providerIDs []string
+						for _, p := range providers.Providers {
+							providerIDs = append(providerIDs, p.ID.String())
+						}
+						for _, want := range []string{"github", "vercel"} {
+							if !slices.Contains(providerIDs, want) {
+								return fmt.Errorf("OAuth providers %v lack %s", providerIDs, want)
+							}
+						}
+						return nil
+					},
+				},
+			},
+		})
+	})
+
 	t.Run("adopts an imported OAuth provider and then plans no changes", func(t *testing.T) {
 		projectName := newProjectName(prefix)
 		base := project(projectName, `

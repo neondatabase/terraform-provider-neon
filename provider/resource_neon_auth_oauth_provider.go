@@ -180,6 +180,7 @@ func (r *neonAuthOAuthProviderResource) Create(ctx context.Context, req resource
 		return
 	}
 
+	defer lockNeonAuthWrites(plan.ProjectID.ValueString(), plan.BranchID.ValueString())()
 	existing, diags := r.find(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -263,6 +264,7 @@ func (r *neonAuthOAuthProviderResource) Update(ctx context.Context, req resource
 		resp.Diagnostics.AddAttributeError(path.Root("provider_id"), "Unknown OAuth provider", err.Error())
 		return
 	}
+	defer lockNeonAuthWrites(plan.ProjectID.ValueString(), plan.BranchID.ValueString())()
 	configured, diags := r.update(ctx, plan, providerID)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -288,6 +290,7 @@ func (r *neonAuthOAuthProviderResource) Delete(ctx context.Context, req resource
 		resp.Diagnostics.AddAttributeError(path.Root("provider_id"), "Unknown OAuth provider", err.Error())
 		return
 	}
+	defer lockNeonAuthWrites(state.ProjectID.ValueString(), state.BranchID.ValueString())()
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
 		return r.client.DeleteBranchNeonAuthOauthProvider(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			providerID)

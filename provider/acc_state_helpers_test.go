@@ -37,11 +37,30 @@ func TestStateAttr(t *testing.T) {
 		Primary: &terraform.InstanceState{Attributes: map[string]string{"id": "project-id"}},
 	}
 	for _, tc := range []struct {
-		name, address, attr, want, wantError string
+		name      string
+		address   string
+		attr      string
+		want      string
+		wantError string
 	}{
-		{name: "value", address: "neon_project.this", attr: "id", want: "project-id"},
-		{name: "missing resource", address: "neon_project.missing", attr: "id", wantError: "neon_project.missing not found in state"},
-		{name: "empty attribute", address: "neon_project.this", attr: "name", wantError: "neon_project.this.name is empty in state"},
+		{
+			name:    "value",
+			address: "neon_project.this",
+			attr:    "id",
+			want:    "project-id",
+		},
+		{
+			name:      "missing resource",
+			address:   "neon_project.missing",
+			attr:      "id",
+			wantError: "neon_project.missing not found in state",
+		},
+		{
+			name:      "empty attribute",
+			address:   "neon_project.this",
+			attr:      "name",
+			wantError: "neon_project.this.name is empty in state",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := stateAttr(state, tc.address, tc.attr)

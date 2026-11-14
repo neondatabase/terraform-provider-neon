@@ -192,7 +192,6 @@ func findInPlaceProjectID(client *neon.Client, name, orgID string) string {
 	if orgID != "" {
 		org = &orgID
 	}
-	// Orphan cleanup: a failed apply may leave a project with nothing in state.
 	resp, err := client.ListProjects(nil, nil, &name, org, nil, nil)
 	if err != nil {
 		return ""

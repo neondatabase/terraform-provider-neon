@@ -103,7 +103,6 @@ func TestMigrationFromKislerdm(t *testing.T) {
 							},
 						},
 						Config: configFrom,
-						// Capture the original identities before migrating the provider.
 						Check: func(state *terraform.State) error {
 							var err error
 							projectID, err = stateAttr(state, "neon_project._", "id")

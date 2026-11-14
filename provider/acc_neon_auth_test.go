@@ -242,7 +242,10 @@ resource "neon_auth_oauth_provider" "github" {
 							plancheck.ExpectResourceAction("neon_auth_oauth_provider.github", plancheck.ResourceActionUpdate),
 						},
 					},
-					Check: resource.ComposeTestCheckFunc(verify("tf-acc-github-2"), captureStateAttr("neon_project.this", "id", &stateProjectID)),
+					Check: resource.ComposeTestCheckFunc(
+						verify("tf-acc-github-2"),
+						captureStateAttr("neon_project.this", "id", &stateProjectID),
+					),
 				},
 				{
 					Config:                  config("tf-acc-github-2"),

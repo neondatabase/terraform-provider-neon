@@ -157,7 +157,6 @@ resource "neon_custom_branch_domain" "this" {
 				//	remove present resource
 				{
 					PreConfig: func() {
-						// The previous project was destroyed; a failed recreation needs the orphan fallback.
 						projectID = ""
 					},
 					Config: newConfig("baz.bar.com"),
@@ -177,7 +176,6 @@ func findCustomBranchDomainCleanupProjectID(client *neon.Client, name string) st
 	if v := os.Getenv("ORG_ID"); v != "" {
 		orgID = &v
 	}
-	// Orphan cleanup: a failed apply may leave a project with nothing in state.
 	response, err := client.ListProjects(nil, nil, &name, orgID, nil, nil)
 	if err != nil {
 		return ""

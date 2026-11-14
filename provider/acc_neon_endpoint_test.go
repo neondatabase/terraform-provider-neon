@@ -667,19 +667,14 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "endpointRecreation"
 
-	var preConfig = func(projectName string) {
-		ref, err := readProjectInfo(client, projectName)
-		if err != nil {
-			panic(err)
-		}
-
-		resp, err := client.ListProjectEndpoints(ref.ID)
+	var preConfig = func(projectID string) {
+		resp, err := client.ListProjectEndpoints(projectID)
 		if err != nil {
 			panic(err)
 		}
 		for _, endpoint := range resp.Endpoints {
 			if endpoint.Type == endpointTypeReadOnly {
-				op, err := client.DeleteProjectEndpoint(ref.ID, endpoint.ID)
+				op, err := client.DeleteProjectEndpoint(projectID, endpoint.ID)
 				if err != nil {
 					panic(err)
 				}
@@ -691,6 +686,8 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 	}
 
 	t.Run("shall indicate non empty plan if the endpoint was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -710,11 +707,12 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 								"neon_endpoint.this",
 								"type", endpointTypeReadOnly.String(),
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName)
+							preConfig(stateProjectID)
 						},
 						RefreshState:       true,
 						ExpectNonEmptyPlan: true,
@@ -724,6 +722,8 @@ func TestRecreateEndpointIfNotFound(t *testing.T) {
 	})
 
 	t.Run("shall destroy even if the endpoint was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" { name = "%s" }
 resource "neon_endpoint" "this" {
@@ -737,10 +737,11 @@ resource "neon_endpoint" "this" {
 				Steps: []resource.TestStep{
 					{
 						Config: config,
+						Check:  captureStateAttr("neon_project.this", "id", &stateProjectID),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName)
+							preConfig(stateProjectID)
 						},
 						Config:  config,
 						Destroy: true,
@@ -755,6 +756,8 @@ resource "neon_endpoint" "this" {
 	})
 
 	t.Run("shall recreate endpoint upon update if it was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -770,10 +773,10 @@ resource "neon_endpoint" "this" {
 								disabled   = false
 							}
 						`, projectName, endpointTypeReadOnly),
-						Check: resource.TestCheckResourceAttr(
+						Check: resource.ComposeTestCheckFunc(resource.TestCheckResourceAttr(
 							"neon_endpoint.this",
 							"disabled", "false",
-						),
+						), captureStateAttr("neon_project.this", "id", &stateProjectID)),
 					},
 					{
 						Config: fmt.Sprintf(`
@@ -786,20 +789,20 @@ resource "neon_endpoint" "this" {
 							}
 						`, projectName, endpointTypeReadOnly),
 						PreConfig: func() {
-							preConfig(projectName)
+							preConfig(stateProjectID)
 						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
 								"neon_endpoint.this",
 								"disabled", "true",
 							),
-							func(_ *terraform.State) error {
-								ref, err := readProjectInfo(client, projectName)
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
 
-								resp, err := client.ListProjectEndpoints(ref.ID)
+								resp, err := client.ListProjectEndpoints(idFromState)
 								if err != nil {
 									return err
 								}
@@ -841,12 +844,12 @@ resource "neon_endpoint" "this" {
 						ImportState:  true,
 						ResourceName: "neon_endpoint.this",
 						ImportStateIdFunc: func(s *terraform.State) (string, error) {
-							ref, err := readProjectInfo(client, projectName)
+							idFromState, err := stateAttr(s, "neon_project.this", "id")
 							if err != nil {
 								return "", err
 							}
 
-							resp, err := client.ListProjectEndpoints(ref.ID)
+							resp, err := client.ListProjectEndpoints(idFromState)
 							if err != nil {
 								return "", err
 							}
@@ -854,7 +857,7 @@ resource "neon_endpoint" "this" {
 							for _, endpoint := range resp.Endpoints {
 								if endpoint.Type == endpointTypeReadOnly {
 									endpointID = endpoint.ID
-									op, err := client.DeleteProjectEndpoint(ref.ID, endpointID)
+									op, err := client.DeleteProjectEndpoint(idFromState, endpointID)
 									if err != nil {
 										return "", err
 									}
@@ -864,7 +867,7 @@ resource "neon_endpoint" "this" {
 								}
 							}
 
-							return fmt.Sprintf("%s/%s", ref.ID, endpointID), nil
+							return fmt.Sprintf("%s/%s", idFromState, endpointID), nil
 						},
 						ExpectError: regexp.MustCompile("Cannot import non-existent remote object"),
 					},

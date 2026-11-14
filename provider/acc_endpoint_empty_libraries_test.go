@@ -33,6 +33,7 @@ func TestAccEndpointEmptyLibraries(t *testing.T) {
 			if orgID != "" {
 				org = &orgID
 			}
+			// Orphan cleanup: a failed apply may leave a project with nothing in state.
 			projects, err := client.ListProjects(nil, nil, &name, org, nil, nil)
 			if err != nil {
 				t.Errorf("cleanup: find project %q: %v", name, err)

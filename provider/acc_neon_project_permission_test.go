@@ -27,19 +27,14 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 	projectNamePrefix := "projectPermissionRecreation"
 	orgID := os.Getenv("ORG_ID")
 
-	var preConfig = func(projectName, email string) {
-		ref, err := readProjectInfo(client, projectName)
-		if err != nil {
-			panic(err)
-		}
-
-		resp, err := client.ListProjectPermissions(ref.ID)
+	var preConfig = func(projectID, email string) {
+		resp, err := client.ListProjectPermissions(projectID)
 		if err != nil {
 			panic(err)
 		}
 		for _, permission := range resp.ProjectPermissions {
 			if permission.GrantedToEmail == email {
-				_, err = client.RevokePermissionFromProject(ref.ID, permission.ID)
+				_, err = client.RevokePermissionFromProject(projectID, permission.ID)
 				if err != nil {
 					panic(err)
 				}
@@ -49,6 +44,8 @@ func TestProjectPermissionFSMIfResourceDeletedOutsideTerraform(t *testing.T) {
 
 	t.Run("shall indicate non empty plan if the project permission was deleted outside of terraform",
 		func(t *testing.T) {
+			var stateProjectID string
+
 			email := "foo@bar.baz"
 			projectName := newProjectName(projectNamePrefix)
 			resource.Test(
@@ -69,11 +66,12 @@ resource "neon_project_permission" "this" {
 									"neon_project_permission.this",
 									"grantee", email,
 								),
+								captureStateAttr("neon_project.this", "id", &stateProjectID),
 							),
 						},
 						{
 							PreConfig: func() {
-								preConfig(projectName, email)
+								preConfig(stateProjectID, email)
 							},
 							RefreshState:       true,
 							ExpectNonEmptyPlan: true,
@@ -83,6 +81,8 @@ resource "neon_project_permission" "this" {
 		})
 
 	t.Run("shall destroy even if the project permission was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		email := "foo@bar.baz"
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {
@@ -104,11 +104,12 @@ resource "neon_project_permission" "this" {
 								"neon_project_permission.this",
 								"grantee", email,
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, email)
+							preConfig(stateProjectID, email)
 						},
 						Config:  config,
 						Destroy: true,

@@ -51,7 +51,7 @@ func TestAccInPlaceUpdateKeepsDependents(t *testing.T) {
 				Config: newInPlaceUpdateConfig(projectName, "dev", orgID),
 				Check: func(state *terraform.State) error {
 					var err error
-					if projectID, err = inPlaceAttr(state, "neon_project.this", "id"); err != nil {
+					if projectID, err = stateAttr(state, "neon_project.this", "id"); err != nil {
 						return err
 					}
 					created, err = readCreatedResources(client, state)
@@ -121,7 +121,7 @@ resource "neon_database" "this" {
 // readCreatedResources returns "<id> created <created_at>" for each resource
 // under the project, read from the API.
 func readCreatedResources(client *neon.Client, state *terraform.State) (map[string]string, error) {
-	attr := func(address, name string) (string, error) { return inPlaceAttr(state, address, name) }
+	attr := func(address, name string) (string, error) { return stateAttr(state, address, name) }
 
 	projectID, err := attr("neon_project.this", "id")
 	if err != nil {
@@ -192,6 +192,7 @@ func findInPlaceProjectID(client *neon.Client, name, orgID string) string {
 	if orgID != "" {
 		org = &orgID
 	}
+	// Orphan cleanup: a failed apply may leave a project with nothing in state.
 	resp, err := client.ListProjects(nil, nil, &name, org, nil, nil)
 	if err != nil {
 		return ""
@@ -202,16 +203,4 @@ func findInPlaceProjectID(client *neon.Client, name, orgID string) string {
 		}
 	}
 	return ""
-}
-
-func inPlaceAttr(state *terraform.State, address, attr string) (string, error) {
-	r, ok := state.RootModule().Resources[address]
-	if !ok {
-		return "", fmt.Errorf("%s not found in state", address)
-	}
-	v := r.Primary.Attributes[attr]
-	if v == "" {
-		return "", fmt.Errorf("%s.%s is empty in state", address, attr)
-	}
-	return v, nil
 }

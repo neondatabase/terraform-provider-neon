@@ -65,19 +65,19 @@ resource "neon_branch_backup_schedule" "this" {
 							"neon_branch_backup_schedule.this",
 							"schedule.0.retention_seconds", "604800",
 						),
-						func(_ *terraform.State) error {
-							pr, err := readProjectInfo(client, projectName)
+						func(state *terraform.State) error {
+							idFromState, err := stateAttr(state, "neon_project.this", "id")
 							if err != nil {
 								return err
 							}
 
-							br, err := client.ListProjectBranches(pr.ID, nil, nil, nil, nil,
+							br, err := client.ListProjectBranches(idFromState, nil, nil, nil, nil,
 								nil, nil)
 							if err != nil {
 								return err
 							}
 							for _, el := range br.Branches {
-								schedule, err := client.GetSnapshotSchedule(pr.ID, el.ID)
+								schedule, err := client.GetSnapshotSchedule(idFromState, el.ID)
 								if err != nil {
 									return err
 								}
@@ -130,19 +130,19 @@ resource "neon_branch_backup_schedule" "this" {
 							"neon_branch_backup_schedule.this",
 							"schedule.0.retention_seconds", "2592000",
 						),
-						func(_ *terraform.State) error {
-							pr, err := readProjectInfo(client, projectName)
+						func(state *terraform.State) error {
+							idFromState, err := stateAttr(state, "neon_project.this", "id")
 							if err != nil {
 								return err
 							}
 
-							br, err := client.ListProjectBranches(pr.ID, nil, nil, nil, nil,
+							br, err := client.ListProjectBranches(idFromState, nil, nil, nil, nil,
 								nil, nil)
 							if err != nil {
 								return err
 							}
 							for _, el := range br.Branches {
-								schedule, err := client.GetSnapshotSchedule(pr.ID, el.ID)
+								schedule, err := client.GetSnapshotSchedule(idFromState, el.ID)
 								if err != nil {
 									return err
 								}
@@ -179,19 +179,19 @@ resource "neon_branch_backup_schedule" "this" {
 				{
 					Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}`, projectName),
 					Check: resource.ComposeTestCheckFunc(
-						func(_ *terraform.State) error {
-							pr, err := readProjectInfo(client, projectName)
+						func(state *terraform.State) error {
+							idFromState, err := stateAttr(state, "neon_project.this", "id")
 							if err != nil {
 								return err
 							}
 
-							br, err := client.ListProjectBranches(pr.ID, nil, nil, nil, nil,
+							br, err := client.ListProjectBranches(idFromState, nil, nil, nil, nil,
 								nil, nil)
 							if err != nil {
 								return err
 							}
 							for _, el := range br.Branches {
-								schedule, err := client.GetSnapshotSchedule(pr.ID, el.ID)
+								schedule, err := client.GetSnapshotSchedule(idFromState, el.ID)
 								if err != nil {
 									return err
 								}

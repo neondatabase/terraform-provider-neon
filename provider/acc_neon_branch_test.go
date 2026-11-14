@@ -29,20 +29,15 @@ func TestBranch(t *testing.T) {
 
 	projectNamePrefix := "branch-"
 
-	var preConfig = func(projectName string, branchName string) {
-		ref, err := readProjectInfo(client, projectName)
-		if err != nil {
-			panic(err)
-		}
-
-		resp, err := client.ListProjectBranches(ref.ID,
+	var preConfig = func(projectID string, branchName string) {
+		resp, err := client.ListProjectBranches(projectID,
 			nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			panic(err)
 		}
 		for _, branch := range resp.Branches {
 			if branch.Name == branchName {
-				op, err := client.DeleteProjectBranch(ref.ID, branch.ID)
+				op, err := client.DeleteProjectBranch(projectID, branch.ID)
 				if err != nil {
 					panic(err)
 				}
@@ -120,6 +115,8 @@ resource "neon_branch" "this" {
 	})
 
 	t.Run("shall indicate non empty plan if the branch was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -136,11 +133,12 @@ resource "neon_branch" "this" {
 								"neon_branch.this",
 								"name", "test",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						RefreshState:       true,
 						ExpectNonEmptyPlan: true,
@@ -150,6 +148,8 @@ resource "neon_branch" "this" {
 	})
 
 	t.Run("shall destroy even if the branch was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_branch" "this" {
@@ -167,11 +167,12 @@ resource "neon_branch" "this" {
 								"neon_branch.this",
 								"name", "test",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						Config:  config,
 						Destroy: true,
@@ -186,6 +187,8 @@ resource "neon_branch" "this" {
 	})
 
 	t.Run("shall indicate non empty plan if the branch was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -202,11 +205,12 @@ resource "neon_branch" "this" {
 								"neon_branch.this",
 								"name", "test",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						RefreshState:       true,
 						ExpectNonEmptyPlan: true,
@@ -216,6 +220,8 @@ resource "neon_branch" "this" {
 	})
 
 	t.Run("shall destroy even if the branch was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_branch" "this" {
@@ -233,11 +239,12 @@ resource "neon_branch" "this" {
 								"neon_branch.this",
 								"name", "test",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						Config:  config,
 						Destroy: true,
@@ -252,6 +259,8 @@ resource "neon_branch" "this" {
 	})
 
 	t.Run("shall recreate branch upon update if it was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -268,6 +277,7 @@ resource "neon_branch" "this" {
 								"neon_branch.this",
 								"name", "foo",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
@@ -277,20 +287,20 @@ resource "neon_branch" "this" {
 	name       = "bar"
 }`, projectName),
 						PreConfig: func() {
-							preConfig(projectName, "foo")
+							preConfig(stateProjectID, "foo")
 						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
 								"neon_branch.this",
 								"name", "bar",
 							),
-							func(_ *terraform.State) error {
-								ref, err := readProjectInfo(client, projectName)
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
 
-								resp, err := client.ListProjectBranches(ref.ID,
+								resp, err := client.ListProjectBranches(idFromState,
 									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
@@ -336,12 +346,12 @@ resource "neon_branch" "this" {
 						ImportState:  true,
 						ResourceName: "neon_branch.this",
 						ImportStateIdFunc: func(s *terraform.State) (string, error) {
-							ref, err := readProjectInfo(client, projectName)
+							idFromState, err := stateAttr(s, "neon_project.this", "id")
 							if err != nil {
 								return "", err
 							}
 
-							resp, err := client.ListProjectBranches(ref.ID,
+							resp, err := client.ListProjectBranches(idFromState,
 								nil, nil, nil, nil, nil, nil)
 							if err != nil {
 								return "", err
@@ -350,7 +360,7 @@ resource "neon_branch" "this" {
 							for _, branch := range resp.Branches {
 								if branch.Name == "test" {
 									branchID = branch.ID
-									op, err := client.DeleteProjectBranch(ref.ID, branch.ID)
+									op, err := client.DeleteProjectBranch(idFromState, branch.ID)
 									if err != nil {
 										return "", err
 									}
@@ -359,7 +369,7 @@ resource "neon_branch" "this" {
 									}
 								}
 							}
-							return fmt.Sprintf("%s/%s", ref.ID, branchID), nil
+							return fmt.Sprintf("%s/%s", idFromState, branchID), nil
 						},
 						ExpectError: regexp.MustCompile("404"),
 					},

@@ -131,6 +131,7 @@ func dataAPIAccProject(t *testing.T, client *neon.Client, orgID string) string {
 	name := newProjectName("neonDataAPIAcc")
 	// Failed applies can leave a project before any endpoint identity reaches state.
 	t.Cleanup(func() {
+		// Orphan cleanup: a failed apply may leave a project with nothing in state.
 		response, err := client.ListProjects(nil, nil, &name, &orgID, nil, nil)
 		if err != nil {
 			t.Errorf("list cleanup project %q: %v", name, err)

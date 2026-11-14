@@ -47,6 +47,8 @@ resource "neon_jwks_url" "_" {
 
 	projectName := newProjectName(projectNamePrefix)
 	t.Run("Stack as IdP", func(t *testing.T) {
+		var stateProjectID string
+
 		const resourceName = "neon_jwks_url._"
 		config := resourceDefinition(projectName)
 		resource.Test(
@@ -67,6 +69,7 @@ resource "neon_jwks_url" "_" {
 								}
 								return er
 							}),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
@@ -83,16 +86,16 @@ resource "neon_jwks_url" "_" {
 					// given that JWKs existed prior to deletion
 					{
 						PreConfig: func() {
-							ref, err := readProjectInfo(client, projectName)
+							ref, err := client.GetProject(stateProjectID)
 							if err != nil {
 								panic(err)
 							}
-							resp, err := client.GetProjectJWKS(ref.ID)
+							resp, err := client.GetProjectJWKS(ref.Project.ID)
 							if err != nil {
 								panic(err)
 							}
 							for _, jwk := range resp.Jwks {
-								_, err = client.DeleteProjectJWKS(ref.ID, jwk.ID)
+								_, err = client.DeleteProjectJWKS(ref.Project.ID, jwk.ID)
 								if err != nil {
 									panic(err)
 								}
@@ -128,6 +131,8 @@ resource "neon_jwks_url" "_" {
 	})
 
 	t.Run("shall destroy even if the resource was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := resourceDefinition(projectName)
 		resource.Test(
@@ -136,19 +141,20 @@ resource "neon_jwks_url" "_" {
 				Steps: []resource.TestStep{
 					{
 						Config: config,
+						Check:  captureStateAttr("neon_project.this", "id", &stateProjectID),
 					},
 					{
 						PreConfig: func() {
-							ref, err := readProjectInfo(client, projectName)
+							ref, err := client.GetProject(stateProjectID)
 							if err != nil {
 								panic(err)
 							}
-							resp, err := client.GetProjectJWKS(ref.ID)
+							resp, err := client.GetProjectJWKS(ref.Project.ID)
 							if err != nil {
 								panic(err)
 							}
 							for _, jwk := range resp.Jwks {
-								_, err = client.DeleteProjectJWKS(ref.ID, jwk.ID)
+								_, err = client.DeleteProjectJWKS(ref.Project.ID, jwk.ID)
 								if err != nil {
 									panic(err)
 								}
@@ -218,19 +224,21 @@ resource "neon_jwks_url" "_" {
 	})
 
 	t.Run("shall refresh after its project was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := resourceDefinition(projectName)
 		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
 			Steps: []resource.TestStep{
-				{Config: config},
+				{Config: config, Check: captureStateAttr("neon_project.this", "id", &stateProjectID)},
 				{
 					PreConfig: func() {
-						ref, err := readProjectInfo(client, projectName)
+						ref, err := client.GetProject(stateProjectID)
 						if err != nil {
 							panic(err)
 						}
-						if _, err := client.DeleteProject(ref.ID); err != nil {
+						if _, err := client.DeleteProject(ref.Project.ID); err != nil {
 							panic(err)
 						}
 					},

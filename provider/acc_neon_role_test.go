@@ -29,13 +29,8 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "roleRecreation"
 
-	var preConfig = func(projectName string, roleName string) {
-		ref, err := readProjectInfo(client, projectName)
-		if err != nil {
-			panic(err)
-		}
-
-		respBranches, err := client.ListProjectBranches(ref.ID,
+	var preConfig = func(projectID string, roleName string) {
+		respBranches, err := client.ListProjectBranches(projectID,
 			nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			panic(err)
@@ -48,7 +43,7 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 			}
 		}
 
-		op, err := client.DeleteProjectBranchRole(ref.ID, branchID, roleName)
+		op, err := client.DeleteProjectBranchRole(projectID, branchID, roleName)
 		if err != nil {
 			panic(err)
 		}
@@ -58,6 +53,8 @@ func TestRecreateRoleIfNotFound(t *testing.T) {
 	}
 
 	t.Run("shall indicate non empty plan if the role was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -75,11 +72,12 @@ resource "neon_role" "this" {
 								"neon_role.this",
 								"name", "test",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						RefreshState:       true,
 						ExpectNonEmptyPlan: true,
@@ -89,6 +87,8 @@ resource "neon_role" "this" {
 	})
 
 	t.Run("shall destroy even if the role was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_role" "this" {
@@ -107,11 +107,12 @@ resource "neon_role" "this" {
 								"neon_role.this",
 								"name", "test",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						Config:  config,
 						Destroy: true,
@@ -126,6 +127,8 @@ resource "neon_role" "this" {
 	})
 
 	t.Run("shall recreate role upon update if it was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		resource.Test(
 			t, resource.TestCase{
@@ -143,6 +146,7 @@ resource "neon_role" "this" {
 								"neon_role.this",
 								"name", "foo",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
@@ -153,20 +157,20 @@ resource "neon_role" "this" {
 	name       = "bar"
 }`, projectName),
 						PreConfig: func() {
-							preConfig(projectName, "foo")
+							preConfig(stateProjectID, "foo")
 						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
 								"neon_role.this",
 								"name", "bar",
 							),
-							func(_ *terraform.State) error {
-								ref, err := readProjectInfo(client, projectName)
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
 
-								resp, err := client.ListProjectBranches(ref.ID,
+								resp, err := client.ListProjectBranches(idFromState,
 									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
@@ -179,7 +183,7 @@ resource "neon_role" "this" {
 									}
 								}
 
-								respRoles, err := client.ListProjectBranchRoles(ref.ID, branchID)
+								respRoles, err := client.ListProjectBranchRoles(idFromState, branchID)
 								if err != nil {
 									return err
 								}
@@ -224,12 +228,12 @@ resource "neon_role" "this" {
 						ImportState:  true,
 						ResourceName: "neon_role.this",
 						ImportStateIdFunc: func(s *terraform.State) (string, error) {
-							ref, err := readProjectInfo(client, projectName)
+							idFromState, err := stateAttr(s, "neon_project.this", "id")
 							if err != nil {
 								return "", err
 							}
 
-							resp, err := client.ListProjectBranches(ref.ID,
+							resp, err := client.ListProjectBranches(idFromState,
 								nil, nil, nil, nil, nil, nil)
 							if err != nil {
 								return "", err
@@ -241,7 +245,7 @@ resource "neon_role" "this" {
 								}
 							}
 
-							op, err := client.DeleteProjectBranchRole(ref.ID, branchID, "test")
+							op, err := client.DeleteProjectBranchRole(idFromState, branchID, "test")
 							if err != nil {
 								return "", err
 							}
@@ -249,7 +253,7 @@ resource "neon_role" "this" {
 								return "", err
 							}
 
-							return fmt.Sprintf("%s/%s/test", ref.ID, branchID), nil
+							return fmt.Sprintf("%s/%s/test", idFromState, branchID), nil
 						},
 						ExpectError: regexp.MustCompile("Cannot import non-existent remote object"),
 					},

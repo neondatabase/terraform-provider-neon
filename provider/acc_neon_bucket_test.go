@@ -57,18 +57,19 @@ resource "neon_bucket" "this" {
 									}
 									return nil
 								}),
-							func(_ *terraform.State) error {
-								pr, err := readProjectInfo(client, projectName)
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
-								br, err := client.ListProjectBranches(pr.ID,
+
+								br, err := client.ListProjectBranches(idFromState,
 									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
 								}
 
-								b, err := client.ListProjectBranchBuckets(pr.ID, br.Branches[0].ID)
+								b, err := client.ListProjectBranchBuckets(idFromState, br.Branches[0].ID)
 								if err != nil {
 									return err
 								}
@@ -116,18 +117,19 @@ resource "neon_bucket" "this" {
 									}
 									return nil
 								}),
-							func(_ *terraform.State) error {
-								pr, err := readProjectInfo(client, projectName)
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
-								br, err := client.ListProjectBranches(pr.ID,
+
+								br, err := client.ListProjectBranches(idFromState,
 									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
 								}
 
-								b, err := client.ListProjectBranchBuckets(pr.ID, br.Branches[0].ID)
+								b, err := client.ListProjectBranchBuckets(idFromState, br.Branches[0].ID)
 								if err != nil {
 									return err
 								}
@@ -392,6 +394,8 @@ resource "neon_bucket" "this" {
 	})
 
 	t.Run("shall destroy deleted bucket", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {
 	name      = "%s"
@@ -410,21 +414,22 @@ resource "neon_bucket" "this" {
 				Steps: []resource.TestStep{
 					{
 						Config: config,
+						Check:  captureStateAttr("neon_project.this", "id", &stateProjectID),
 					},
 					{
 						Config: config,
 						PreConfig: func() {
-							pr, err := readProjectInfo(client, projectName)
+							pr, err := client.GetProject(stateProjectID)
 							if err != nil {
 								panic(err)
 							}
-							br, err := client.ListProjectBranches(pr.ID,
+							br, err := client.ListProjectBranches(pr.Project.ID,
 								nil, nil, nil, nil, nil, nil)
 							if err != nil {
 								panic(err)
 							}
 
-							b, err := client.ListProjectBranchBuckets(pr.ID, br.Branches[0].ID)
+							b, err := client.ListProjectBranchBuckets(pr.Project.ID, br.Branches[0].ID)
 							if err != nil {
 								panic(err)
 							}
@@ -432,7 +437,7 @@ resource "neon_bucket" "this" {
 							assert.Equal(t, b.Buckets[0].Name, "foo")
 							assert.Equal(t, neon.BucketAccessLevelPrivate, b.Buckets[0].AccessLevel)
 
-							err = client.DeleteProjectBranchBucket(pr.ID, br.Branches[0].ID, b.Buckets[0].Name)
+							err = client.DeleteProjectBranchBucket(pr.Project.ID, br.Branches[0].ID, b.Buckets[0].Name)
 							if err != nil {
 								panic(err)
 							}

@@ -42,20 +42,16 @@ func TestAccNeonAuth(t *testing.T) {
 		return p.ID, p.Attributes["branch.id"]
 	}
 	// Neon cannot enable Neon Auth again on a branch that keeps the neon_auth schema.
-	disableOutOfBand := func(projectName string) func() {
+	disableOutOfBand := func(projectID *string) func() {
 		return func() {
-			ref, err := readProjectInfo(client, projectName)
-			if err != nil {
-				t.Fatal(err)
-			}
-			branches, err := client.ListProjectBranches(ref.ID, nil, nil, nil, nil, nil, nil)
+			branches, err := client.ListProjectBranches(*projectID, nil, nil, nil, nil, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 			deleteData := true
 			for _, b := range branches.Branches {
 				if b.Default {
-					if err := client.DisableNeonAuth(ref.ID, b.ID, &neon.DisableNeonAuthCfg{DeleteData: &deleteData}); err != nil {
+					if err := client.DisableNeonAuth(*projectID, b.ID, &neon.DisableNeonAuthCfg{DeleteData: &deleteData}); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -155,6 +151,8 @@ resource "neon_auth" "this" {
 	})
 
 	t.Run("manages trusted domains and OAuth providers", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(prefix)
 		config := func(githubClientID string) string {
 			return project(projectName, fmt.Sprintf(`
@@ -244,7 +242,7 @@ resource "neon_auth_oauth_provider" "github" {
 							plancheck.ExpectResourceAction("neon_auth_oauth_provider.github", plancheck.ResourceActionUpdate),
 						},
 					},
-					Check: verify("tf-acc-github-2"),
+					Check: resource.ComposeTestCheckFunc(verify("tf-acc-github-2"), captureStateAttr("neon_project.this", "id", &stateProjectID)),
 				},
 				{
 					Config:                  config("tf-acc-github-2"),
@@ -261,7 +259,7 @@ resource "neon_auth_oauth_provider" "github" {
 				},
 				{
 					// Disabling Neon Auth drops its domains and providers; refresh has to notice all three.
-					PreConfig:          disableOutOfBand(projectName),
+					PreConfig:          disableOutOfBand(&stateProjectID),
 					Config:             config("tf-acc-github-2"),
 					PlanOnly:           true,
 					ExpectNonEmptyPlan: true,

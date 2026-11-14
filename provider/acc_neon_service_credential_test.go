@@ -165,6 +165,8 @@ func TestServiceCredential(t *testing.T) {
 	})
 
 	t.Run("shall delete the revoked service credential", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		name := "deletable"
 		config := serviceCredentialConfig(projectName, name)
@@ -174,27 +176,28 @@ func TestServiceCredential(t *testing.T) {
 			Steps: []resource.TestStep{
 				{
 					Config: config,
+					Check:  captureStateAttr("neon_project.this", "id", &stateProjectID),
 				},
 				{
 					Config: config,
 					PreConfig: func() {
-						pr, err := readProjectInfo(client, projectName)
+						pr, err := client.GetProject(stateProjectID)
 						if err != nil {
 							panic(err)
 						}
-						br, err := client.ListProjectBranches(pr.ID,
+						br, err := client.ListProjectBranches(pr.Project.ID,
 							nil, nil, nil, nil, nil, nil)
 						if err != nil {
 							panic(err)
 						}
 						branchID := br.Branches[0].ID
-						cr, err := client.ListCredentials(pr.ID, branchID)
+						cr, err := client.ListCredentials(pr.Project.ID, branchID)
 						if err != nil {
 							panic(err)
 						}
 						for _, credential := range cr.Credentials {
 							if credential.Name != nil && name == *credential.Name {
-								err = client.RevokeCredential(pr.ID, branchID, credential.TokenID)
+								err = client.RevokeCredential(pr.Project.ID, branchID, credential.TokenID)
 								if err != nil {
 									panic(err)
 								}

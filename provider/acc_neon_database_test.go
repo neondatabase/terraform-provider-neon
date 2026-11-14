@@ -27,12 +27,8 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "database"
 
-	var preConfig = func(projectName, dbName string) int64 {
-		ref, err := readProjectInfo(client, projectName)
-		if err != nil {
-			panic(err)
-		}
-		br, err := client.ListProjectBranches(ref.ID,
+	var preConfig = func(projectID, dbName string) int64 {
+		br, err := client.ListProjectBranches(projectID,
 			nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			panic(err)
@@ -40,12 +36,12 @@ func TestRecreateDatabaseIfNotFound(t *testing.T) {
 		var dbID int64
 		for _, branch := range br.Branches {
 			if branch.Default {
-				resp, err := client.GetProjectBranchDatabase(ref.ID, branch.ID, dbName)
+				resp, err := client.GetProjectBranchDatabase(projectID, branch.ID, dbName)
 				if err != nil {
 					panic(err)
 				}
 				dbID = resp.Database.ID
-				op, err := client.DeleteProjectBranchDatabase(ref.ID, branch.ID, dbName)
+				op, err := client.DeleteProjectBranchDatabase(projectID, branch.ID, dbName)
 				if err != nil {
 					panic(err)
 				}
@@ -133,6 +129,8 @@ resource "neon_database" "this" {
 
 	t.Run("shall yield non empty refresh plan if the database was deleted outside of terraform",
 		func(t *testing.T) {
+			var stateProjectID string
+
 			projectName := newProjectName(projectNamePrefix)
 			config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
@@ -152,12 +150,13 @@ resource "neon_database" "this" {
 									"neon_database.this",
 									"name", "test",
 								),
-								func(_ *terraform.State) error {
-									ref, err := readProjectInfo(client, projectName)
+								func(state *terraform.State) error {
+									idFromState, err := stateAttr(state, "neon_project.this", "id")
 									if err != nil {
 										return err
 									}
-									br, err := client.ListProjectBranches(ref.ID,
+
+									br, err := client.ListProjectBranches(idFromState,
 										nil, nil, nil, nil, nil, nil)
 									if err != nil {
 										return err
@@ -170,7 +169,7 @@ resource "neon_database" "this" {
 										}
 									}
 
-									resp, err := client.ListProjectBranchDatabases(ref.ID, branchID)
+									resp, err := client.ListProjectBranchDatabases(idFromState, branchID)
 									if err != nil {
 										return err
 									}
@@ -178,11 +177,12 @@ resource "neon_database" "this" {
 
 									return nil
 								},
+								captureStateAttr("neon_project.this", "id", &stateProjectID),
 							),
 						},
 						{
 							PreConfig: func() {
-								preConfig(projectName, "test")
+								preConfig(stateProjectID, "test")
 							},
 							RefreshState:       true,
 							ExpectNonEmptyPlan: true,
@@ -192,6 +192,8 @@ resource "neon_database" "this" {
 		})
 
 	t.Run("shall destroy even if the database was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = "%s"}
 resource "neon_database" "this" {
@@ -206,11 +208,12 @@ resource "neon_database" "this" {
 				Steps: []resource.TestStep{
 					{
 						Config: config,
+						Check:  captureStateAttr("neon_project.this", "id", &stateProjectID),
 					},
 					{
 						Config: config,
 						PreConfig: func() {
-							preConfig(projectName, "test")
+							preConfig(stateProjectID, "test")
 						},
 						Destroy: true,
 					},
@@ -219,6 +222,8 @@ resource "neon_database" "this" {
 	})
 
 	t.Run("shall recreate database upon update if it was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		var refDatabaseID int64
 		resource.Test(
@@ -238,6 +243,7 @@ resource "neon_database" "this" {
 								"neon_database.this",
 								"name", "foo",
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
@@ -249,26 +255,27 @@ resource "neon_database" "this" {
 	name       = "bar"
 }`, projectName),
 						PreConfig: func() {
-							refDatabaseID = preConfig(projectName, "foo")
+							refDatabaseID = preConfig(stateProjectID, "foo")
 						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
 								"neon_database.this",
 								"name", "bar",
 							),
-							func(_ *terraform.State) error {
-								pr, err := readProjectInfo(client, projectName)
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
-								br, err := client.ListProjectBranches(pr.ID,
+
+								br, err := client.ListProjectBranches(idFromState,
 									nil, nil, nil, nil, nil, nil)
 								if err != nil {
 									return err
 								}
 								for _, branch := range br.Branches {
 									if branch.Default {
-										resp, err := client.ListProjectBranchDatabases(pr.ID, branch.ID)
+										resp, err := client.ListProjectBranchDatabases(idFromState, branch.ID)
 										if err != nil {
 											return err
 										}
@@ -310,12 +317,12 @@ resource "neon_database" "this" {
 						ImportState:  true,
 						ResourceName: "neon_database.this",
 						ImportStateIdFunc: func(s *terraform.State) (string, error) {
-							ref, err := readProjectInfo(client, projectName)
+							idFromState, err := stateAttr(s, "neon_project.this", "id")
 							if err != nil {
 								return "", err
 							}
 
-							br, err := client.ListProjectBranches(ref.ID,
+							br, err := client.ListProjectBranches(idFromState,
 								nil, nil, nil, nil, nil, nil)
 							if err != nil {
 								return "", err
@@ -328,14 +335,14 @@ resource "neon_database" "this" {
 								}
 							}
 
-							resp, err := client.ListProjectBranchDatabases(ref.ID, branchID)
+							resp, err := client.ListProjectBranchDatabases(idFromState, branchID)
 							if err != nil {
 								return "", err
 							}
 
 							for _, db := range resp.Databases {
 								if db.Name == "test" {
-									op, err := client.DeleteProjectBranchDatabase(ref.ID, branchID, db.Name)
+									op, err := client.DeleteProjectBranchDatabase(idFromState, branchID, db.Name)
 									if err != nil {
 										return "", err
 									}
@@ -344,7 +351,7 @@ resource "neon_database" "this" {
 									}
 								}
 							}
-							return fmt.Sprintf("%s/%s/%s", ref.ID, branchID, "test"), nil
+							return fmt.Sprintf("%s/%s/%s", idFromState, branchID, "test"), nil
 						},
 						ExpectError: regexp.MustCompile("404"),
 					},

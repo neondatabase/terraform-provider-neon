@@ -103,31 +103,33 @@ func TestMigrationFromKislerdm(t *testing.T) {
 							},
 						},
 						Config: configFrom,
-					},
-					{
-						// read ids of provisioned resources to ensure that no resource were recreated as
-						// the result of migration
-						PreConfig: func() {
-							pr, err := client.ListProjects(nil, nil, &projectName, nil, nil,
-								nil)
+						// Capture the original identities before migrating the provider.
+						Check: func(state *terraform.State) error {
+							var err error
+							projectID, err = stateAttr(state, "neon_project._", "id")
 							if err != nil {
-								panic(err)
+								return err
 							}
-							projectID = pr.Projects[0].ID
-
 							e, err := client.ListProjectEndpoints(projectID)
 							if err != nil {
-								panic(err)
+								return err
+							}
+							if len(e.Endpoints) == 0 {
+								return fmt.Errorf("no endpoint found for project %s", projectID)
 							}
 							endpointID = e.Endpoints[0].ID
-
-							branches, err := client.ListProjectBranches(projectID, nil, nil, nil,
-								nil, nil, nil)
+							branches, err := client.ListProjectBranches(projectID, nil, nil, nil, nil, nil, nil)
 							if err != nil {
-								panic(err)
+								return err
+							}
+							if len(branches.Branches) == 0 {
+								return fmt.Errorf("no branch found for project %s", projectID)
 							}
 							branchID = branches.Branches[0].ID
+							return nil
 						},
+					},
+					{
 						ProtoV6ProviderFactories: newProviderFactories(),
 						Config:                   configTo(true),
 						Check: resource.ComposeTestCheckFunc(

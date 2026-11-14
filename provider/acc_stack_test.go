@@ -217,10 +217,15 @@ resource "neon_database" "this" {
 
 						// check the project and its settings
 						func(state *terraform.State) error {
-							ref, err := readProjectInfo(client, projectName)
+							idFromState, err := stateAttr(state, "neon_project.this", "id")
 							if err != nil {
 								return err
 							}
+							projectResponse, err := client.GetProject(idFromState)
+							if err != nil {
+								return err
+							}
+							ref := projectResponse.Project
 
 							// check autoscaling
 							if float64(*ref.DefaultEndpointSettings.AutoscalingLimitMinCu) != mustParseFloat64(autoscalingCUMin) {
@@ -433,34 +438,4 @@ resource "neon_database" "this" {
 			},
 		},
 	)
-}
-
-func readProjectInfo(client *neon.Client, projectName string) (neon.Project, error) {
-	var orgID *string
-	if v := os.Getenv("ORG_ID"); v != "" {
-		orgID = &v
-	}
-	resp, err := client.ListProjects(nil, nil, &projectName, orgID, nil, nil)
-	if err != nil {
-		return neon.Project{}, errors.New("listing error: " + err.Error())
-	}
-
-	var id string
-	for _, project := range resp.ProjectsResponse.Projects {
-		if project.Name == projectName {
-			id = project.ID
-			break
-		}
-	}
-
-	if id == "" {
-		return neon.Project{}, errors.New("project " + projectName + " shall be created")
-	}
-
-	p, err := client.GetProject(id)
-	if err != nil {
-		return neon.Project{}, errors.New("project details error: " + err.Error())
-	}
-
-	return p.Project, nil
 }

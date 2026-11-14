@@ -32,19 +32,17 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 
 	projectNamePrefix := "projectRecreation-"
 
-	var preConfig = func(projectName string) string {
-		ref, err := readProjectInfo(client, projectName)
+	var preConfig = func(projectID string) string {
+		_, err := client.DeleteProject(projectID)
 		if err != nil {
 			panic(err)
 		}
-		_, err = client.DeleteProject(ref.ID)
-		if err != nil {
-			panic(err)
-		}
-		return ref.ID
+		return projectID
 	}
 
 	t.Run("shall indicate non empty plan if the project was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)
 		resource.Test(
@@ -58,11 +56,12 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 								"neon_project.this",
 								"name", projectName,
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName)
+							preConfig(stateProjectID)
 						},
 						RefreshState:       true,
 						ExpectNonEmptyPlan: true,
@@ -72,6 +71,8 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	})
 
 	t.Run("shall destroy even if the project was deleted outside of terraform,", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)
 		resource.Test(
@@ -85,11 +86,12 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 								"neon_project.this",
 								"name", projectName,
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						PreConfig: func() {
-							preConfig(projectName)
+							preConfig(stateProjectID)
 						},
 						Config:  config,
 						Destroy: true,
@@ -104,6 +106,8 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	})
 
 	t.Run("shall recreate project upon update if it was deleted outside of terraform", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		var refProjectID string
 		resource.Test(
@@ -117,23 +121,29 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 								"neon_project.this",
 								"name", fmt.Sprintf("%s-foo", projectName),
 							),
+							captureStateAttr("neon_project.this", "id", &stateProjectID),
 						),
 					},
 					{
 						Config: fmt.Sprintf(`resource "neon_project" "this" {name = "%s-bar"}`, projectName),
 						PreConfig: func() {
-							refProjectID = preConfig(fmt.Sprintf("%s-foo", projectName))
+							refProjectID = preConfig(stateProjectID)
 						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr(
 								"neon_project.this",
 								"name", fmt.Sprintf("%s-bar", projectName),
 							),
-							func(_ *terraform.State) error {
-								got, err := readProjectInfo(client, fmt.Sprintf("%s-bar", projectName))
+							func(state *terraform.State) error {
+								idFromState, err := stateAttr(state, "neon_project.this", "id")
 								if err != nil {
 									return err
 								}
+								projectResponse, err := client.GetProject(idFromState)
+								if err != nil {
+									return err
+								}
+								got := projectResponse.Project
 								assert.NotEqualf(t, refProjectID, got.ID,
 									"project ID should be different after recreation")
 								return nil
@@ -145,6 +155,8 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 	})
 
 	t.Run("shall fail to import project if it was deleted", func(t *testing.T) {
+		var stateProjectID string
+
 		projectName := newProjectName(projectNamePrefix)
 		config := fmt.Sprintf(`resource "neon_project" "this" {name = %q}`, projectName)
 		resource.Test(
@@ -153,11 +165,12 @@ func TestRecreateProjectIfNotFound(t *testing.T) {
 				Steps: []resource.TestStep{
 					{
 						Config: config,
+						Check:  captureStateAttr("neon_project.this", "id", &stateProjectID),
 					},
 					{
 						Config: config,
 						PreConfig: func() {
-							preConfig(projectName)
+							preConfig(stateProjectID)
 						},
 						ImportState:  true,
 						ResourceName: "neon_project.this",
@@ -505,6 +518,7 @@ func TestProject(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
@@ -512,13 +526,6 @@ func TestProject(t *testing.T) {
 							name   = %q
 							enable_logical_replication = false
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
@@ -532,6 +539,7 @@ func TestProject(t *testing.T) {
 								}
 								return nil
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
@@ -539,13 +547,6 @@ func TestProject(t *testing.T) {
 							name   = %q
 							enable_logical_replication = true
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "true"),
 							verify,
@@ -559,6 +560,7 @@ func TestProject(t *testing.T) {
 								}
 								return nil
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
@@ -566,13 +568,6 @@ func TestProject(t *testing.T) {
 							name   = %q
 							enable_logical_replication = false
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
@@ -586,19 +581,13 @@ func TestProject(t *testing.T) {
 								}
 								return nil
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
 						Config: fmt.Sprintf(`resource "neon_project" "this" {
 							name   = %q
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "enable_logical_replication", "false"),
 							verify,
@@ -653,6 +642,7 @@ func TestProject(t *testing.T) {
 								}
 								return waitUnfinishedOperations(context.Background(), client, p.OperationsResponse.Operations)
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
@@ -660,13 +650,6 @@ func TestProject(t *testing.T) {
 							name   = %q
 							hipaa = false
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
 							verify,
@@ -680,6 +663,7 @@ func TestProject(t *testing.T) {
 								}
 								return nil
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
@@ -687,13 +671,6 @@ func TestProject(t *testing.T) {
 							name   = %q
 							hipaa = true
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "true"),
 							verify,
@@ -707,6 +684,7 @@ func TestProject(t *testing.T) {
 								}
 								return nil
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
@@ -714,13 +692,6 @@ func TestProject(t *testing.T) {
 							name   = %q
 							hipaa = false
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
 							verify,
@@ -734,19 +705,13 @@ func TestProject(t *testing.T) {
 								}
 								return nil
 							},
+							captureStateAttr("neon_project.this", "id", &projectID),
 						),
 					},
 					{
 						Config: fmt.Sprintf(`resource "neon_project" "this" {
 							name   = %q
 						}`, projectName),
-						PreConfig: func() {
-							p, err := readProjectInfo(client, projectName)
-							if err != nil {
-								panic(err)
-							}
-							projectID = p.ID
-						},
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this", "hipaa", "false"),
 							verify,
@@ -1336,11 +1301,16 @@ func TestProjectAllowedIPs(t *testing.T) {
 	wantAllowedIPs := []string{"192.168.1.0", "192.168.2.0/24"}
 	ips := `["` + strings.Join(wantAllowedIPs, `", "`) + `"]`
 
-	var verify = func(projectName string, wantAllowedIPs []string) (neon.Project, error) {
-		project, err := readProjectInfo(client, projectName)
+	var verify = func(state *terraform.State, wantAllowedIPs []string) (neon.Project, error) {
+		idFromState, err := stateAttr(state, "neon_project.this", "id")
 		if err != nil {
 			return neon.Project{}, err
 		}
+		projectResponse, err := client.GetProject(idFromState)
+		if err != nil {
+			return neon.Project{}, err
+		}
+		project := projectResponse.Project
 		var exceedingAllowedIPs []string
 		missingIPs := map[string]struct{}{}
 		for _, ip := range wantAllowedIPs {
@@ -1380,8 +1350,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 								wantAllowedIPs[1]),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, wantAllowedIPs)
+							func(state *terraform.State) error {
+								_, err := verify(state, wantAllowedIPs)
 								return err
 							},
 						),
@@ -1397,8 +1367,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 								wantAllowedIPs[0]),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, wantAllowedIPs[:1])
+							func(state *terraform.State) error {
+								_, err := verify(state, wantAllowedIPs[:1])
 								return err
 							},
 						),
@@ -1412,8 +1382,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 							resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.#", "0"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+							func(state *terraform.State) error {
+								_, err := verify(state, nil)
 								return err
 							},
 						),
@@ -1426,8 +1396,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 							resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.#", "0"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+							func(state *terraform.State) error {
+								_, err := verify(state, nil)
 								return err
 							},
 						),
@@ -1443,8 +1413,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 								wantAllowedIPs[0]),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, wantAllowedIPs[:1])
+							func(state *terraform.State) error {
+								_, err := verify(state, wantAllowedIPs[:1])
 								return err
 							},
 						),
@@ -1457,8 +1427,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 							resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.#", "0"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+							func(state *terraform.State) error {
+								_, err := verify(state, nil)
 								return err
 							},
 						),
@@ -1489,8 +1459,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.1",
 									wantAllowedIPs[1]),
 								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips_protected_branches_only", "true"),
-								func(_ *terraform.State) error {
-									project, err := verify(projectName, wantAllowedIPs)
+								func(state *terraform.State) error {
+									project, err := verify(state, wantAllowedIPs)
 									if err != nil {
 										return err
 									}
@@ -1511,8 +1481,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 							Check: resource.ComposeTestCheckFunc(
 								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.#", "1"),
 								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips_protected_branches_only", "true"),
-								func(_ *terraform.State) error {
-									project, err := verify(projectName, wantAllowedIPs[:1])
+								func(state *terraform.State) error {
+									project, err := verify(state, wantAllowedIPs[:1])
 									if err != nil {
 										return err
 									}
@@ -1537,8 +1507,8 @@ func TestProjectAllowedIPs(t *testing.T) {
 								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips.1",
 									wantAllowedIPs[1]),
 								resource.TestCheckResourceAttr("neon_project.this", "allowed_ips_protected_branches_only", "false"),
-								func(_ *terraform.State) error {
-									project, err := verify(projectName, wantAllowedIPs)
+								func(state *terraform.State) error {
+									project, err := verify(state, wantAllowedIPs)
 									if err != nil {
 										return err
 									}
@@ -1571,17 +1541,24 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 
 	projectNamePrefix := "prPrimaryComputeEnabledLibs"
 
-	var verify = func(projectName string, libs []string) (neon.Project, error) {
-		project, err := readProjectInfo(client, projectName)
+	var verify = func(state *terraform.State, libs []string) (neon.Project, error) {
+		idFromState, err := stateAttr(state, "neon_project.this", "id")
 		if err != nil {
 			return neon.Project{}, err
 		}
+
+		projectResponse, err := client.GetProject(idFromState)
+		if err != nil {
+			return neon.Project{}, err
+		}
+		project := projectResponse.Project
+
 		var exceeding []string
 		missing := map[string]struct{}{}
 		for _, ip := range libs {
 			missing[ip] = struct{}{}
 		}
-		endpoints, err := client.ListProjectEndpoints(project.ID)
+		endpoints, err := client.ListProjectEndpoints(idFromState)
 		if err != nil {
 			return neon.Project{}, err
 		}
@@ -1626,8 +1603,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 								"primary_compute.enabled_libraries.0", "uuid-ossp"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"primary_compute.enabled_libraries.1", "hstore"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, []string{"uuid-ossp", "hstore"})
+							func(state *terraform.State) error {
+								_, err := verify(state, []string{"uuid-ossp", "hstore"})
 								return err
 							},
 						),
@@ -1646,8 +1623,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 								"primary_compute.enabled_libraries.0", "uuid-ossp"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, []string{"uuid-ossp"})
+							func(state *terraform.State) error {
+								_, err := verify(state, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1662,8 +1639,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
 								"primary_compute.enabled_libraries.#", "0"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+							func(state *terraform.State) error {
+								_, err := verify(state, nil)
 								return err
 							},
 						),
@@ -1673,8 +1650,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
 								"primary_compute.enabled_libraries.#", "0"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+							func(state *terraform.State) error {
+								_, err := verify(state, nil)
 								return err
 							},
 						),
@@ -1693,8 +1670,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 								"primary_compute.enabled_libraries.0", "uuid-ossp"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, []string{"uuid-ossp"})
+							func(state *terraform.State) error {
+								_, err := verify(state, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1711,8 +1688,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 								"primary_compute.enabled_libraries.#", "1"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, []string{"uuid-ossp"})
+							func(state *terraform.State) error {
+								_, err := verify(state, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1722,8 +1699,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
 								"primary_compute.enabled_libraries.#", "1"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, []string{"uuid-ossp"})
+							func(state *terraform.State) error {
+								_, err := verify(state, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1742,8 +1719,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 								"primary_compute.enabled_libraries.0", "uuid-ossp"),
 							resource.TestCheckResourceAttr("neon_project.this",
 								"allowed_ips_protected_branches_only", "false"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, []string{"uuid-ossp"})
+							func(state *terraform.State) error {
+								_, err := verify(state, []string{"uuid-ossp"})
 								return err
 							},
 						),
@@ -1758,8 +1735,8 @@ func TestProjectPrimaryComputeEnabledLibraries(t *testing.T) {
 						Check: resource.ComposeTestCheckFunc(
 							resource.TestCheckResourceAttr("neon_project.this",
 								"primary_compute.enabled_libraries.#", "0"),
-							func(_ *terraform.State) error {
-								_, err := verify(projectName, nil)
+							func(state *terraform.State) error {
+								_, err := verify(state, nil)
 								return err
 							},
 						),
@@ -1929,6 +1906,7 @@ func findDisabledComputeProjectID(client *neon.Client, name, orgID string) strin
 	if orgID != "" {
 		org = &orgID
 	}
+	// Orphan cleanup: a failed apply may leave a project with nothing in state.
 	resp, err := client.ListProjects(nil, nil, &name, org, nil, nil)
 	if err != nil {
 		return ""

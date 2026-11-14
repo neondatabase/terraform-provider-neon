@@ -27,10 +27,13 @@ func TestCustomBranchDomain(t *testing.T) {
 	}
 
 	projectName := newProjectName("customBranchDomain")
+	var projectID string
 	t.Cleanup(func() {
-		pr, err := readProjectInfo(client, projectName)
-		if err == nil {
-			_, _ = client.DeleteProject(pr.ID)
+		if projectID == "" {
+			projectID = findCustomBranchDomainCleanupProjectID(client, projectName)
+		}
+		if projectID != "" {
+			_, _ = client.DeleteProject(projectID)
 		}
 	})
 
@@ -63,6 +66,7 @@ resource "neon_custom_branch_domain" "this" {
 
 		var verify = func(domainRef string) resource.TestCheckFunc {
 			return resource.ComposeTestCheckFunc(
+				captureStateAttr("neon_project.this", "id", &projectID),
 				resource.TestCheckResourceAttr("neon_custom_branch_domain.this",
 					"domain", domainRef),
 				resource.TestCheckResourceAttr("neon_custom_branch_domain.this",
@@ -93,7 +97,7 @@ resource "neon_custom_branch_domain" "this" {
 				})
 		}
 
-		var projectID, branchID string
+		var branchID string
 
 		resource.Test(t, resource.TestCase{
 			ProtoV6ProviderFactories: newProviderFactories(),
@@ -118,12 +122,12 @@ resource "neon_custom_branch_domain" "this" {
 				domain      = %q
 }`, projectID, branchID, slug, "baz.bar.com"),
 					ImportState: true,
-					ImportStateIdFunc: func(_ *terraform.State) (string, error) {
-						pr, err := readProjectInfo(client, projectName)
+					ImportStateIdFunc: func(state *terraform.State) (string, error) {
+						idFromState, err := stateAttr(state, "neon_project.this", "id")
 						if err != nil {
 							return "", err
 						}
-						projectID = pr.ID
+						projectID = idFromState
 						branchResp, err := client.ListProjectBranches(projectID, nil, nil, nil, nil,
 							nil, nil)
 						if err != nil {
@@ -139,10 +143,6 @@ resource "neon_custom_branch_domain" "this" {
 				// remove removed resource
 				{
 					PreConfig: func() {
-						pr, err := readProjectInfo(client, projectName)
-						assert.NoError(t, err)
-						projectID = pr.ID
-
 						branchResp, err := client.ListProjectBranches(projectID, nil, nil, nil, nil,
 							nil, nil)
 						assert.NoError(t, err)
@@ -156,7 +156,12 @@ resource "neon_custom_branch_domain" "this" {
 				},
 				//	remove present resource
 				{
+					PreConfig: func() {
+						// The previous project was destroyed; a failed recreation needs the orphan fallback.
+						projectID = ""
+					},
 					Config: newConfig("baz.bar.com"),
+					Check:  captureStateAttr("neon_project.this", "id", &projectID),
 				},
 				{
 					Config:  newConfig("baz.bar.com"),
@@ -165,4 +170,22 @@ resource "neon_custom_branch_domain" "this" {
 			},
 		})
 	})
+}
+
+func findCustomBranchDomainCleanupProjectID(client *neon.Client, name string) string {
+	var orgID *string
+	if v := os.Getenv("ORG_ID"); v != "" {
+		orgID = &v
+	}
+	// Orphan cleanup: a failed apply may leave a project with nothing in state.
+	response, err := client.ListProjects(nil, nil, &name, orgID, nil, nil)
+	if err != nil {
+		return ""
+	}
+	for _, project := range response.Projects {
+		if project.Name == name {
+			return project.ID
+		}
+	}
+	return ""
 }

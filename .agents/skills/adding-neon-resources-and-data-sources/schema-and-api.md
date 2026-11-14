@@ -35,6 +35,7 @@ Record any exception, with its evidence and approval, in the approved plan.
   Never mix unrelated fallback-to-null changes, such as `name` from `""` to null, into the same work.
 - Do not hand-roll HTTP when the pinned SDK exposes the operation.
   "The SDK is flaky" is not evidence; a reproduced failure is.
+- Wrap provider API calls in `projectReadiness.Do` or `projectReadiness.Retry` from `provider/retry.go` and document status-specific fallbacks.
 
 ## Pagination
 
@@ -64,3 +65,11 @@ Record any exception, with its evidence and approval, in the approved plan.
   - transport failures
   - established retry handling
   - drift handling
+
+## Documentation sources
+
+- Hand-write examples under `examples/` and templates under `templates/`.
+- Name templates without the `neon_` prefix: `templates/data-sources/branch_snapshots.md.tmpl` renders `docs/data-sources/branch_snapshots.md`.
+- Templates contain frontmatter, `{{ .Description }}`, `{{ tffile "..." }}`, and `{{ .SchemaMarkdown | trimspace }}`; let the generator supply the Schema section.
+- Use short user-facing descriptions such as "Fetch Branch Snapshots." rather than narrating API or SDK calls.
+- Never hand-edit `docs/`; use the generation command in [SKILL.md](SKILL.md).

@@ -38,7 +38,9 @@ Do not cut coverage because an earlier resource or data source shipped with less
 
 ## Acceptance tests
 
-- Read nearby tests for naming and layout.
+- Name resource acceptance test files `provider/acc_<name>_test.go`.
+- Cover create/read, update or forced replacement, import, out-of-band deletion, invalid configuration and relevant boundaries, and cleanup and partial failures where applicable.
+- Read nearby tests for naming and helper conventions; use the expanded style below even when nearby tests are dense.
 - Use `newProviderFactories` and file-scope HCL helpers.
 - Use Terraform state for created IDs and the SDK for independent remote assertions and cleanup.
 - Use `ORG_ID` for the organization in code, prechecks, and skip messages; set it in approved test command environments.

@@ -28,14 +28,16 @@ t.Run("shall import a snapshot by <project_id>/<snapshot_id>", func(t *testing.T
 		Steps: []resource.TestStep{
 			{
 				Config: newSnapshotConfig(projectName, orgID, "tf-acc-import", ""),
-				Check:  captureSnapshotIDFromState(t, client),
 			},
 			{
 				ResourceName:      "neon_snapshot.this",
 				ImportState:       true,
 				ImportStateVerify: true,
-				ImportStateId:     recordedSnapshotIDForImport,
-				Check:             verifySnapshotAgainstAPI(t, client, "tf-acc-import"),
+				// Builds <project_id>/<snapshot_id> from the state the first step wrote.
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					r := state.RootModule().Resources["neon_snapshot.this"].Primary
+					return r.Attributes["project_id"] + "/" + r.Attributes["snapshot_id"], nil
+				},
 			},
 		},
 	})

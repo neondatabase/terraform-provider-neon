@@ -137,7 +137,8 @@ API behavior a workaround answers. Don't narrate the next line or restate a func
 
 ### Unit and plan-only tests
 
-`make test` runs every test without `TF_ACC`. Use `resource.UnitTest` with `PlanOnly` to test validation and plan
+`make test` runs the unit tests. It inherits your environment, so unset `TF_ACC` first (`env -u TF_ACC make test`);
+with `TF_ACC=1` exported, it also runs acceptance tests against Neon. Use `resource.UnitTest` with `PlanOnly` to test validation and plan
 behavior without contacting Neon, and SDK stubs supplied through `Configure` for data source mapping. Don't assert
 client headers, schema attribute counts, or type names.
 

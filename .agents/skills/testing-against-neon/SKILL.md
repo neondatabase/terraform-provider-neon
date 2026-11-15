@@ -15,7 +15,10 @@ Use throwaway keys for the run and revoke them afterwards. With the [Neon CLI](h
 ```sh
 neon api-keys create --name tf-acc-$(date +%s) --org-id "$ORG_ID" --output json   # NEON_API_KEY
 neon api-keys create --name tf-acc-personal-$(date +%s) --output json            # NEON_PERSONAL_API_KEY
-neon api-keys revoke <key-id> --org-id "$ORG_ID"                                   # afterwards, for each key
+
+# afterwards
+neon api-keys revoke <organization-key-id> --org-id "$ORG_ID"
+neon api-keys revoke <personal-key-id>
 ```
 
 Run acceptance tests on the organization key. With a personal key, a project without `org_id` lands in your default
@@ -29,8 +32,8 @@ TF_ACC=1 go test -tags=acceptance ./provider/ -run 'TestAccNeonSnapshot|TestBuck
 ```
 
 - Run one suite per organization at a time. Tests clean up by project name prefix and can delete each other's projects.
-- When a test fails, run it on the base commit (`git stash`, run, `git stash pop`) before calling the failure
-  pre-existing. Compare the set of tests that ran, not only the failure count: a panic aborts the whole binary.
+- When a test fails, run it on the base commit before calling the failure pre-existing. Check the base out separately
+  (`git worktree add ../base origin/main`) and run the same test there, not in parallel with your branch's run. Compare the set of tests that ran, not only the failure count: a panic aborts the whole binary.
 - A test that fails only sometimes is a finding. Reproduce the API behavior directly, with the SDK or `curl`, before
   deciding whether the provider or the test is wrong. `TestAccNeonAuth` failed intermittently until concurrent API calls
   showed that Neon Auth loses concurrent writes.
@@ -54,8 +57,8 @@ Run this for any change to a resource that existed in `kislerdm/neon` v0.18.0: `
 `neon_endpoint`, `neon_role`, `neon_database`, `neon_jwks_url`, `neon_api_key`, `neon_org_api_key`,
 `neon_project_permission`, `neon_branch_backup_schedule`, and the VPC endpoint resources.
 
-1. In one directory, write a configuration with `source = "kislerdm/neon"` and `version = "0.18.0"`, without the dev
-   override, and `terraform apply` it.
+1. In one directory, write a configuration with `source = "kislerdm/neon"` and `version = "0.18.0"`, then run
+   `terraform init` and `terraform apply` without the dev override.
 2. Copy `terraform.tfstate` to a second directory with the same resources in this provider's syntax. The
    [migration guide](../../../docs/guides/migrate-from-kislerdm-neon.md) lists the changes.
 3. Run there:

@@ -28,6 +28,7 @@ t.Run("shall import a snapshot by <project_id>/<snapshot_id>", func(t *testing.T
 		Steps: []resource.TestStep{
 			{
 				Config: newSnapshotConfig(projectName, orgID, "tf-acc-import", ""),
+				Check:  verifySnapshotAgainstAPI(t, client, "tf-acc-import"),
 			},
 			{
 				ResourceName:      "neon_snapshot.this",

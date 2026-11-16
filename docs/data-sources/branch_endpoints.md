@@ -31,7 +31,7 @@ output "endpoint_hosts" {
 
 ### Optional
 
-- `id` (String) Endpoint-list scope in the form `<project_id>/<branch_id>`.
+- `id` (String, Deprecated) Endpoint-list scope in the form `<project_id>/<branch_id>`. Setting it has no effect.
 
 ### Read-Only
 

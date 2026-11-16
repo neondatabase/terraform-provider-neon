@@ -156,7 +156,7 @@ func (r *neonCustomBranchDomain) Create(ctx context.Context, req resource.Create
 	}
 
 	var respData neon.CustomDomain
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		respData, err = r.client.RegisterProjectBranchCustomDomain(plan.ProjectID.ValueString(), plan.BranchID.ValueString(),
 			neon.CustomDomainRegisterRequest{
@@ -166,7 +166,7 @@ func (r *neonCustomBranchDomain) Create(ctx context.Context, req resource.Create
 			},
 		)
 		return err
-	}, nil)...)
+	})...)
 
 	if resp.Diagnostics.HasError() {
 		return

@@ -193,9 +193,7 @@ functions that take only the values that change between steps.
 
 - Every resource has an example in `examples/` and a template in `templates/`, named without the `neon_` prefix:
   `templates/resources/branch.md.tmpl` renders `docs/resources/branch.md`.
-- Regenerate `docs/` with `make docu`. The generator names the provider after the checkout directory, so run it from a
-  checkout named `terraform-provider-neon`; in a directory with another name it fails and deletes `docs/`
-  (`git checkout -- docs` restores it). CI fails when `docs/` doesn't match the generated output.
+- Regenerate `docs/` with `make docu`. CI fails when `docs/` doesn't match the generated output.
 - Examples must pass `terraform validate` with the current provider. Use unique resource addresses and the current
   syntax; users copy examples whole.
 

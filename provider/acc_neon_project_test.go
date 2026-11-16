@@ -2005,7 +2005,10 @@ resource "neon_project" "this" {
 			{
 				// AND the project is still managed, so unprotecting it lets the final destroy succeed
 				Config: config(false),
-				Check: func(*terraform.State) error {
+				Check: func(state *terraform.State) error {
+					if got := state.RootModule().Resources["neon_project.this"].Primary.ID; got != projectID {
+						return fmt.Errorf("state tracks project %s, want the original %s", got, projectID)
+					}
 					if _, err := client.GetProject(projectID); err != nil {
 						return fmt.Errorf("project %s after the refused destroy: %w", projectID, err)
 					}

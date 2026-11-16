@@ -18,7 +18,7 @@ func TestRetryCreateDoesNotRepeatServerErrors(t *testing.T) {
 		if calls != 1 {
 			t.Errorf("HTTP %d: create sent %d times, want 1", code, calls)
 		}
-		if !diags.HasError() || diags[len(diags)-1].Summary() != "Neon may have created the resource" {
+		if len(diags) != 1 || diags[0].Summary() != "Neon may have created the resource" {
 			t.Errorf("HTTP %d: diagnostics do not warn about a possibly created resource: %v", code, diags)
 		}
 	}

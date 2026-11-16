@@ -82,13 +82,13 @@ var creation = delay{
 // retryCreate sends a request that creates a Neon resource.
 func retryCreate(ctx context.Context, fn func(context.Context) error) diag.Diagnostics {
 	err := creation.Do(ctx, fn, nil)
-	diags := newDiagnostics(err)
 	var apiErr neon.Error
-	if errors.As(err, &apiErr) && apiErr.HTTPCode >= http.StatusInternalServerError {
-		diags.AddError("Neon may have created the resource",
-			"The create request failed with a server error, which Neon can return after creating the resource. "+
-				"Check the Neon Console for it before running Terraform again. If it exists, import it with "+
-				"terraform import or delete it, otherwise the next apply creates a second one.")
+	if !errors.As(err, &apiErr) || apiErr.HTTPCode < http.StatusInternalServerError {
+		return newDiagnostics(err)
 	}
+	var diags diag.Diagnostics
+	diags.AddError("Neon may have created the resource", err.Error()+"\n\nThe create request failed with a server error, "+
+		"which Neon can return after creating the resource. Check the Neon Console for it before running Terraform "+
+		"again. If it exists, import it with terraform import or delete it, otherwise the next apply creates a second one.")
 	return diags
 }

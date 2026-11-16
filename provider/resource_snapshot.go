@@ -206,7 +206,7 @@ func (r *neonSnapshotResource) Create(ctx context.Context, req resource.CreateRe
 
 	var created neon.Snapshot
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(ctx,
+		retryCreate(ctx,
 			func(ctx context.Context) error {
 				rsp, err := r.client.CreateSnapshot(
 					plan.ProjectID.ValueString(),
@@ -218,7 +218,7 @@ func (r *neonSnapshotResource) Create(ctx context.Context, req resource.CreateRe
 				}
 				created = rsp.Snapshot
 				return nil
-			}, nil,
+			},
 		)...,
 	)
 	if resp.Diagnostics.HasError() {

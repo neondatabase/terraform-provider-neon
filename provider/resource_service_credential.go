@@ -270,7 +270,7 @@ func (r *neonServiceCredentialResource) Create(ctx context.Context, req resource
 	}
 
 	var result neon.CreateCredentialResponse
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateCredential(
 			state.ProjectID.ValueString(),
@@ -278,7 +278,7 @@ func (r *neonServiceCredentialResource) Create(ctx context.Context, req resource
 			cfg,
 		)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

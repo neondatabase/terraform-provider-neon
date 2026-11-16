@@ -120,11 +120,11 @@ func (r *orgAPIKeyResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	var result neon.OrgApiKeyCreateResponse
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateOrgApiKey(state.OrgID.ValueString(), createRequest)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

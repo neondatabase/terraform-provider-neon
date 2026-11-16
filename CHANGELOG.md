@@ -5,12 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- [[#64](https://github.com/neondatabase/terraform-provider-neon/issues/64)] A create request that fails with a server error is no longer sent again, since Neon may have created the resource and a second request could create a duplicate that Terraform doesn't track. The error asks you to check the Neon Console and import or delete the resource first.
-
 ## [v0.19.0-beta.1] - 2026-11-13
 
 ### Added

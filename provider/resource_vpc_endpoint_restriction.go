@@ -184,8 +184,7 @@ func (r neonVPCEndpointRestriction) Delete(ctx context.Context, req resource.Del
 	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
 		return r.client.DeleteProjectVPCEndpoint(state.ProjectID.ValueString(), state.VPCEndpointID.ValueString())
 	}, map[int]func(context.Context) error{
-		http.StatusNotFound:            func(_ context.Context) error { return nil },
-		http.StatusUnprocessableEntity: func(_ context.Context) error { return nil },
+		http.StatusNotFound: func(_ context.Context) error { return nil },
 	})...)
 	if resp.Diagnostics.HasError() {
 		return

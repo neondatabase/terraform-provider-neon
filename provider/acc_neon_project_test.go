@@ -1940,3 +1940,81 @@ func findDisabledComputeProjectID(client *neon.Client, name, orgID string) strin
 	}
 	return ""
 }
+
+// TestAccProjectDestroyRefusedForProtectedBranch checks that a delete Neon refuses with 422 fails the destroy and
+// keeps the project in state.
+func TestAccProjectDestroyRefusedForProtectedBranch(t *testing.T) {
+	if os.Getenv("TF_ACC") != "1" {
+		t.Skip("TF_ACC must be set to 1")
+	}
+	if os.Getenv("SCALE_PLAN") != "1" {
+		t.Skip("protected branches require a paid plan; set env. variable SCALE_PLAN to 1 to run the test")
+	}
+
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	orgID := os.Getenv("ORG_ID")
+	projectName := newProjectName("protectedDestroy")
+
+	var projectID, branchID string
+	t.Cleanup(func() {
+		if projectID == "" {
+			return
+		}
+		unprotected := false
+		_, _ = client.UpdateProjectBranch(projectID, branchID,
+			neon.BranchUpdateRequest{Branch: neon.BranchUpdateRequestBranch{Protected: &unprotected}})
+		_, _ = client.DeleteProject(projectID)
+	})
+
+	config := func(protected bool) string {
+		orgLine := ""
+		if orgID != "" {
+			orgLine = fmt.Sprintf("\n  org_id = %q", orgID)
+		}
+		return fmt.Sprintf(`
+resource "neon_project" "this" {
+  name = %q%s
+  branch = {
+    protected = %t
+  }
+}
+`, projectName, orgLine, protected)
+	}
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: newProviderFactories(),
+		Steps: []resource.TestStep{
+			{
+				// GIVEN a project whose default branch is protected
+				Config: config(true),
+				Check: func(state *terraform.State) error {
+					attrs := state.RootModule().Resources["neon_project.this"].Primary.Attributes
+					projectID, branchID = attrs["id"], attrs["default_branch_id"]
+					return nil
+				},
+			},
+			{
+				// WHEN it is destroyed, THEN Neon's refusal fails the destroy
+				Config:      config(true),
+				Destroy:     true,
+				ExpectError: regexp.MustCompile(`project has protected branch`),
+			},
+			{
+				// AND the project is still managed, so unprotecting it lets the final destroy succeed
+				Config: config(false),
+				Check: func(state *terraform.State) error {
+					if got := state.RootModule().Resources["neon_project.this"].Primary.ID; got != projectID {
+						return fmt.Errorf("state tracks project %s, want the original %s", got, projectID)
+					}
+					if _, err := client.GetProject(projectID); err != nil {
+						return fmt.Errorf("project %s after the refused destroy: %w", projectID, err)
+					}
+					return nil
+				},
+			},
+		},
+	})
+}

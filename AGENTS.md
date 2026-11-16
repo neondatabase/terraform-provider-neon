@@ -44,7 +44,7 @@ go vet ./...
 make lint
 make test
 TF_ACC=1 go test -tags=acceptance ./provider/ -run '<the tests your change touches>' -v
-make docu                     # from a checkout named terraform-provider-neon; commit the docs/ diff
+make docu                     # commit the docs/ diff
 ```
 
 Also add a `CHANGELOG.md` entry under `[Unreleased]` for anything a user would notice, and make sure every example you

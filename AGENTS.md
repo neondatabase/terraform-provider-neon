@@ -29,8 +29,7 @@ Load the skill that matches the task before starting it:
   during apply (see CONTRIBUTING.md).
 - **Keep Neon's error messages.** Return errors through `newDiagnostics`. Add a hint only for a case Neon's message
   identifies.
-- **Generated docs are generated.** Never edit `docs/`. Run `make docu` from a checkout directory named
-  `terraform-provider-neon`; in a worktree with another name it fails and deletes `docs/`.
+- **Generated docs are generated.** Never edit `docs/`; run `make docu` and commit the result.
 - **One acceptance run per organization.** Tests clean up by project name prefix, so two suites against the same
   organization delete each other's projects.
 - **Secrets stay out of the repository.** API keys, Terraform state, plans, and `dev.tfrc` files hold credentials or

@@ -48,7 +48,8 @@ func (r *neonOrgSpendingLimitResource) Schema(
 	resp *resource.SchemaResponse,
 ) {
 	resp.Schema = schema.Schema{
-		Description: "Manages an organization's monthly spending limit in cents.",
+		Description: "Manages an organization's monthly spending limit in cents. Neon sends email notifications at 80% and " +
+			"100% of the limit and doesn't suspend computes when it's reached.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				PlanModifiers: idPlanModifiers(),
@@ -67,7 +68,7 @@ func (r *neonOrgSpendingLimitResource) Schema(
 				Validators: []validator.Int64{
 					positiveSpendingLimitValidator{},
 				},
-				Description: "Monthly spending alert limit in cents. The limit does not suspend computes.",
+				Description: "Monthly spending limit in cents.",
 			},
 		},
 	}

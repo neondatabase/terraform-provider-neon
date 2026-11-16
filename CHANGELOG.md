@@ -5,12 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Security
-
-- Built with Go 1.26.11, gRPC-Go 1.83.2, and golang.org/x/net 0.60.0, which fix the vulnerabilities `govulncheck` reports as reachable from the provider in v0.19.0-beta.1.
-
 ## [v0.19.0-beta.1] - 2026-11-13
 
 ### Added

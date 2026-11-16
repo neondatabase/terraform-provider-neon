@@ -1217,6 +1217,10 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	plannedLogicalSize := types.Int64Unknown()
+	if plan.Branch != nil {
+		plannedLogicalSize = plan.Branch.LogicalSize
+	}
 
 	var cfg neon.ProjectUpdateRequest
 	if !prior.Name.Equal(plan.Name) && plan.Name.ValueString() != "" {
@@ -1490,15 +1494,20 @@ func (r neonProjectResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 	resp.State = readResp.State
 
-	if config.EnabledLibraries.IsNull() && plan.EnabledLibraries.IsNull() {
-		var state neonProjectResourceModel
-		resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		state.EnabledLibraries = types.ListNull(types.StringType)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	var state neonProjectResourceModel
+	resp.Diagnostics.Append(resp.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
+	if config.EnabledLibraries.IsNull() && plan.EnabledLibraries.IsNull() {
+		state.EnabledLibraries = types.ListNull(types.StringType)
+	}
+	// Neon updates a branch's logical size on its own, so the size read after apply can differ from the planned one.
+	// The next refresh records the current size.
+	if state.Branch != nil && !plannedLogicalSize.IsUnknown() {
+		state.Branch.LogicalSize = plannedLogicalSize
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r neonProjectResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

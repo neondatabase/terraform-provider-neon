@@ -85,18 +85,17 @@ func (r *neonEphemeralBranchRealtimeSecret) Open(ctx context.Context, req epheme
 		return
 	}
 
-	var secret string
-	err := projectReadiness.Do(ctx, func(context.Context) error {
-		result, err := r.client.GetProjectBranchRealtimeSecret(data.ProjectID.ValueString(), data.BranchID.ValueString())
-		secret = result.Secret
-		return err
-	}, nil)
+	projectID, branchID := data.ProjectID.ValueString(), data.BranchID.ValueString()
+	// During a rotation Neon returns the previous secret, which stops working once the rotation settles.
+	result, err := waitRealtimeSettled(ctx, projectID, branchID, func() (neon.RealtimeSecret, error) {
+		return r.client.GetProjectBranchRealtimeSecret(projectID, branchID)
+	}, func(v neon.RealtimeSecret) bool { return v.Pending })
 	resp.Diagnostics.Append(newRealtimeSecretDiagnostics(err)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	data.Secret = types.StringValue(secret)
+	data.Secret = types.StringValue(result.Secret)
 	resp.Diagnostics.Append(resp.Result.Set(ctx, &data)...)
 }
 

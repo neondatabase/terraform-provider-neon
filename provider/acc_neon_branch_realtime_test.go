@@ -1,11 +1,13 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/echoprovider"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
@@ -129,6 +131,14 @@ func TestAccEphemeralBranchRealtimeSecret(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
+	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	factories := newProviderFactories()
+	factories["echo"] = echoprovider.NewProviderServer()
+	var projectID, branchID, previousSecret string
+
 	projectName := newProjectName("realtimeSecret")
 	project := fmt.Sprintf(`
 resource "neon_project" "this" {
@@ -158,7 +168,7 @@ ephemeral "neon_branch_realtime_secret" "this" {
 `
 
 	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: newProviderFactories(),
+		ProtoV6ProviderFactories: factories,
 		TerraformVersionChecks:   []tfversion.TerraformVersionCheck{tfversion.SkipBelow(tfversion.Version1_10_0)},
 		Steps: []resource.TestStep{
 			{
@@ -169,10 +179,46 @@ ephemeral "neon_branch_realtime_secret" "this" {
 			{
 				// WHEN Realtime is enabled
 				Config: project + realtime,
+				Check: func(state *terraform.State) error {
+					attrs := state.RootModule().Resources["neon_branch_realtime.this"].Primary.Attributes
+					projectID, branchID = attrs["project_id"], attrs["branch_id"]
+					return nil
+				},
 			},
 			{
 				// THEN the secret can be read
 				Config: project + realtime + secret,
+			},
+			{
+				// WHEN the secret is rotated and read before the rotation settles
+				PreConfig: func() {
+					current, err := client.GetProjectBranchRealtimeSecret(projectID, branchID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					previousSecret = current.Secret
+					if err := client.RotateProjectBranchRealtimeSecret(projectID, branchID); err != nil {
+						t.Fatal(err)
+					}
+				},
+				Config: project + realtime + secret + `
+provider "echo" {
+  data = ephemeral.neon_branch_realtime_secret.this.secret
+}
+
+resource "echo" "secret" {}
+`,
+				// THEN the ephemeral resource returns the new secret
+				Check: resource.TestCheckResourceAttrWith("echo.secret", "data", func(got string) error {
+					settled, err := client.GetProjectBranchRealtimeSecret(projectID, branchID)
+					if err != nil {
+						return err
+					}
+					if settled.Pending || got != settled.Secret || got == previousSecret {
+						return errors.New("the ephemeral resource did not return the rotated secret")
+					}
+					return nil
+				}),
 			},
 		},
 	})

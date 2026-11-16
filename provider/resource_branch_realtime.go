@@ -234,18 +234,25 @@ func (r *neonBranchRealtimeResource) Delete(ctx context.Context, req resource.De
 	resp.Diagnostics.Append(newDiagnostics(err)...)
 }
 
-// waitSettled polls the branch until Neon finishes applying the last Realtime change.
 func (r *neonBranchRealtimeResource) waitSettled(ctx context.Context, projectID, branchID string) (neon.Realtime, error) {
+	return waitRealtimeSettled(ctx, projectID, branchID, func() (neon.Realtime, error) {
+		return r.client.GetProjectBranchRealtime(projectID, branchID)
+	}, func(v neon.Realtime) bool { return v.Pending })
+}
+
+// waitRealtimeSettled polls get until Neon finishes applying the last Realtime change to the branch.
+func waitRealtimeSettled[T any](ctx context.Context, projectID, branchID string, get func() (T, error),
+	pending func(T) bool) (T, error) {
 	ctx, cancel := context.WithTimeout(ctx, realtimeSettleWithin)
 	defer cancel()
 	for {
-		var current neon.Realtime
+		var current T
 		err := projectReadiness.Do(ctx, func(context.Context) error {
 			var err error
-			current, err = r.client.GetProjectBranchRealtime(projectID, branchID)
+			current, err = get()
 			return err
 		}, nil)
-		if err != nil || !current.Pending {
+		if err != nil || !pending(current) {
 			return current, err
 		}
 		select {

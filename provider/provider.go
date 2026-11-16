@@ -123,6 +123,7 @@ func (p *Provider) Resources(_ context.Context) []func() resource.Resource {
 		NewNeonAuthResource,
 		NewNeonAuthTrustedDomainResource,
 		NewNeonAuthOAuthProviderResource,
+		NewNeonBranchRealtimeResource,
 	}
 }
 
@@ -142,6 +143,7 @@ func (p *Provider) EphemeralResources(_ context.Context) []func() ephemeral.Ephe
 	return []func() ephemeral.EphemeralResource{
 		NewNeonRoleEphemeralResource,
 		NewNeonConnectionURIEphemeralResource,
+		NewNeonBranchRealtimeSecretEphemeralResource,
 	}
 }
 

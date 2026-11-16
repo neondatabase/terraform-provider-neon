@@ -1,0 +1,45 @@
+---
+page_title: "{{ .Name }} Resource - {{ .ProviderName }}"
+subcategory: ""
+description: |-
+  {{ .Description | plainmarkdown }}
+---
+
+# {{ .Name }} (Resource)
+
+{{ .Description }}
+
+## Example Usage
+
+{{ tffile "examples/resources/neon_branch_realtime/resource.tf" }}
+
+## Logical replication
+
+Enabling Realtime turns on logical replication for the whole project, and Neon can't turn it off again. Set
+`enable_logical_replication = true` on the `neon_project`. Without it, the next plan replaces the project, because an
+omitted `enable_logical_replication` means `false`.
+
+## Allowed origins
+
+An empty list and `["*"]` both allow any origin. When `allowed_origins` is omitted, the branch keeps the origins it has,
+including ones it inherited from its parent branch. Removing `allowed_origins` from the configuration later leaves the
+current origins in place; set it to `[]` to allow any origin again.
+
+{{ .SchemaMarkdown | trimspace }}
+
+## Import
+
+Import using `<project_id>/<branch_id>`:
+
+```hcl
+import {
+  to = {{ .Name }}.this
+  id = "cool-moon-123/br-cool-moon-456"
+}
+```
+
+Or use the CLI:
+
+```commandline
+terraform import {{ .Name }}.this "cool-moon-123/br-cool-moon-456"
+```

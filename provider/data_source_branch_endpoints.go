@@ -53,7 +53,9 @@ func (d *neonBranchEndpointsDataSource) Schema(_ context.Context, _ datasource.S
 			"id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				MarkdownDescription: "Endpoint-list scope in the form `<project_id>/<branch_id>`.",
+				MarkdownDescription: "Endpoint-list scope in the form `<project_id>/<branch_id>`. Setting it has no effect.",
+				DeprecationMessage: "neon_branch_endpoints sets id to <project_id>/<branch_id> and ignores a configured value. " +
+					"Remove id from the configuration; a future release makes it read-only.",
 			},
 			"project_id": schema.StringAttribute{
 				Required:    true,

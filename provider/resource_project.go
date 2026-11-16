@@ -453,7 +453,7 @@ func (r *neonProjectResource) Configure(ctx context.Context, req resource.Config
 type boolReplacerFromTrue struct{}
 
 func (v boolReplacerFromTrue) Description(_ context.Context) string {
-	return "Force replacement if the attribute is changed from true to false explicitly, or implicitly (attr. is removed from the manifest)."
+	return "Force replacement if the configuration changes the attribute from true to false."
 }
 
 func (v boolReplacerFromTrue) MarkdownDescription(ctx context.Context) string {
@@ -468,7 +468,7 @@ func (v boolReplacerFromTrue) PlanModifyBool(_ context.Context, req planmodifier
 	if req.StateValue.IsNull() || req.StateValue.IsUnknown() || !req.StateValue.ValueBool() {
 		return
 	}
-	if req.ConfigValue.IsUnknown() || (!req.ConfigValue.IsNull() && req.ConfigValue.ValueBool()) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() || req.ConfigValue.ValueBool() {
 		return
 	}
 
@@ -610,11 +610,11 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			},
 		},
 		"enable_logical_replication": schema.BoolAttribute{
-			Description: "Sets wal_level=logical for all compute endpoints in this project.\nAll active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication\n**Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.\n\n**Warning**: Once enabled, logical replication cannot be disabled.",
+			Description: "Sets wal_level=logical for all compute endpoints in this project.\nAll active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication\nOmit it to keep the current setting, for example after Neon Realtime enabled it.\n\n**Warning**: Once enabled, logical replication cannot be disabled. Setting it to false on a project where it is enabled replaces the project.",
 			Optional:    true,
 			Computed:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setFalseIfUnknown,
+				boolplanmodifier.UseStateForUnknown(),
 				requiresReplaceFromTrue,
 			},
 		},
@@ -680,11 +680,11 @@ func (r neonProjectResource) Schema(ctx context.Context, _ resource.SchemaReques
 			Validators: []validator.String{validateComputeProvisioner},
 		},
 		"hipaa": schema.BoolAttribute{
-			Description: "Enable HIPAA compliance for the project.\nNote that HIPAA must be configured for the organization first.\n\n**Warning**: Once enabled, HIPAA cannot be disabled.",
+			Description: "Enable HIPAA compliance for the project.\nNote that HIPAA must be configured for the organization first.\nOmit it to keep the current setting.\n\n**Warning**: Once enabled, HIPAA cannot be disabled. Setting it to false on a project where it is enabled replaces the project.",
 			Computed:    true,
 			Optional:    true,
 			PlanModifiers: []planmodifier.Bool{
-				setFalseIfUnknown,
+				boolplanmodifier.UseStateForUnknown(),
 				requiresReplaceFromTrue,
 			},
 		},

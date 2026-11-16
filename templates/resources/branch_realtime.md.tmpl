@@ -16,8 +16,8 @@ description: |-
 ## Logical replication
 
 Enabling Realtime turns on logical replication for the whole project, and Neon can't turn it off again. Set
-`enable_logical_replication = true` on the `neon_project`. Without it, the next plan replaces the project, because an
-omitted `enable_logical_replication` means `false`.
+`enable_logical_replication = true` on the `neon_project` so the configuration matches the project. Setting it to `false`
+replaces the project.
 
 ## Allowed origins
 

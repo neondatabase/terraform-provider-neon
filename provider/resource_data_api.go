@@ -172,11 +172,11 @@ func (r *neonDataAPIResource) Create(ctx context.Context, req resource.CreateReq
 	}
 	var result neon.DataAPICreateResponse
 	projectID, branchID, databaseName := plan.sdkPathIDs()
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(context.Context) error {
 		var err error
 		result, err = r.client.CreateProjectBranchDataAPI(projectID, branchID, databaseName, &cfg)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

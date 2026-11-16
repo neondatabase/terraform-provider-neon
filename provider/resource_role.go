@@ -119,11 +119,11 @@ func (r neonRole) Create(ctx context.Context, req resource.CreateRequest, resp *
 	}
 
 	var created neon.RoleOperations
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		created, err = r.client.CreateProjectBranchRole(state.ProjectID.ValueString(), state.BranchID.ValueString(), cfg)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

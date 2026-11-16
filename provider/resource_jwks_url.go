@@ -169,11 +169,11 @@ func (r *jwksURLResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	var created neon.JWKSCreationOperation
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		created, err = r.client.AddProjectJWKS(state.ProjectID.ValueString(), cfg)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

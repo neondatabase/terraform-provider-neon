@@ -115,12 +115,12 @@ func (r neonDatabase) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 
 	var created neon.DatabaseOperations
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		created, err = r.client.CreateProjectBranchDatabase(state.ProjectID.ValueString(), state.BranchID.ValueString(),
 			cfg)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

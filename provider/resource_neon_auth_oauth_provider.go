@@ -190,7 +190,7 @@ func (r *neonAuthOAuthProviderResource) Create(ctx context.Context, req resource
 	var configured neon.NeonAuthOauthProvider
 	switch {
 	case existing == nil:
-		resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
+		resp.Diagnostics.Append(retryCreate(ctx, func(context.Context) error {
 			var err error
 			configured, err = r.client.AddBranchNeonAuthOauthProvider(plan.ProjectID.ValueString(),
 				plan.BranchID.ValueString(), neon.NeonAuthAddOAuthProviderRequest{
@@ -202,7 +202,7 @@ func (r *neonAuthOAuthProviderResource) Create(ctx context.Context, req resource
 					AppleTeamID:       plan.AppleTeamID.ValueStringPointer(),
 				})
 			return err
-		}, nil)...)
+		})...)
 	case existing.Type.String() == sharedOAuthProviderType:
 		configured, diags = r.update(ctx, plan, providerID)
 		resp.Diagnostics.Append(diags...)

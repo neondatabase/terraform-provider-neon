@@ -163,11 +163,11 @@ func (r *neonAuthResource) Create(ctx context.Context, req resource.CreateReques
 		cfg.DatabaseName = plan.DatabaseName.ValueStringPointer()
 	}
 	var created neon.NeonAuthCreateIntegrationResponse
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(context.Context) error {
 		var err error
 		created, err = r.client.CreateNeonAuth(plan.ProjectID.ValueString(), plan.BranchID.ValueString(), cfg)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

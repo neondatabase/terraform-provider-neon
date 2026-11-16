@@ -466,14 +466,14 @@ func (r *neonEndpointResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	var created neon.EndpointOperations
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		created, err = r.client.CreateProjectEndpoint(
 			state.ProjectID.ValueString(),
 			neon.EndpointCreateRequest{Endpoint: cfg},
 		)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

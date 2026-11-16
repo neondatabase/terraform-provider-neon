@@ -2,13 +2,19 @@
 page_title: "neon_org_spending_limit Resource - terraform-provider-neon"
 subcategory: ""
 description: |-
-  Manages an organization's monthly spending alert limit in cents.
-  The limit does not suspend computes when reached.
+  Manages an organization's monthly spending limit in cents. Neon sends email notifications at 80% and 100% of the limit and doesn't suspend computes when it's reached.
 ---
 
 # neon_org_spending_limit (Resource)
 
-Manages an organization's monthly spending alert limit in cents.
+Manages an organization's monthly spending limit in cents. Neon sends email notifications at 80% and 100% of the limit and doesn't suspend computes when it's reached.
+
+## Requirements
+
+The organization must be on the Launch or Scale plan. Setting or removing the limit requires an organization admin, and
+reading it requires read access to the organization. Deleting the resource removes the limit.
+
+## Example Usage
 
 ```terraform
 variable "neon_org_id" {
@@ -27,7 +33,7 @@ resource "neon_org_spending_limit" "this" {
 ### Required
 
 - `org_id` (String) The Neon organization ID.
-- `spending_limit_cents` (Number) Monthly spending alert limit in cents. The limit does not suspend computes.
+- `spending_limit_cents` (Number) Monthly spending limit in cents.
 
 ### Read-Only
 

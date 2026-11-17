@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.19.0-beta.2] - 2026-11-16
+
+### Added
+
+- [[#54](https://github.com/neondatabase/terraform-provider-neon/issues/54)] Added the resource `neon_branch_realtime` to enable Neon Realtime on a branch and set its allowed origins.
+- [[#57](https://github.com/neondatabase/terraform-provider-neon/issues/57)] Added the ephemeral resource `neon_branch_realtime_secret` to read the secret an application backend issues Realtime tokens with, without storing it in the state.
+
+### Changed
+
+- Leaving `enable_logical_replication` or `hipaa` out of a `neon_project` configuration keeps the project's current setting. Before, it meant `false`, so a project where Realtime, the console, or the CLI had turned logical replication on was planned for replacement. Setting either to `false` on a project where it's on still replaces the project.
+
+### Deprecated
+
+- Setting `id` on the `neon_branch_endpoints` data source. The provider ignores the value and sets `id` to `<project_id>/<branch_id>`; a future release makes it read-only, as it was in kislerdm/neon.
+
+### Fixed
+
+- [[#64](https://github.com/neondatabase/terraform-provider-neon/issues/64)] A create request that fails with a server error is no longer sent again, since Neon may have created the resource and a second request could create a duplicate that Terraform doesn't track. The error asks you to check the Neon Console and import or delete the resource first.
+- [[#52](https://github.com/neondatabase/terraform-provider-neon/issues/52)] Destroying a `neon_vpc_endpoint_restriction` that Neon refuses to delete with HTTP 422 now fails with Neon's message, instead of reporting success and removing the restriction from state.
+- Updating a `neon_project` no longer fails with "Provider produced inconsistent result after apply" when Neon reports a new branch logical size between plan and apply.
+
+### Security
+
+- Built with Go 1.26.11, gRPC-Go 1.83.2, and golang.org/x/net 0.60.0, which fix the vulnerabilities `govulncheck` reports as reachable from the provider in v0.19.0-beta.1.
+
 ## [v0.19.0-beta.1] - 2026-11-13
 
 ### Added

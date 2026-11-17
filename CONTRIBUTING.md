@@ -95,13 +95,31 @@ to state.
 
 ### Validation
 
-The API validates its input, so most values aren't checked at plan time. Validate in the provider when:
+The Neon API owns the input contract. For known configuration, validate documented, locally decidable constraints
+at the owning schema or configuration boundary: enums, patterns, lengths, bounds, collection rules, and supported
+cross-field rules. Map each rule to the actual API operation and published schema before adding it; don't infer
+restrictions from field names or invent normalization, defaults, or stricter rules. Reuse existing SDK enum
+constructors where applicable, preserving their accepted inputs.
 
-- the value is a type discriminator or enum the SDK exposes a constructor for, such as `neon.NewScheduleTriggerType`, or
-- the Neon OpenAPI spec publishes the pattern and the API would reject the value only during apply, after other
-  resources were created. Function slugs (`^[a-z0-9]{1,20}$`) are the current example.
+This is a bounded rollout, not complete provider-wide coverage. Existing Function slug and trigger checks remain;
+the current slice adds `neon_data_api.auth_provider` and `neon_service_credential.scopes` enum/cardinality checks.
+`provider/testdata/input-validation-contract.json` records the reviewed source hash, operation/schema pointers,
+constraints, compatibility exceptions, and validator/test owners for those two fields. Its offline behavior tests
+exercise the attached provider validators. Updating the manifest requires contract review; these tests do not fetch
+the API spec or implement automatic upstream refresh.
 
-Keep validator messages in the same words as the API's rule, and change them when the API rule changes.
+- Defer checks that need unknown values; check known collection siblings independently where safe. Preserve
+  Required/Optional null and omission semantics, and don't validate computed-only outputs as user input.
+- Test dependency-produced unknowns through real Terraform plans. Do not assume validation reruns when values become
+  known during apply; keep existing Create-time SDK guards and API validation.
+- Permissions, existence, uniqueness, entitlement, available quotas, concurrency, and other dynamic conditions stay
+  with the API. Add no network preflight, and never promise a successful apply merely because a plan succeeds.
+- Diagnostics identify the attribute and permitted rule without echoing rejected values or secrets. Preserve API
+  failures through `newDiagnostics` rather than replacing server messages.
+
+Each approved slice needs failing-before-fix plan tests, valid/boundary/null/unknown coverage, and compatibility
+review. Record intentional earlier rejection of API-invalid literals in the changelog. A conflict with demonstrated
+valid API behavior blocks tightening until resolved; live lifecycle and existing-state no-op checks remain required.
 
 ### Errors
 

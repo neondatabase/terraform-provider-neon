@@ -62,7 +62,7 @@ Deleting the endpoint does not revoke database grants or remove authentication s
 ### Optional
 
 - `add_default_grants` (Boolean) Grant authenticated users permissions on public-schema tables during creation. Changes require replacement; deletion does not revoke these grants.
-- `auth_provider` (String) Authentication provider: neon_auth or external. The API validates authentication configuration. Changes require replacement; GET cannot discover this value on import or detect external changes.
+- `auth_provider` (String) Authentication provider: neon_auth or external. Known values are checked during planning; the API validates other authentication configuration. Changes require replacement; GET cannot discover this value on import or detect external changes.
 - `jwks_url` (String) JWKS endpoint for external JWT verification. Changes require replacement.
 - `jwt_audience` (String) Expected JWT audience. Omit to skip audience validation. Changes require replacement.
 - `provider_name` (String) Authentication provider display name. Changes require replacement.

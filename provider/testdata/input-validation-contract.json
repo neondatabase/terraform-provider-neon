@@ -1,0 +1,43 @@
+{
+  "source": {
+    "url": "https://neon.com/api_spec/release/v2.json",
+    "sha256": "64a2beee00eb38d9fddc61c5ce38552f08ec6655741393924574cebefc322827",
+    "sdk": "github.com/kislerdm/neon-sdk-go v0.36.0"
+  },
+  "scope": "Reviewed two-field slice only; offline behavior checks, not automatic upstream refresh or whole-provider coverage.",
+  "inputs": [
+    {
+      "surface": "neon_data_api",
+      "path": "auth_provider",
+      "operation": "createProjectBranchDataAPI",
+      "operation_pointer": "#/paths/~1projects~1{project_id}~1branches~1{branch_id}~1data-api~1{database_name}/post",
+      "schema_pointer": "#/components/schemas/DataAPICreateRequest/properties/auth_provider",
+      "enum": ["neon_auth", "external"],
+      "rejected_values": ["", "invalid-auth-provider", "NEON_AUTH", " external "],
+      "null": "Optional: omission and explicit null preserve existing setup without a default.",
+      "unknown": "Defer unknown values; no claim of apply-time validator reruns.",
+      "compatibility": "Preserve NewDataAPICreateRequestAuthProvider acceptance of surrounding double quotes, without normalizing the planned value. API publishes exact enum strings; quote tolerance is SDK compatibility, not a verified API guarantee.",
+      "validator": "provider/resource_data_api.go:dataAPIAuthProviderValidator",
+      "tests": ["TestDataAPIAuthProviderValidation", "TestInputValidationContract/neon_data_api/auth_provider"],
+      "disposition": "new-static-validator"
+    },
+    {
+      "surface": "neon_service_credential",
+      "path": "scopes",
+      "operation": "createCredential",
+      "operation_pointer": "#/paths/~1projects~1{project_id}~1branches~1{branch_id}~1credentials/post",
+      "schema_pointer": "#/components/schemas/CreateCredentialRequest/properties/scopes",
+      "enum_pointer": "#/components/schemas/CredentialScope",
+      "enum": ["storage:read", "storage:write", "ai_gateway:invoke", "functions:invoke"],
+      "min_items": 1,
+      "max_items": 16,
+      "rejected_values": ["", "invalid-scope", "telemetry:write", "STORAGE:READ", " storage:read "],
+      "null": "Required schema rejects null collections; element validators defer null values.",
+      "unknown": "Defer unknown collections/elements; check known invalid siblings independently.",
+      "compatibility": "Duplicates and order remain unchanged. Preserve NewCredentialScope acceptance of surrounding double quotes without normalizing configuration. GrantedCredentialScope is a wider response type and is not the request contract.",
+      "validator": "provider/resource_service_credential.go:listvalidator.SizeBetween,listvalidator.ValueStringsAre,serviceCredentialScopeValidator",
+      "tests": ["TestServiceCredentialScopeValidation", "TestServiceCredentialScopeValidatorDiagnostics", "TestInputValidationContract/neon_service_credential/scopes"],
+      "disposition": "new-static-validator"
+    }
+  ]
+}

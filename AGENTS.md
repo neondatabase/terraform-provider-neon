@@ -24,9 +24,15 @@ Load the skill that matches the task before starting it:
 - **Regression tests fail first.** For a bug fix, show the test failing without the fix, then passing with it.
 - **The SDK is the API client.** Use `neon-sdk-go` operations; don't write HTTP calls or transport wrappers. Don't bump
   the SDK as part of an unrelated change.
-- **The API owns defaults and validation.** Don't invent defaults, sort orders, fallbacks, or validators. The two
-  exceptions are SDK enum constructors and patterns the OpenAPI spec publishes when the API would reject the value only
-  during apply (see CONTRIBUTING.md).
+- **The API owns defaults and validation.** Don't invent defaults, sort orders, fallbacks, normalization, or
+  restrictions. Approved slices may validate documented static constraints on known inputs (enums, patterns, lengths,
+  bounds, collections, and supported cross-field rules); trace each rule to its operation and published schema.
+  Preserve SDK enum acceptance and null/omission semantics; defer unknown-dependent checks while checking known
+  siblings safely. Dynamic permissions, existence, uniqueness, entitlement, and quotas stay with the API, without
+  network preflight. A valid plan does not guarantee apply success. This bounded rollout currently adds Data API
+  auth-provider and service-credential scope checks, not whole-provider coverage. Maintain their reviewed manifest
+  and behavior tests in `provider/testdata/input-validation-contract.json` and `provider/input_validation_contract_test.go`;
+  automatic API refresh remains separate work (see CONTRIBUTING.md).
 - **Keep Neon's error messages.** Return errors through `newDiagnostics`. Add a hint only for a case Neon's message
   identifies.
 - **Generated docs are generated.** Never edit `docs/`. Run `make docu` from a checkout directory named

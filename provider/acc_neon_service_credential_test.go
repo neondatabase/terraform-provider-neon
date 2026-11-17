@@ -235,6 +235,7 @@ func TestServiceCredential(t *testing.T) {
 func serviceCredentialConfig(projectName, credentialName string) string {
 	return fmt.Sprintf(`resource "neon_project" "this" {
   name      = %q
+  org_id    = %q
   region_id = "aws-us-east-2"
 }
 
@@ -244,7 +245,7 @@ resource "neon_service_credential" "this" {
   name       = %q
   scopes     = ["functions:invoke"]
 }
-`, projectName, credentialName)
+`, projectName, os.Getenv("ORG_ID"), credentialName)
 }
 
 func createServiceCredentialProject(t *testing.T, client *neon.Client, projectName string) (string, string) {

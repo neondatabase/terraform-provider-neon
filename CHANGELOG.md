@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Known invalid `neon_data_api.auth_provider` values and `neon_service_credential.scopes` values or list sizes (1 to 16 entries) are now rejected during validation or plan instead of apply. Unknown values still defer to later validation.
+
 ## [v0.19.0-beta.1] - 2026-11-13
 
 ### Added

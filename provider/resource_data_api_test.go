@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -11,8 +13,102 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	resourcetest "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/stretchr/testify/require"
 )
+
+func TestDataAPIAuthProviderValidation(t *testing.T) {
+	authProviderPath := tfjsonpath.New("auth_provider")
+	for _, tt := range []struct {
+		name        string
+		config      string
+		expectError bool
+		planCheck   plancheck.PlanCheck
+	}{
+		{
+			name:        "reject invalid auth provider",
+			config:      dataAPIAuthProviderConfig(`auth_provider = "invalid-auth-provider"`),
+			expectError: true,
+		},
+		{
+			name:        "reject empty auth provider",
+			config:      dataAPIAuthProviderConfig(`auth_provider = ""`),
+			expectError: true,
+		},
+		{
+			name:      "accept neon_auth",
+			config:    dataAPIAuthProviderConfig(`auth_provider = "neon_auth"`),
+			planCheck: plancheck.ExpectKnownValue("neon_data_api.this", authProviderPath, knownvalue.StringExact("neon_auth")),
+		},
+		{
+			name:      "accept external",
+			config:    dataAPIAuthProviderConfig(`auth_provider = "external"`),
+			planCheck: plancheck.ExpectKnownValue("neon_data_api.this", authProviderPath, knownvalue.StringExact("external")),
+		},
+		{
+			name:      "preserve SDK accepted quoted auth provider",
+			config:    dataAPIAuthProviderConfig(`auth_provider = "\"neon_auth\""`),
+			planCheck: plancheck.ExpectKnownValue("neon_data_api.this", authProviderPath, knownvalue.StringExact(`"neon_auth"`)),
+		},
+		{
+			name:      "preserve omitted auth provider",
+			config:    dataAPIAuthProviderConfig(""),
+			planCheck: plancheck.ExpectKnownValue("neon_data_api.this", authProviderPath, knownvalue.Null()),
+		},
+		{
+			name:      "preserve null auth provider",
+			config:    dataAPIAuthProviderConfig(`auth_provider = null`),
+			planCheck: plancheck.ExpectKnownValue("neon_data_api.this", authProviderPath, knownvalue.Null()),
+		},
+		{
+			name:      "defer dependency produced unknown auth provider",
+			config:    dataAPIUnknownAuthProviderConfig(),
+			planCheck: plancheck.ExpectUnknownValue("neon_data_api.this", authProviderPath),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			step := resourcetest.TestStep{
+				Config:             tt.config,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: !tt.expectError,
+			}
+			if tt.expectError {
+				step.ExpectError = regexp.MustCompile(`(?s)auth_provider.*must be one of: neon_auth, external`)
+			} else {
+				step.ConfigPlanChecks.PostApplyPreRefresh = []plancheck.PlanCheck{tt.planCheck}
+			}
+			resourcetest.UnitTest(t, resourcetest.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps:                    []resourcetest.TestStep{step},
+			})
+		})
+	}
+}
+
+func dataAPIAuthProviderConfig(authProviderAttribute string) string {
+	return fmt.Sprintf(`provider "neon" {
+  api_key = "test-api-key"
+}
+
+resource "neon_data_api" "this" {
+  project_id    = "project-id"
+  branch_id     = "br-id"
+  database_name = "neondb"
+  %s
+}
+`, authProviderAttribute)
+}
+
+func dataAPIUnknownAuthProviderConfig() string {
+	return dataAPIAuthProviderConfig(`auth_provider = terraform_data.auth_provider.output == "neon_auth" ? "neon_auth" : "external"`) + `
+resource "terraform_data" "auth_provider" {
+  input = "neon_auth"
+}
+`
+}
 
 func dataAPITestResource(t *testing.T) resource.Resource {
 	t.Helper()

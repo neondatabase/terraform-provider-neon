@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
@@ -75,10 +77,14 @@ func (r *neonServiceCredentialResource) Schema(_ context.Context, _ resource.Sch
 				Description:   "A free-form customer label for the credential. It's an empty string if not set.",
 			},
 			"scopes": schema.ListAttribute{
+				Validators: []validator.List{
+					listvalidator.SizeBetween(1, 16),
+					listvalidator.ValueStringsAre(serviceCredentialScopeValidator{}),
+				},
 				ElementType:   types.StringType,
 				Required:      true,
 				PlanModifiers: requiresReplaceList,
-				Description:   "The capabilities granted to the credential.",
+				Description:   "The capabilities requested for the credential: 1 to 16 entries chosen from storage:read, storage:write, ai_gateway:invoke, and functions:invoke. Known values and list sizes are checked during planning.",
 			},
 			"token_id": schema.StringAttribute{
 				Computed:    true,
@@ -111,6 +117,25 @@ func (r *neonServiceCredentialResource) Schema(_ context.Context, _ resource.Sch
 				Description: "Whether the credential has expired.",
 			},
 		},
+	}
+}
+
+type serviceCredentialScopeValidator struct{}
+
+func (serviceCredentialScopeValidator) Description(context.Context) string {
+	return "scope must be one of: storage:read, storage:write, ai_gateway:invoke, functions:invoke"
+}
+
+func (v serviceCredentialScopeValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v serviceCredentialScopeValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if _, err := neon.NewCredentialScope(req.ConfigValue.ValueString()); err != nil {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid service credential scope", v.Description(ctx))
 	}
 }
 

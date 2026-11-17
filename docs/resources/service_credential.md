@@ -52,7 +52,7 @@ resource "neon_service_credential" "functions" {
 
 - `branch_id` (String) The Neon branch ID.
 - `project_id` (String) The Neon project ID.
-- `scopes` (List of String) The capabilities granted to the credential.
+- `scopes` (List of String) The capabilities requested for the credential: 1 to 16 entries chosen from storage:read, storage:write, ai_gateway:invoke, and functions:invoke. Known values and list sizes are checked during planning.
 
 ### Optional
 

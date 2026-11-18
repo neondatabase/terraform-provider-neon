@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	neon "github.com/kislerdm/neon-sdk-go"
@@ -54,9 +56,12 @@ func (r *orgAPIKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Description:   "The API key ID.",
 			},
 			"name": schema.StringAttribute{
+				Validators: []validator.String{
+					stringvalidator.UTF8LengthAtMost(64),
+				},
 				Required:      true,
 				PlanModifiers: requiresReplace,
-				Description:   "The name of the API Key.",
+				Description:   "The name of the API key. At most 64 Unicode code points. Changing it replaces the resource.",
 			},
 			"org_id": schema.StringAttribute{
 				Required:      true,

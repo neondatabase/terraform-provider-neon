@@ -36,7 +36,7 @@ resource "neon_org_api_key" "limited_to_project" {
 
 ### Required
 
-- `name` (String) The name of the API Key.
+- `name` (String) The name of the API key. At most 64 Unicode code points. Changing it replaces the resource.
 - `org_id` (String) The organisation ID.
 
 ### Optional

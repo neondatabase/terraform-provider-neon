@@ -25,7 +25,7 @@ resource "neon_api_key" "example" {
 
 ### Required
 
-- `name` (String) The name of the API Key.
+- `name` (String) The name of the API key. At most 64 Unicode code points. Changing it replaces the resource.
 
 ### Read-Only
 

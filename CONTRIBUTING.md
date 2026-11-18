@@ -98,10 +98,12 @@ to state.
 The API validates its input, so most values aren't checked at plan time. Validate in the provider when:
 
 - the value is a type discriminator or enum the SDK exposes a constructor for, such as `neon.NewScheduleTriggerType`, or
-- the Neon OpenAPI spec publishes the pattern and the API would reject the value only during apply, after other
-  resources were created. Function slugs (`^[a-z0-9]{1,20}$`) are the current example.
+- the Neon OpenAPI spec publishes the pattern or length bound and the API would reject the value only during apply,
+  after other resources were created. Examples are Function slugs (`^[a-z0-9]{1,20}$`) and API-key names (at most
+  64 Unicode code points).
 
-Keep validator messages in the same words as the API's rule, and change them when the API rule changes.
+Enforce only the published constraint, without inventing minimum lengths or trimming input. Preserve null and unknown
+handling. Keep validator messages in the same words as the API's rule, and change them when the API rule changes.
 
 ### Errors
 

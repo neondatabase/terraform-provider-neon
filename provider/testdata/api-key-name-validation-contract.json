@@ -1,0 +1,27 @@
+{
+  "source": "https://neon.com/api_spec/release/v2.json",
+  "sha256": "64a2beee00eb38d9fddc61c5ce38552f08ec6655741393924574cebefc322827",
+  "propertyPointer": "#/components/schemas/ApiKeyCreateRequest/properties/key_name",
+  "property": {
+    "type": "string",
+    "description": "A user-specified API key name. This value is required when creating an API key.",
+    "maxLength": 64
+  },
+  "bindings": [
+    {
+      "resource": "neon_api_key",
+      "attribute": "name",
+      "operationId": "createApiKey",
+      "requestSchema": "#/components/schemas/ApiKeyCreateRequest",
+      "sdkMapping": "ApiKeyCreateRequest.KeyName"
+    },
+    {
+      "resource": "neon_org_api_key",
+      "attribute": "name",
+      "operationId": "createOrgApiKey",
+      "requestSchema": "#/components/schemas/OrgApiKeyCreateRequest",
+      "sharedSchema": "#/components/schemas/OrgApiKeyCreateRequest/allOf/0/$ref",
+      "sdkMapping": "OrgApiKeyCreateRequest.ApiKeyCreateRequest.KeyName"
+    }
+  ]
+}

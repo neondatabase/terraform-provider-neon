@@ -29,11 +29,12 @@ func TestAccBranchRealtime(t *testing.T) {
 	project := fmt.Sprintf(`
 resource "neon_project" "this" {
   name      = %q
+  org_id    = %q
   region_id = "aws-us-east-2"
 
   enable_logical_replication = true
 }
-`, projectName)
+`, projectName, os.Getenv("ORG_ID"))
 	withRealtime := func(origins string) string {
 		return project + fmt.Sprintf(`
 resource "neon_branch_realtime" "this" {

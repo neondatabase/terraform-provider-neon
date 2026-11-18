@@ -1,0 +1,8 @@
+{
+  "source": "https://neon.com/api_spec/release/v2.json",
+  "sha256": "64a2beee00eb38d9fddc61c5ce38552f08ec6655741393924574cebefc322827",
+  "operationId": "enableProjectBranchRealtime",
+  "schemaPointer": "#/components/schemas/RealtimeOptions/properties/allowed_origins/items",
+  "minLength": 1,
+  "maxLength": 2048
+}

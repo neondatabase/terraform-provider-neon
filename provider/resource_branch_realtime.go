@@ -86,7 +86,7 @@ func (r *neonBranchRealtimeResource) Schema(_ context.Context, _ resource.Schema
 				Validators: []validator.List{
 					listvalidator.SizeAtMost(realtimeMaxOrigins),
 					listvalidator.ValueStringsAre(
-						stringvalidator.LengthBetween(1, 2048),
+						stringvalidator.UTF8LengthBetween(1, 2048),
 						stringvalidator.RegexMatches(realtimeOriginPattern,
 							"must be * or an http or https origin with a host, an optional port, and no path"),
 					),

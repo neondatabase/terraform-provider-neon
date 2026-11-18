@@ -26,8 +26,8 @@ output "endpoint_hosts" {
 
 ### Required
 
-- `branch_id` (String) Branch ID.
-- `project_id` (String) Project ID.
+- `branch_id` (String) Branch ID. Use 1 to 60 lowercase ASCII letters, digits, or hyphens.
+- `project_id` (String) Project ID. Use 1 to 60 lowercase ASCII letters, digits, or hyphens.
 
 ### Optional
 

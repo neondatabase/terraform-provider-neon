@@ -1,12 +1,19 @@
 package provider
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBranchEndpointsDataSource(t *testing.T) {
@@ -264,4 +271,105 @@ data "neon_branch_endpoints" "this" {
   branch_id  = %q
 }
 `, projectID, branchID)
+}
+
+func TestBranchEndpointsLookupIDs(t *testing.T) {
+	const unknown = "terraform_data.scope.output"
+	minimum := strconv.Quote("-")
+	maximum := strconv.Quote(strings.Repeat("a", 57) + "-42")
+	for _, tc := range []struct {
+		name       string
+		project    string
+		branch     string
+		diagnostic string
+	}{
+		{
+			name:       "malformed project with unknown branch",
+			project:    `"Upper"`,
+			branch:     unknown,
+			diagnostic: "Invalid project_id",
+		},
+		{
+			name:       "malformed branch with unknown project",
+			project:    unknown,
+			branch:     `"branch_id"`,
+			diagnostic: "Invalid branch_id",
+		},
+		{
+			name:       "empty project",
+			project:    `""`,
+			branch:     minimum,
+			diagnostic: "Invalid project_id",
+		},
+		{
+			name:       "overlong branch",
+			project:    maximum,
+			branch:     strconv.Quote(strings.Repeat("a", 61)),
+			diagnostic: "Invalid branch_id",
+		},
+		{
+			name:    "scope boundaries",
+			project: minimum,
+			branch:  maximum,
+		},
+		{
+			name:       "required null project",
+			project:    "null",
+			branch:     maximum,
+			diagnostic: "Missing Configuration for Required Attribute|Missing required argument",
+		},
+		{
+			name:    "unknown scope",
+			project: unknown,
+			branch:  unknown,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			step := resource.TestStep{
+				Config:             branchEndpointsLookupPlanConfig(tc.project, tc.branch),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: tc.diagnostic == "",
+			}
+			if tc.diagnostic != "" {
+				step.ExpectError = regexp.MustCompile(tc.diagnostic)
+			}
+			if tc.project == unknown && tc.branch == unknown {
+				const address = "data.neon_branch_endpoints.this"
+				step.ConfigPlanChecks.PostApplyPreRefresh = []plancheck.PlanCheck{
+					plancheck.ExpectUnknownValue(address, tfjsonpath.New("project_id")),
+					plancheck.ExpectUnknownValue(address, tfjsonpath.New("branch_id")),
+				}
+			}
+			resource.UnitTest(t, resource.TestCase{
+				ProtoV6ProviderFactories: newProviderFactories(),
+				Steps:                    []resource.TestStep{step},
+			})
+		})
+	}
+}
+
+func branchEndpointsLookupPlanConfig(project, branch string) string {
+	return fmt.Sprintf(`
+provider "neon" { api_key = "unused" }
+resource "terraform_data" "scope" { input = "example" }
+
+data "neon_branch_endpoints" "this" {
+  project_id = %s
+  branch_id  = %s
+  depends_on = [terraform_data.scope]
+}
+`, project, branch)
+}
+
+func TestBranchEndpointsScopeContract(t *testing.T) {
+	data, err := os.ReadFile("testdata/branch-endpoints-scope.json")
+	require.NoError(t, err)
+	var contract struct {
+		Patterns map[string]string `json:"patterns"`
+	}
+	require.NoError(t, json.Unmarshal(data, &contract))
+	require.Equal(t, map[string]string{
+		"project_id": endpointListScopePattern.String(),
+		"branch_id":  endpointListScopePattern.String(),
+	}, contract.Patterns)
 }

@@ -1,0 +1,10 @@
+{
+  "source": "https://neon.com/api_spec/release/v2.json",
+  "sha256": "64a2beee00eb38d9fddc61c5ce38552f08ec6655741393924574cebefc322827",
+  "operationId": "listProjectBranchEndpoints",
+  "path": "/projects/{project_id}/branches/{branch_id}/endpoints",
+  "patterns": {
+    "project_id": "^[a-z0-9-]{1,60}$",
+    "branch_id": "^[a-z0-9-]{1,60}$"
+  }
+}

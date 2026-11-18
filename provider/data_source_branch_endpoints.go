@@ -2,11 +2,13 @@ package provider
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
@@ -59,11 +61,13 @@ func (d *neonBranchEndpointsDataSource) Schema(_ context.Context, _ datasource.S
 			},
 			"project_id": schema.StringAttribute{
 				Required:    true,
-				Description: "Project ID.",
+				Description: "Project ID. Use 1 to 60 lowercase ASCII letters, digits, or hyphens.",
+				Validators:  []validator.String{endpointListScopeValidator{}},
 			},
 			"branch_id": schema.StringAttribute{
 				Required:    true,
-				Description: "Branch ID.",
+				Description: "Branch ID. Use 1 to 60 lowercase ASCII letters, digits, or hyphens.",
+				Validators:  []validator.String{endpointListScopeValidator{}},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -113,6 +117,27 @@ func (d *neonBranchEndpointsDataSource) Schema(_ context.Context, _ datasource.S
 				},
 			},
 		},
+	}
+}
+
+var endpointListScopePattern = regexp.MustCompile(`^[a-z0-9-]{1,60}$`)
+
+type endpointListScopeValidator struct{}
+
+func (endpointListScopeValidator) Description(context.Context) string {
+	return "Use 1 to 60 lowercase ASCII letters, digits, or hyphens."
+}
+
+func (v endpointListScopeValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v endpointListScopeValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if !endpointListScopePattern.MatchString(req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid "+req.Path.String(), v.Description(ctx))
 	}
 }
 

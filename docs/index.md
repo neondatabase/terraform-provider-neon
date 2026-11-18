@@ -24,7 +24,7 @@ terraform {
     neon = {
       source = "neondatabase/neon"
       # Terraform installs a beta release only when the version is pinned exactly.
-      version = "0.19.0-beta.2"
+      version = "0.19.0-beta.3"
     }
   }
 }

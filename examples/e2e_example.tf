@@ -4,7 +4,7 @@ terraform {
   required_providers {
     neon = {
       source  = "neondatabase/neon"
-      version = "0.19.0-beta.2"
+      version = "0.19.0-beta.3"
     }
 
     aws = {

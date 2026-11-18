@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
@@ -316,6 +317,80 @@ func (m *neonAuthResourceModel) refreshSettings(plugins neon.NeonAuthPluginConfi
 		})
 	}
 	return diags
+}
+
+// planSettingsChanges marks the members that a changed settings group leaves out of the configuration as unknown:
+// Neon may have changed them since the plan's refresh, and apply reads them back.
+func planSettingsChanges(ctx context.Context, config tfsdk.Config, state neonAuthResourceModel,
+	plan *neonAuthResourceModel) (diags diag.Diagnostics) {
+	var configured neonAuthResourceModel
+	if diags.Append(config.Get(ctx, &configured)...); diags.HasError() {
+		return diags
+	}
+	for _, group := range []struct {
+		planned           *types.Object
+		prior, configured types.Object
+	}{
+		{&plan.EmailAndPassword, state.EmailAndPassword, configured.EmailAndPassword},
+		{&plan.MagicLink, state.MagicLink, configured.MagicLink},
+		{&plan.PhoneNumber, state.PhoneNumber, configured.PhoneNumber},
+		{&plan.Organization, state.Organization, configured.Organization},
+	} {
+		if !known(*group.planned) || group.planned.Equal(group.prior) {
+			continue
+		}
+		configuredMembers := map[string]attr.Value{}
+		if known(group.configured) {
+			configuredMembers = group.configured.Attributes()
+		}
+		members := group.planned.Attributes()
+		for name, value := range members {
+			if member, ok := configuredMembers[name]; ok && !member.IsNull() {
+				continue
+			}
+			switch value.(type) {
+			case types.Bool:
+				members[name] = types.BoolUnknown()
+			case types.Int64:
+				members[name] = types.Int64Unknown()
+			case types.String:
+				members[name] = types.StringUnknown()
+			default:
+				diags.AddError("Unsupported Neon Auth setting type", fmt.Sprintf("%s has the unsupported type %T.", name, value))
+				return diags
+			}
+		}
+		object, d := types.ObjectValue(group.planned.AttributeTypes(ctx), members)
+		if diags.Append(d...); diags.HasError() {
+			return diags
+		}
+		*group.planned = object
+	}
+	return diags
+}
+
+// keepUnchangedSettings restores the settings groups that an update didn't write to their planned values, so a
+// change made on Neon after the plan shows up at the next refresh instead of failing the apply.
+func keepUnchangedSettings(plan neonAuthResourceModel, state *neonAuthResourceModel) {
+	for _, group := range []struct{ planned, refreshed *types.Object }{
+		{&plan.EmailAndPassword, &state.EmailAndPassword},
+		{&plan.MagicLink, &state.MagicLink},
+		{&plan.PhoneNumber, &state.PhoneNumber},
+		{&plan.Organization, &state.Organization},
+	} {
+		if known(*group.planned) && !hasUnknownMember(*group.planned) {
+			*group.refreshed = *group.planned
+		}
+	}
+}
+
+func hasUnknownMember(object types.Object) bool {
+	for _, value := range object.Attributes() {
+		if value.IsUnknown() {
+			return true
+		}
+	}
+	return false
 }
 
 // validateNewIntegrationSettings fails during plan for settings Neon rejects right after Neon Auth is enabled,

@@ -135,6 +135,10 @@ func (r *neonAuthResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	if resp.Diagnostics.Append(planSettingsChanges(ctx, req.Config, state, &plan)...); resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 	if plan.ProjectID.Equal(state.ProjectID) && plan.BranchID.Equal(state.BranchID) &&
 		!plan.DatabaseName.IsUnknown() && !plan.DatabaseName.Equal(state.DatabaseName) {
 		resp.Diagnostics.AddAttributeError(path.Root("database_name"), "Cannot move Neon Auth to another database",
@@ -297,6 +301,7 @@ func (r *neonAuthResource) Update(ctx context.Context, req resource.UpdateReques
 				state.BranchID.ValueString(), state.ProjectID.ValueString()))
 		return
 	}
+	keepUnchangedSettings(plan, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

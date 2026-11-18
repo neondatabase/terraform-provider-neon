@@ -73,6 +73,55 @@ func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
 }`, ids),
 			wantError: `value must be one of`,
 		},
+		"magic link expiring in under 5 minutes": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  magic_link = { expires_in = 4 }
+}`, ids),
+			wantError: `value must be between 5 and 1440`,
+		},
+		"phone number one-time password expiring after 600 seconds": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  phone_number = { otp_expires_in = 601 }
+}`, ids),
+			wantError: `value must be between 60 and 600`,
+		},
+		"organization without members": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  organization = { membership_limit = 0 }
+}`, ids),
+			wantError: `value must be between 1 and 2147483647`,
+		},
+		"organization limit over the int32 range": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  organization = { organization_limit = 4294967297 }
+}`, ids),
+			wantError: `value must be between 1 and 2147483647`,
+		},
+		"unknown organization creator role": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  organization = { creator_role = "member" }
+}`, ids),
+			wantError: `value must be one of`,
+		},
+		"verification links on a new Neon Auth integration": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_and_password = { email_verification_method = "link" }
+}`, ids),
+			wantError: `Verification links need a custom email provider`,
+		},
+		"unknown email verification method": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_and_password = { email_verification_method = "sms" }
+}`, ids),
+			wantError: `value must be one of`,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

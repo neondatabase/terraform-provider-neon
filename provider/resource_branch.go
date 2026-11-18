@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -88,6 +89,7 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Optional:    true,
 				Computed:    true,
 				Description: "Branch name.",
+				Validators:  []validator.String{stringvalidator.UTF8LengthBetween(1, 256)},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -190,6 +191,7 @@ Alternatively, use the data source ` + "`neon_active_regions`.",
 				Description: "Name of the compute endpoint.",
 				Optional:    true,
 				Computed:    true,
+				Validators:  []validator.String{stringvalidator.UTF8LengthBetween(1, 64)},
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},

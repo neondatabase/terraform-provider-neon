@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	neon "github.com/kislerdm/neon-sdk-go"
 )
@@ -78,7 +80,10 @@ func (r *neonServiceCredentialResource) Schema(_ context.Context, _ resource.Sch
 				ElementType:   types.StringType,
 				Required:      true,
 				PlanModifiers: requiresReplaceList,
-				Description:   "The capabilities granted to the credential.",
+				Validators: []validator.List{
+					listvalidator.SizeBetween(1, 16),
+				},
+				Description: "The capabilities granted to the credential.",
 			},
 			"token_id": schema.StringAttribute{
 				Computed:    true,

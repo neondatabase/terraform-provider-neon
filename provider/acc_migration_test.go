@@ -7,8 +7,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
-	neon "github.com/kislerdm/neon-sdk-go"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestMigrationFromKislerdm tests migration from kislerdm/neon to neondatabase/neon given a fixed stack.
@@ -17,9 +15,6 @@ func TestMigrationFromKislerdm(t *testing.T) {
 		t.Skip("TF_ACC must be set to 1")
 	}
 
-	client, err := neon.NewClient(neon.Config{Key: os.Getenv("NEON_API_KEY"), HTTPClient: lockRetryingHTTPClient{}})
-	assert.NoError(t, err)
-
 	t.Run("v0.18.0:neon_project", func(t *testing.T) {
 		var (
 			projectID  string
@@ -27,7 +22,7 @@ func TestMigrationFromKislerdm(t *testing.T) {
 			branchID   string
 		)
 
-		projectName := "migration0180Project"
+		projectName := newProjectName("migration0180Project")
 
 		configFrom := fmt.Sprintf(`resource "neon_project" "_" {
   name = %q
@@ -103,31 +98,22 @@ func TestMigrationFromKislerdm(t *testing.T) {
 							},
 						},
 						Config: configFrom,
+						Check: func(state *terraform.State) error {
+							p, ok := state.RootModule().Resources["neon_project._"]
+							if !ok {
+								return fmt.Errorf("no project resource found")
+							}
+							projectID = p.Primary.ID
+							branchID = p.Primary.Attributes["default_branch_id"]
+							endpointID = p.Primary.Attributes["default_endpoint_id"]
+							if projectID == "" || branchID == "" || endpointID == "" {
+								return fmt.Errorf("kislerdm/neon state is missing IDs: project %q, branch %q, endpoint %q",
+									projectID, branchID, endpointID)
+							}
+							return nil
+						},
 					},
 					{
-						// read ids of provisioned resources to ensure that no resource were recreated as
-						// the result of migration
-						PreConfig: func() {
-							pr, err := client.ListProjects(nil, nil, &projectName, nil, nil,
-								nil)
-							if err != nil {
-								panic(err)
-							}
-							projectID = pr.Projects[0].ID
-
-							e, err := client.ListProjectEndpoints(projectID)
-							if err != nil {
-								panic(err)
-							}
-							endpointID = e.Endpoints[0].ID
-
-							branches, err := client.ListProjectBranches(projectID, nil, nil, nil,
-								nil, nil, nil)
-							if err != nil {
-								panic(err)
-							}
-							branchID = branches.Branches[0].ID
-						},
 						ProtoV6ProviderFactories: newProviderFactories(),
 						Config:                   configTo(true),
 						Check: resource.ComposeTestCheckFunc(

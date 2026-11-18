@@ -625,7 +625,8 @@ func validateNewIntegrationSettings(ctx context.Context, plan tfsdk.Plan) (diags
 	var method, providerType types.String
 	diags.Append(plan.GetAttribute(ctx, path.Root("email_and_password").AtName("email_verification_method"), &method)...)
 	diags.Append(plan.GetAttribute(ctx, path.Root("email_provider").AtName("type"), &providerType)...)
-	if diags.HasError() || !method.Equal(types.StringValue("link")) || providerType.Equal(types.StringValue("standard")) {
+	if diags.HasError() || !method.Equal(types.StringValue("link")) || providerType.IsUnknown() ||
+		providerType.Equal(types.StringValue("standard")) {
 		return diags
 	}
 	diags.AddAttributeError(path.Root("email_and_password").AtName("email_verification_method"),
@@ -685,7 +686,7 @@ func validateEmailProvider(ctx context.Context, object types.Object) (diags diag
 	}
 	for _, field := range fields {
 		switch {
-		case m.Type.ValueString() == "shared" && !field.value.IsNull():
+		case m.Type.ValueString() == "shared" && known(field.value):
 			diags.AddAttributeError(root.AtName(field.name), "Attribute only applies to a standard email provider",
 				fmt.Sprintf("Remove %s, or set type to `standard`. Neon's shared email server sends from its own address.", field.name))
 		case m.Type.ValueString() == "standard" && field.value.IsNull():

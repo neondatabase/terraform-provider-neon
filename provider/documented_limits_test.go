@@ -9,6 +9,34 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
+func TestNeonAuthLinkVerificationPlansWithAnUnknownEmailProviderType(t *testing.T) {
+	t.Parallel()
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: newProviderFactories(),
+		Steps: []resource.TestStep{{
+			Config: `resource "terraform_data" "smtp" { input = "standard" }
+
+resource "neon_auth" "this" {
+  project_id = "cool-moon-42"
+  branch_id  = "br-cool-moon-42"
+  email_provider = {
+    type         = terraform_data.smtp.output
+    host         = "smtp.example.com"
+    port         = 587
+    username     = "apikey"
+    password     = "secret"
+    sender_email = "auth@example.com"
+    sender_name  = "Example"
+  }
+  email_and_password = { email_verification_method = "link" }
+}`,
+			PlanOnly:           true,
+			ExpectNonEmptyPlan: true,
+		}},
+	})
+}
+
 func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
 	t.Parallel()
 

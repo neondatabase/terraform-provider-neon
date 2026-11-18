@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `neon_branch_realtime.allowed_origins` counts the 2,048-character limit per origin in characters, as the Neon API does, so a long origin with multi-byte characters is no longer rejected during plan.
+
 ## [v0.19.0-beta.3] - 2026-11-18
 
 ### Changed

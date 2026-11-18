@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
 var _ datasource.DataSource = (*neonProject)(nil)
@@ -56,12 +58,35 @@ func (d neonProject) Schema(ctx context.Context, _ datasource.SchemaRequest, res
 			tmp := resp.Schema.Attributes[k].(schema.StringAttribute)
 			tmp.Computed = false
 			tmp.Required = true
+			tmp.Description = "The project ID. Use 1 to 60 lowercase ASCII letters, digits, or hyphens."
+			tmp.Validators = []validator.String{projectLookupIDValidator{}}
 			resp.Schema.Attributes[k] = tmp
 		}
 	}
 
 	for k, v := range blocksResource {
 		resp.Schema.Blocks[k] = newReadOnlyDataSourceBlockFromResourceBlock(v)
+	}
+}
+
+var projectLookupIDPattern = regexp.MustCompile(`^[a-z0-9-]{1,60}$`)
+
+type projectLookupIDValidator struct{}
+
+func (projectLookupIDValidator) Description(context.Context) string {
+	return "Use 1 to 60 lowercase ASCII letters, digits, or hyphens."
+}
+
+func (v projectLookupIDValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v projectLookupIDValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if !projectLookupIDPattern.MatchString(req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid project ID", v.Description(ctx))
 	}
 }
 

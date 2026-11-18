@@ -1,0 +1,7 @@
+{
+  "source": "https://neon.com/api_spec/release/v2.json",
+  "sha256": "64a2beee00eb38d9fddc61c5ce38552f08ec6655741393924574cebefc322827",
+  "operationId": "getProject",
+  "schemaPointer": "#/paths/~1projects~1{project_id}/parameters/0/schema",
+  "pattern": "^[a-z0-9-]{1,60}$"
+}

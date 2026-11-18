@@ -29,7 +29,7 @@ output "primary_compute_host" {
 
 ### Required
 
-- `id` (String) Project ID.
+- `id` (String) The project ID. Use 1 to 60 lowercase ASCII letters, digits, or hyphens.
 
 ### Read-Only
 

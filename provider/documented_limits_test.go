@@ -15,7 +15,11 @@ func TestNeonAuthLinkVerificationPlansWithAnUnknownEmailProviderType(t *testing.
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: newProviderFactories(),
 		Steps: []resource.TestStep{{
-			Config: `resource "terraform_data" "smtp" { input = "standard" }
+			Config: `provider "neon" {
+  api_key = "unused"
+}
+
+resource "terraform_data" "smtp" { input = "standard" }
 
 resource "neon_auth" "this" {
   project_id = "cool-moon-42"

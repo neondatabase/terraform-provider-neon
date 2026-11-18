@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
@@ -83,7 +82,6 @@ func (r *neonServiceCredentialResource) Schema(_ context.Context, _ resource.Sch
 				PlanModifiers: requiresReplaceList,
 				Validators: []validator.List{
 					listvalidator.SizeBetween(1, 16),
-					listvalidator.ValueStringsAre(stringvalidator.OneOf("storage:read", "storage:write", "ai_gateway:invoke", "functions:invoke")),
 				},
 				Description: "The capabilities granted to the credential.",
 			},

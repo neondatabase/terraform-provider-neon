@@ -1,0 +1,47 @@
+name: Subscription entitlement test
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan:
+        description: Neon subscription to verify
+        type: choice
+        required: true
+        options:
+          - free
+          - launch
+          - scale
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  suspend-timeout:
+    name: Verify scale-to-zero (${{ inputs.plan }})
+    environment: subscription-${{ inputs.plan }}
+    runs-on:
+      group: databricks-ghec-untrusted-runner-group
+      labels: linux-ubuntu-latest-untrusted-2core-8gb
+    timeout-minutes: 30
+    concurrency:
+      group: acceptance-tests
+      cancel-in-progress: false
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/prepare
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: '1.17.*'
+          terraform_wrapper: false
+      - run: go test -tags=subscription ./provider -run '^TestAccSubscriptionSuspendTimeout$' -v -count=1 -timeout 20m
+        env:
+          TF_ACC: "1"
+          NEON_TEST_PLAN: ${{ inputs.plan }}
+          ORG_ID: ${{ secrets.SUBSCRIPTION_ORG_ID }}
+          NEON_API_KEY: ${{ secrets.SUBSCRIPTION_NEON_API_KEY }}

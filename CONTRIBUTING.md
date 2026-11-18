@@ -166,6 +166,26 @@ Some acceptance test files carry `//go:build acceptance`; without `-tags=accepta
 - After a run, list the projects in the organization. Delete leftovers with [`cmd/cleanup`](cmd/cleanup/README.md).
 - When a test fails, run it on the base commit before calling the failure pre-existing.
 
+### Subscription acceptance tests
+
+Run the same project update against a test organization on each self-serve plan. The test reads the
+organization's actual plan before creating a project. On Launch and Scale it checks that disabling
+scale-to-zero updates the remote compute. On Free it expects an entitlement error and checks that the
+remote timeout retains its original value.
+
+```sh
+TF_ACC=1 NEON_TEST_PLAN=free go test -tags=subscription ./provider -run '^TestAccSubscriptionSuspendTimeout$' -count=1 -v
+```
+
+Set `ORG_ID` and `NEON_API_KEY` for that organization. Use `launch` or `scale` to run the paid cases.
+To run it in CI, dispatch **Subscription entitlement test** and select one tier. Configure
+the GitHub environment `subscription-free`, `subscription-launch`, or `subscription-scale`
+with environment secrets `SUBSCRIPTION_ORG_ID` and `SUBSCRIPTION_NEON_API_KEY`. Keep those names
+scoped to the tier environments so the job cannot inherit the regular acceptance credentials. The job fails before creating a
+project if the key, organization, or plan check fails. It shares the normal acceptance job’s
+concurrency group and runs only this test.
+
+
 ### What a change needs
 
 | Change | Tests |

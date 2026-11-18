@@ -45,7 +45,7 @@ Read-Only:
 - `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
 - `logical_size` (Number) Branch logical size in bytes.
-- `name` (String) Branch name.
+- `name` (String) Branch name. Must be 1 to 256 Unicode code points.
 - `parent_id` (String) Parent branch ID.
 - `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
 - `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.

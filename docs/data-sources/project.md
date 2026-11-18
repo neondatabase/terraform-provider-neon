@@ -101,7 +101,7 @@ Read-Only:
 - `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
 - `logical_size` (Number) Branch logical size in bytes.
-- `name` (String) Branch name.
+- `name` (String) Branch name. Must be 1 to 256 Unicode code points.
 - `parent_id` (String) Parent branch ID.
 - `parent_lsn` (String) Parent branch Log Sequence Number (LSN).
 - `parent_timestamp` (Number) Parent branch point-in-time timestamp in Unix seconds. Zero when not provided by the API.
@@ -138,7 +138,7 @@ Read-Only:
 - `host` (String) The hostname of the compute endpoint.
 - `host_pooler` (String) The hostname of the compute endpoint accessible through the connection pool (pgbouncer).
 - `id` (String) Endpoint ID.
-- `name` (String) Name of the compute endpoint.
+- `name` (String) Name of the compute endpoint. Must be 1 to 64 Unicode code points.
 - `passwordless_access` (Boolean) When true, the endpoint allows passwordless access.
 - `project_id` (String) Project ID.
 - `region_id` (String) Cloud region where the resource's Postgres compute and storage reside.

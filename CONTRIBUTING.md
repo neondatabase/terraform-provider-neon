@@ -99,8 +99,10 @@ The API validates its input, so most values aren't checked at plan time. Validat
 
 - the value is a type discriminator or enum the SDK exposes a constructor for, such as `neon.NewScheduleTriggerType`, or
 - the Neon OpenAPI spec publishes the pattern and the API would reject the value only during apply, after other
-  resources were created. Function slugs (`^[a-z0-9]{1,20}$`) are the current example.
+  resources were created. Function slugs (`^[a-z0-9]{1,20}$`) are the current example, or
+- the Neon OpenAPI spec publishes branch or endpoint name length bounds. Count Unicode code points, not bytes.
 
+Validate known configured values without trimming, normalization, or guessed defaults; defer null and unknown values.
 Keep validator messages in the same words as the API's rule, and change them when the API rule changes.
 
 ### Errors

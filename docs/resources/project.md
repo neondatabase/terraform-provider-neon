@@ -214,7 +214,7 @@ See details [here](https://neon.com/docs/manage/endpoints#scale-to-zero-configur
 
 Optional:
 
-- `name` (String) Branch name.
+- `name` (String) Branch name. Must be 1 to 256 Unicode code points.
 - `protected` (Boolean) Protected branch flag.
 
 Read-Only:
@@ -253,7 +253,7 @@ Optional:
 	enabled by check_availability operations.
 - `enabled_libraries` (List of String) Names of shared preload libraries to enable on the endpoint. Removing the attribute keeps the current libraries; set it to `[]` to clear them.
 - `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
-- `name` (String) Name of the compute endpoint.
+- `name` (String) Name of the compute endpoint. Must be 1 to 64 Unicode code points.
 - `passwordless_access` (Boolean) When true, the endpoint allows passwordless access.
 - `suspend_timeout_seconds` (Number) Scale-to-zero idle timeout, in seconds, before the compute suspends.
    - `0` means the plan default (`300` sec.) applies;

@@ -1,0 +1,42 @@
+{
+  "source": "https://neon.com/api_spec/release/v2.json",
+  "sha256": "64a2beee00eb38d9fddc61c5ce38552f08ec6655741393924574cebefc322827",
+  "requests": [
+    {
+      "schema": "BranchCreateRequest",
+      "path": "#/components/schemas/BranchCreateRequest/properties/branch/properties/name",
+      "input": "branch",
+      "description": "The branch name\n",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    {
+      "schema": "BranchUpdateRequest",
+      "path": "#/components/schemas/BranchUpdateRequest/properties/branch/properties/name",
+      "input": "branch",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "New display name for the branch."
+    },
+    {
+      "schema": "EndpointCreateRequest",
+      "path": "#/components/schemas/EndpointCreateRequest/properties/endpoint/properties/name",
+      "input": "endpoint",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Optional name of the compute endpoint\n"
+    },
+    {
+      "schema": "EndpointUpdateRequest",
+      "path": "#/components/schemas/EndpointUpdateRequest/properties/endpoint/properties/name",
+      "input": "endpoint",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Optional name of the compute endpoint\n"
+    }
+  ]
+}

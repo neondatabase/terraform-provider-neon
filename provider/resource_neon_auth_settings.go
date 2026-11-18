@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"math"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -15,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	neon "github.com/kislerdm/neon-sdk-go"
@@ -138,9 +140,10 @@ func neonAuthSettingsAttributes() map[string]schema.Attribute {
 			"otp_expires_in": number("Seconds until a one-time password expires, from 60 to 600.", int64validator.Between(60, 600)),
 		}),
 		"organization": setting("Organizations of users within Neon Auth, separate from Neon organizations.", map[string]schema.Attribute{
-			"enabled":            flag("Whether users can create and join organizations. Neon enables it by default."),
-			"organization_limit": number("Maximum number of organizations a user can create or join.", int64validator.AtLeast(1)),
-			"membership_limit":   number("Maximum number of members per organization.", int64validator.AtLeast(1)),
+			"enabled": flag("Whether users can create and join organizations. Neon enables it by default."),
+			"organization_limit": number("Maximum number of organizations a user can create or join.",
+				int64validator.Between(1, math.MaxInt32)),
+			"membership_limit": number("Maximum number of members per organization.", int64validator.Between(1, math.MaxInt32)),
 			"creator_role": choice("Role of the user who creates an organization: `owner` has full control, `admin` "+
 				"manages members and settings.", "owner", "admin"),
 			"send_invitation_email": flag("Whether invited users receive an email with a link to accept the invitation."),
@@ -148,17 +151,21 @@ func neonAuthSettingsAttributes() map[string]schema.Attribute {
 	}
 }
 
-// writeSettings sends each settings group whose plan differs from state. Unknown members are left out of the
-// request, so Neon keeps their current values.
-func (r *neonAuthResource) writeSettings(ctx context.Context, plan, state neonAuthResourceModel) (diags diag.Diagnostics) {
+// writeSettings sends each settings group whose plan differs from state. A request carries only the members set in
+// the configuration, so Neon keeps every other value, including one changed after the plan was made.
+func (r *neonAuthResource) writeSettings(ctx context.Context, config tfsdk.Config, plan, state neonAuthResourceModel) (diags diag.Diagnostics) {
 	projectID, branchID := plan.ProjectID.ValueString(), plan.BranchID.ValueString()
 	changed := func(planned, prior types.Object) bool {
 		return !planned.IsNull() && !planned.IsUnknown() && !planned.Equal(prior)
 	}
+	var configured neonAuthResourceModel
+	if diags.Append(config.Get(ctx, &configured)...); diags.HasError() {
+		return diags
+	}
 
-	if changed(plan.EmailAndPassword, state.EmailAndPassword) {
+	if changed(plan.EmailAndPassword, state.EmailAndPassword) && known(configured.EmailAndPassword) {
 		var m neonAuthEmailAndPasswordModel
-		if diags.Append(plan.EmailAndPassword.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
+		if diags.Append(configured.EmailAndPassword.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
 			return diags
 		}
 		cfg := neon.NeonAuthEmailAndPasswordConfigUpdate{
@@ -187,9 +194,9 @@ func (r *neonAuthResource) writeSettings(ctx context.Context, plan, state neonAu
 		}
 	}
 
-	if changed(plan.MagicLink, state.MagicLink) {
+	if changed(plan.MagicLink, state.MagicLink) && known(configured.MagicLink) {
 		var m neonAuthMagicLinkModel
-		if diags.Append(plan.MagicLink.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
+		if diags.Append(configured.MagicLink.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
 			return diags
 		}
 		cfg := neon.NeonAuthMagicLinkConfigUpdate{Enabled: knownBool(m.Enabled), DisableSignUp: knownBool(m.DisableSignUp)}
@@ -205,9 +212,9 @@ func (r *neonAuthResource) writeSettings(ctx context.Context, plan, state neonAu
 		}
 	}
 
-	if changed(plan.PhoneNumber, state.PhoneNumber) {
+	if changed(plan.PhoneNumber, state.PhoneNumber) && known(configured.PhoneNumber) {
 		var m neonAuthPhoneNumberModel
-		if diags.Append(plan.PhoneNumber.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
+		if diags.Append(configured.PhoneNumber.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
 			return diags
 		}
 		cfg := neon.NeonAuthPhoneNumberConfigUpdate{Enabled: knownBool(m.Enabled)}
@@ -223,9 +230,9 @@ func (r *neonAuthResource) writeSettings(ctx context.Context, plan, state neonAu
 		}
 	}
 
-	if changed(plan.Organization, state.Organization) {
+	if changed(plan.Organization, state.Organization) && known(configured.Organization) {
 		var m neonAuthOrganizationModel
-		if diags.Append(plan.Organization.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
+		if diags.Append(configured.Organization.As(ctx, &m, basetypes.ObjectAsOptions{})...); diags.HasError() {
 			return diags
 		}
 		cfg := neon.NeonAuthOrganizationConfigUpdate{
@@ -308,6 +315,21 @@ func (m *neonAuthResourceModel) refreshSettings(plugins neon.NeonAuthPluginConfi
 			"send_invitation_email": types.BoolValue(v.SendInvitationEmail),
 		})
 	}
+	return diags
+}
+
+// validateNewIntegrationSettings fails during plan for settings Neon rejects right after Neon Auth is enabled,
+// where a failed write can only be reported as a warning.
+func validateNewIntegrationSettings(ctx context.Context, plan tfsdk.Plan) (diags diag.Diagnostics) {
+	var method types.String
+	diags.Append(plan.GetAttribute(ctx, path.Root("email_and_password").AtName("email_verification_method"), &method)...)
+	if diags.HasError() || !method.Equal(types.StringValue("link")) {
+		return diags
+	}
+	diags.AddAttributeError(path.Root("email_and_password").AtName("email_verification_method"),
+		"Verification links need a custom email provider",
+		"Neon Auth starts with Neon's shared email provider, which sends one-time passwords only. Use `otp` "+
+			"when enabling Neon Auth, and switch to `link` after configuring a custom email provider.")
 	return diags
 }
 

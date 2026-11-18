@@ -122,7 +122,11 @@ func (r *neonAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 
 // ModifyPlan refuses to replace Neon Auth on the same branch: Neon cannot enable it again there.
 func (r *neonAuthResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+	if req.State.Raw.IsNull() {
+		resp.Diagnostics.Append(validateNewIntegrationSettings(ctx, req.Plan)...)
 		return
 	}
 	var plan, state neonAuthResourceModel
@@ -212,7 +216,7 @@ func (r *neonAuthResource) Create(ctx context.Context, req resource.CreateReques
 		followUp.Append(r.setAllowLocalhost(ctx, plan)...)
 	}
 	if !followUp.HasError() {
-		followUp.Append(r.writeSettings(ctx, plan, neonAuthResourceModel{})...)
+		followUp.Append(r.writeSettings(ctx, req.Config, plan, neonAuthResourceModel{})...)
 	}
 	refreshed := state
 	if !followUp.HasError() {
@@ -276,7 +280,7 @@ func (r *neonAuthResource) Update(ctx context.Context, req resource.UpdateReques
 			return
 		}
 	}
-	resp.Diagnostics.Append(r.writeSettings(ctx, plan, state)...)
+	resp.Diagnostics.Append(r.writeSettings(ctx, req.Config, plan, state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

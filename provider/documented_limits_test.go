@@ -92,7 +92,14 @@ func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
   %s
   organization = { membership_limit = 0 }
 }`, ids),
-			wantError: `value must be at least 1`,
+			wantError: `value must be between 1 and 2147483647`,
+		},
+		"organization limit over the int32 range": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  organization = { organization_limit = 4294967297 }
+}`, ids),
+			wantError: `value must be between 1 and 2147483647`,
 		},
 		"unknown organization creator role": {
 			config: fmt.Sprintf(`resource "neon_auth" "this" {
@@ -100,6 +107,13 @@ func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
   organization = { creator_role = "member" }
 }`, ids),
 			wantError: `value must be one of`,
+		},
+		"verification links on a new Neon Auth integration": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_and_password = { email_verification_method = "link" }
+}`, ids),
+			wantError: `Verification links need a custom email provider`,
 		},
 		"unknown email verification method": {
 			config: fmt.Sprintf(`resource "neon_auth" "this" {

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `neon_auth` manages Neon Auth sign-in settings with `email_and_password`, `magic_link`, `phone_number`, and `organization`. Settings left out of the configuration keep their current value on Neon.
+- `neon_auth` manages the email provider that sends auth emails (`email_provider`, Neon's shared server or your SMTP server) and the Neon Auth webhook (`webhook`).
 
 ### Fixed
 

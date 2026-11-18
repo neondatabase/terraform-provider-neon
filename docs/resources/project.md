@@ -161,15 +161,16 @@ Note that it is not retrospectively applicable, i.e., existing compute resources
 - `database_user` (String) Default database role.
 - `enable_logical_replication` (Boolean) Sets wal_level=logical for all compute endpoints in this project.
 All active endpoints will be suspended. See details: https://neon.com/docs/introduction/logical-replication
-**Note**: removal of this config from the manifest will correspond to the API call with the respective setting set to false.
+Omit it to keep the current setting, for example after Neon Realtime enabled it.
 
-**Warning**: Once enabled, logical replication cannot be disabled.
+**Warning**: Once enabled, logical replication cannot be disabled. Setting it to false on a project where it is enabled replaces the project.
 - `enabled_libraries` (List of String) Names of shared libraries preload by default when provisioning compute resources, i.e., endpoints. Removing the attribute keeps the current libraries; set it to `[]` to clear them.
 - `enabled_libraries_use_defaults` (Boolean) When true, the project's preload libraries include the platform default set in addition to any libraries listed in `enabled_libraries`.
 - `hipaa` (Boolean) Enable HIPAA compliance for the project.
 Note that HIPAA must be configured for the organization first.
+Omit it to keep the current setting.
 
-**Warning**: Once enabled, HIPAA cannot be disabled.
+**Warning**: Once enabled, HIPAA cannot be disabled. Setting it to false on a project where it is enabled replaces the project.
 - `history_retention_seconds` (Number) The number of seconds to retain the point-in-time restore (PITR) backup history for this project.
 Default: 1 day, see https://neon.com/docs/reference/glossary#point-in-time-restore.
 - `maintenance_window` (Attributes) A time period during which Neon may perform maintenance on the project's infrastructure. During this time, the project's compute endpoints may be unavailable and existing connections can be interrupted. (see [below for nested schema](#nestedatt--maintenance_window))

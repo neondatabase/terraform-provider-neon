@@ -211,9 +211,7 @@ functions that take only the values that change between steps.
 
 - Every resource has an example in `examples/` and a template in `templates/`, named without the `neon_` prefix:
   `templates/resources/branch.md.tmpl` renders `docs/resources/branch.md`.
-- Regenerate `docs/` with `make docu`. The generator names the provider after the checkout directory, so run it from a
-  checkout named `terraform-provider-neon`; in a directory with another name it fails and deletes `docs/`
-  (`git checkout -- docs` restores it). CI fails when `docs/` doesn't match the generated output.
+- Regenerate `docs/` with `make docu`. CI fails when `docs/` doesn't match the generated output.
 - Examples must pass `terraform validate` with the current provider. Use unique resource addresses and the current
   syntax; users copy examples whole.
 
@@ -228,8 +226,11 @@ test-only changes need no entry.
 - One concern per pull request: the fix, plus identical instances of the same bug.
 - Title commits and pull requests as an imperative sentence: `Validate Function slugs at plan time`.
 - Describe the problem, the user-facing change with an HCL or output example, and how you verified it.
-- Pull requests from forks run the build, lint, docs, and unit tests. Acceptance tests need repository secrets, so a
-  maintainer runs them, sometimes by carrying the change on a branch in this repository with you as co-author.
+- Maintainers treat a pull request from outside the team as a report of the problem it fixes. They reproduce the
+  problem, write and test their own fix on a branch in this repository, credit you in that pull request, and close
+  yours with a link to it. An issue with a reproduction is the fastest way to get a problem fixed.
+- Pull requests from forks run the build, lint, docs, and unit tests. Acceptance tests need repository secrets and run
+  only on branches in this repository.
 
 Releases are cut by maintainers; [`.agents/skills/releasing-the-provider`](.agents/skills/releasing-the-provider/SKILL.md)
 describes the process.

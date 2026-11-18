@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"log"
 
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/neondatabase/terraform-provider-neon/provider"
 )
 
@@ -16,7 +17,7 @@ import (
 
 // Run the docs generation tool, check its repository for more information on how it works and how docs
 // can be customized.
-//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-name terraform-provider-neon
 
 var (
 	// these will be set by the goreleaser configuration
@@ -30,15 +31,11 @@ func main() {
 	flag.BoolVar(&debugMode, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	opts := &plugin.ServeOpts{
-		Debug: debugMode,
-
-		ProviderAddr: "registry.terraform.io/" + provider.Name,
-
-		GRPCProviderV6Func: func() tfprotov6.ProviderServer {
-			return provider.NewServer(version)
-		},
+	err := providerserver.Serve(context.Background(), provider.New(version), providerserver.ServeOpts{
+		Address: "registry.terraform.io/" + provider.Name,
+		Debug:   debugMode,
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	plugin.Serve(opts)
 }

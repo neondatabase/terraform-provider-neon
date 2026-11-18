@@ -250,7 +250,7 @@ func (r *neonBucketResource) Create(ctx context.Context, req resource.CreateRequ
 
 	var result neon.BucketResponse
 	resp.Diagnostics.Append(
-		projectReadiness.Retry(ctx,
+		retryCreate(ctx,
 			func(ctx context.Context) error {
 				result, err = r.client.CreateProjectBranchBucket(
 					state.ProjectID.ValueString(),
@@ -261,7 +261,7 @@ func (r *neonBucketResource) Create(ctx context.Context, req resource.CreateRequ
 					},
 				)
 				return err
-			}, nil)...,
+			})...,
 	)
 	if resp.Diagnostics.HasError() {
 		return

@@ -23,7 +23,7 @@ release pipeline; contributors prepare the release pull request.
 
    Today the pins are in `README.md`, `examples/provider/provider.tf`, `examples/e2e_example.tf`, and
    `templates/guides/migrate-from-kislerdm-neon.md.tmpl`.
-4. Run `make docu` from a checkout named `terraform-provider-neon` and commit the `docs/` changes.
+4. Run `make docu` and commit the `docs/` changes.
 5. Open the pull request as `Release vX.Y.Z`, wait for every check, including the acceptance tests on both Terraform
    versions, and merge it.
 

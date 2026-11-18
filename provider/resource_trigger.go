@@ -303,7 +303,7 @@ func (r *neonTriggerResource) Create(ctx context.Context, req resource.CreateReq
 	cfg := buildTriggerCreateRequest(&plan)
 
 	var result neon.TriggerResponse
-	resp.Diagnostics.Append(projectReadiness.Retry(ctx, func(_ context.Context) error {
+	resp.Diagnostics.Append(retryCreate(ctx, func(_ context.Context) error {
 		var err error
 		result, err = r.client.CreateProjectBranchTrigger(
 			plan.ProjectID.ValueString(),
@@ -311,7 +311,7 @@ func (r *neonTriggerResource) Create(ctx context.Context, req resource.CreateReq
 			cfg,
 		)
 		return err
-	}, nil)...)
+	})...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

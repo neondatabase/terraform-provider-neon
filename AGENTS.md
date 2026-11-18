@@ -35,8 +35,7 @@ Load the skill that matches the task before starting it:
   automatic API refresh remains separate work (see CONTRIBUTING.md).
 - **Keep Neon's error messages.** Return errors through `newDiagnostics`. Add a hint only for a case Neon's message
   identifies.
-- **Generated docs are generated.** Never edit `docs/`. Run `make docu` from a checkout directory named
-  `terraform-provider-neon`; in a worktree with another name it fails and deletes `docs/`.
+- **Generated docs are generated.** Never edit `docs/`; run `make docu` and commit the result.
 - **One acceptance run per organization.** Tests clean up by project name prefix, so two suites against the same
   organization delete each other's projects.
 - **Secrets stay out of the repository.** API keys, Terraform state, plans, and `dev.tfrc` files hold credentials or
@@ -50,7 +49,7 @@ go vet ./...
 make lint
 make test
 TF_ACC=1 go test -tags=acceptance ./provider/ -run '<the tests your change touches>' -v
-make docu                     # from a checkout named terraform-provider-neon; commit the docs/ diff
+make docu                     # commit the docs/ diff
 ```
 
 Also add a `CHANGELOG.md` entry under `[Unreleased]` for anything a user would notice, and make sure every example you

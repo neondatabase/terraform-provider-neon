@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -15,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	neon "github.com/kislerdm/neon-sdk-go"
@@ -75,7 +77,7 @@ func (r *neonDataAPIResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"branch_id":          schema.StringAttribute{Required: true, PlanModifiers: replacementString, Description: "The Neon branch ID. Changes require replacement."},
 			"database_name":      schema.StringAttribute{Required: true, PlanModifiers: replacementString, Description: "The database served by the Data API. Changes require replacement."},
 			"url":                schema.StringAttribute{Computed: true, Description: "The Data API endpoint URL used by applications."},
-			"auth_provider":      schema.StringAttribute{Optional: true, PlanModifiers: replacementString, Description: "Authentication provider: neon_auth or external. The API validates authentication configuration. Changes require replacement; GET cannot discover this value on import or detect external changes."},
+			"auth_provider":      schema.StringAttribute{Optional: true, PlanModifiers: replacementString, Validators: []validator.String{stringvalidator.OneOf("neon_auth", "external")}, Description: "Authentication provider: neon_auth or external. The API validates authentication configuration. Changes require replacement; GET cannot discover this value on import or detect external changes."},
 			"jwks_url":           schema.StringAttribute{Optional: true, PlanModifiers: replacementString, Description: "JWKS endpoint for external JWT verification. Changes require replacement."},
 			"provider_name":      schema.StringAttribute{Optional: true, PlanModifiers: replacementString, Description: "Authentication provider display name. Changes require replacement."},
 			"jwt_audience":       schema.StringAttribute{Optional: true, PlanModifiers: replacementString, Description: "Expected JWT audience. Omit to skip audience validation. Changes require replacement."},

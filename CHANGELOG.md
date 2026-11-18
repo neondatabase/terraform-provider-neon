@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Values the Neon API documents as invalid now fail during plan instead of during apply: `neon_api_key` and `neon_org_api_key` names over 64 characters, `neon_branch` names outside 1 to 256 characters, `neon_endpoint` names outside 1 to 64 characters (including `neon_project.branch.name` and `neon_project.primary_compute.name`), `neon_service_credential.scopes` with no entries, more than 16 or an unknown scope, and an unknown `neon_data_api.auth_provider`.
+
 ## [v0.19.0-beta.2] - 2026-11-16
 
 ### Added

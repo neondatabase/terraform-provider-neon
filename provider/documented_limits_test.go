@@ -115,6 +115,51 @@ func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
 }`, ids),
 			wantError: `Verification links need a custom email provider`,
 		},
+		"webhook timeout over 10 seconds": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  webhook = { timeout_seconds = 11 }
+}`, ids),
+			wantError: `value must be between 1 and 10`,
+		},
+		"unknown webhook event": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  webhook = { enabled_events = ["user.deleted"] }
+}`, ids),
+			wantError: `value must be one of`,
+		},
+		"email provider without type": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_provider = { host = "smtp.example.com" }
+}`, ids),
+			wantError: `Missing email provider type`,
+		},
+		"shared email provider with a sender name": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_provider = {
+    type        = "shared"
+    sender_name = "Example"
+  }
+}`, ids),
+			wantError: `Attribute only applies to a standard email provider`,
+		},
+		"standard email provider without a password": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_provider = {
+    type         = "standard"
+    host         = "smtp.example.com"
+    port         = 587
+    username     = "apikey"
+    sender_email = "auth@example.com"
+    sender_name  = "Example"
+  }
+}`, ids),
+			wantError: `Set password; a standard email provider needs`,
+		},
 		"unknown email verification method": {
 			config: fmt.Sprintf(`resource "neon_auth" "this" {
   %s

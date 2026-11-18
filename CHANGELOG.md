@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `neon_auth` manages Neon Auth sign-in settings with `email_and_password`, `magic_link`, `phone_number`, and `organization`. Settings left out of the configuration keep their current value on Neon.
+
 ### Fixed
 
 - `neon_branch_realtime.allowed_origins` counts the 2,048-character limit per origin in characters, as the Neon API does, so a long origin with multi-byte characters is no longer rejected during plan.

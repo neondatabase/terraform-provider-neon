@@ -1,12 +1,12 @@
 ---
 page_title: "neon_auth Resource - terraform-provider-neon"
 description: |-
-  Enables Neon Auth (Managed Better Auth) on a branch. Neon cannot enable Neon Auth again on a branch where it was disabled, so destroying or replacing this resource rules out Neon Auth on that branch.
+  Enables Neon Auth (Managed Better Auth) on a branch and manages its sign-in settings. Neon cannot enable Neon Auth again on a branch where it was disabled, so destroying or replacing this resource rules out Neon Auth on that branch.
 ---
 
 # neon_auth (Resource)
 
-Enables Neon Auth (Managed Better Auth) on a branch. Neon cannot enable Neon Auth again on a branch where it was disabled, so destroying or replacing this resource rules out Neon Auth on that branch.
+Enables Neon Auth (Managed Better Auth) on a branch and manages its sign-in settings. Neon cannot enable Neon Auth again on a branch where it was disabled, so destroying or replacing this resource rules out Neon Auth on that branch.
 
 ## Example Usage
 
@@ -20,6 +20,18 @@ resource "neon_auth" "example" {
   project_id      = neon_project.example.id
   branch_id       = neon_project.example.branch.id
   allow_localhost = false
+
+  email_and_password = {
+    require_email_verification = true
+  }
+  magic_link = {
+    enabled    = true
+    expires_in = 15
+  }
+  organization = {
+    enabled      = true
+    creator_role = "admin"
+  }
 
   # Neon cannot enable Neon Auth again on this branch once it is disabled.
   lifecycle {
@@ -45,6 +57,10 @@ output "neon_auth_base_url" {
 - `allow_localhost` (Boolean) Whether sign-in redirects to localhost are allowed. Neon enables it by default.
 - `database_name` (String) Database that holds the `neon_auth` schema. Defaults to the project's default database.
 - `delete_data_on_destroy` (Boolean) Whether destroying the resource also drops the `neon_auth` schema with its users and sessions.
+- `email_and_password` (Attributes) Email and password sign-in. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--email_and_password))
+- `magic_link` (Attributes) Passwordless sign-in with a link sent by email. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--magic_link))
+- `organization` (Attributes) Organizations of users within Neon Auth, separate from Neon organizations. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--organization))
+- `phone_number` (Attributes) Sign-in with a one-time password sent to a phone number. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--phone_number))
 
 ### Read-Only
 
@@ -55,6 +71,52 @@ output "neon_auth_base_url" {
 - `id` (String) `<project_id>/<branch_id>`.
 - `jwks_url` (String) URL of the JWKS endpoint that verifies the issued JWTs.
 - `owned_by` (String) Owner of the auth provider project: `neon` or `user`.
+
+<a id="nestedatt--email_and_password"></a>
+### Nested Schema for `email_and_password`
+
+Optional:
+
+- `auto_sign_in_after_verification` (Boolean) Whether users are signed in automatically after verifying their email address.
+- `disable_sign_up` (Boolean) Whether new users can't sign up with email and password.
+- `email_verification_method` (String) How email addresses are verified: `otp` sends a one-time password, `link` sends a verification link. `link` needs a custom email provider.
+- `enabled` (Boolean) Whether users can sign in with email and password. Neon enables it by default.
+- `require_email_verification` (Boolean) Whether users must verify their email address before they can sign in.
+- `revoke_sessions_on_password_reset` (Boolean) Whether a password reset revokes all of the user's sessions.
+- `send_verification_email_on_sign_in` (Boolean) Whether a verification email is sent when a user with an unverified email address signs in.
+- `send_verification_email_on_sign_up` (Boolean) Whether a verification email is sent when a user signs up.
+
+
+<a id="nestedatt--magic_link"></a>
+### Nested Schema for `magic_link`
+
+Optional:
+
+- `disable_sign_up` (Boolean) Whether new users can't sign up with a magic link.
+- `enabled` (Boolean) Whether users can sign in with a magic link.
+- `expires_in` (Number) Minutes until a magic link expires, from 5 to 1440.
+
+
+<a id="nestedatt--organization"></a>
+### Nested Schema for `organization`
+
+Optional:
+
+- `creator_role` (String) Role of the user who creates an organization: `owner` has full control, `admin` manages members and settings.
+- `enabled` (Boolean) Whether users can create and join organizations. Neon enables it by default.
+- `membership_limit` (Number) Maximum number of members per organization.
+- `organization_limit` (Number) Maximum number of organizations a user can create or join.
+- `send_invitation_email` (Boolean) Whether invited users receive an email with a link to accept the invitation.
+
+
+<a id="nestedatt--phone_number"></a>
+### Nested Schema for `phone_number`
+
+Optional:
+
+- `enabled` (Boolean) Whether users can sign in with a phone number.
+- `otp_expires_in` (Number) Seconds until a one-time password expires, from 60 to 600.
+
 
 
 

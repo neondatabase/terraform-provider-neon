@@ -43,6 +43,10 @@ type neonAuthResourceModel struct {
 	JWKSURL               types.String `tfsdk:"jwks_url"`
 	OwnedBy               types.String `tfsdk:"owned_by"`
 	CreatedAt             types.String `tfsdk:"created_at"`
+	EmailAndPassword      types.Object `tfsdk:"email_and_password"`
+	MagicLink             types.Object `tfsdk:"magic_link"`
+	PhoneNumber           types.Object `tfsdk:"phone_number"`
+	Organization          types.Object `tfsdk:"organization"`
 }
 
 func NewNeonAuthResource() resource.Resource {
@@ -61,53 +65,58 @@ func (r *neonAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		}
 	}
-	resp.Schema = schema.Schema{
-		Description: "Enables Neon Auth (Managed Better Auth) on a branch. Neon cannot enable Neon Auth again on a " +
-			"branch where it was disabled, so destroying or replacing this resource rules out Neon Auth on that branch.",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Computed:      true,
-				Description:   "`<project_id>/<branch_id>`.",
-				PlanModifiers: idPlanModifiers(),
-			},
-			"project_id": schema.StringAttribute{
-				Required:      true,
-				Description:   "Project ID.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"branch_id": schema.StringAttribute{
-				Required:      true,
-				Description:   "Branch ID.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
-			},
-			"database_name": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Database that holds the `neon_auth` schema. Defaults to the project's default database.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"allow_localhost": schema.BoolAttribute{
-				Optional:      true,
-				Computed:      true,
-				Description:   "Whether sign-in redirects to localhost are allowed. Neon enables it by default.",
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
-			},
-			"delete_data_on_destroy": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Default:     booldefault.StaticBool(false),
-				Description: "Whether destroying the resource also drops the `neon_auth` schema with its users and sessions.",
-			},
-			"auth_provider":            computed("Auth provider. Always `better_auth`."),
-			"auth_provider_project_id": computed("Project ID assigned by the auth provider."),
-			"base_url":                 computed("Base URL of the Neon Auth service, used as `NEON_AUTH_BASE_URL`."),
-			"jwks_url":                 computed("URL of the JWKS endpoint that verifies the issued JWTs."),
-			"owned_by":                 computed("Owner of the auth provider project: `neon` or `user`."),
-			"created_at":               computed("When Neon Auth was enabled, in RFC 3339 format."),
+	attributes := map[string]schema.Attribute{
+		"id": schema.StringAttribute{
+			Computed:      true,
+			Description:   "`<project_id>/<branch_id>`.",
+			PlanModifiers: idPlanModifiers(),
 		},
+		"project_id": schema.StringAttribute{
+			Required:      true,
+			Description:   "Project ID.",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+		"branch_id": schema.StringAttribute{
+			Required:      true,
+			Description:   "Branch ID.",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+		"database_name": schema.StringAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Database that holds the `neon_auth` schema. Defaults to the project's default database.",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
+			},
+		},
+		"allow_localhost": schema.BoolAttribute{
+			Optional:      true,
+			Computed:      true,
+			Description:   "Whether sign-in redirects to localhost are allowed. Neon enables it by default.",
+			PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+		},
+		"delete_data_on_destroy": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Default:     booldefault.StaticBool(false),
+			Description: "Whether destroying the resource also drops the `neon_auth` schema with its users and sessions.",
+		},
+		"auth_provider":            computed("Auth provider. Always `better_auth`."),
+		"auth_provider_project_id": computed("Project ID assigned by the auth provider."),
+		"base_url":                 computed("Base URL of the Neon Auth service, used as `NEON_AUTH_BASE_URL`."),
+		"jwks_url":                 computed("URL of the JWKS endpoint that verifies the issued JWTs."),
+		"owned_by":                 computed("Owner of the auth provider project: `neon` or `user`."),
+		"created_at":               computed("When Neon Auth was enabled, in RFC 3339 format."),
+	}
+	for name, attribute := range neonAuthSettingsAttributes() {
+		attributes[name] = attribute
+	}
+	resp.Schema = schema.Schema{
+		Description: "Enables Neon Auth (Managed Better Auth) on a branch and manages its sign-in settings. Neon cannot " +
+			"enable Neon Auth again on a branch where it was disabled, so destroying or replacing this resource rules " +
+			"out Neon Auth on that branch.",
+		Attributes: attributes,
 	}
 }
 
@@ -185,6 +194,10 @@ func (r *neonAuthResource) Create(ctx context.Context, req resource.CreateReques
 	if state.AllowLocalhost.IsUnknown() {
 		state.AllowLocalhost = types.BoolNull()
 	}
+	state.EmailAndPassword = withoutUnknowns(ctx, state.EmailAndPassword, &resp.Diagnostics)
+	state.MagicLink = withoutUnknowns(ctx, state.MagicLink, &resp.Diagnostics)
+	state.PhoneNumber = withoutUnknowns(ctx, state.PhoneNumber, &resp.Diagnostics)
+	state.Organization = withoutUnknowns(ctx, state.Organization, &resp.Diagnostics)
 	state.OwnedBy = types.StringNull()
 	state.CreatedAt = types.StringNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -197,6 +210,9 @@ func (r *neonAuthResource) Create(ctx context.Context, req resource.CreateReques
 	var followUp diag.Diagnostics
 	if !plan.AllowLocalhost.IsNull() && !plan.AllowLocalhost.IsUnknown() {
 		followUp.Append(r.setAllowLocalhost(ctx, plan)...)
+	}
+	if !followUp.HasError() {
+		followUp.Append(r.writeSettings(ctx, plan, neonAuthResourceModel{})...)
 	}
 	refreshed := state
 	if !followUp.HasError() {
@@ -259,6 +275,10 @@ func (r *neonAuthResource) Update(ctx context.Context, req resource.UpdateReques
 		if resp.Diagnostics.HasError() {
 			return
 		}
+	}
+	resp.Diagnostics.Append(r.writeSettings(ctx, plan, state)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	state.DeleteDataOnDestroy = plan.DeleteDataOnDestroy
@@ -367,6 +387,19 @@ func (r *neonAuthResource) read(ctx context.Context, model *neonAuthResourceMode
 		return found, diags
 	}
 
+	var plugins neon.NeonAuthPluginConfigs
+	diags.Append(projectReadiness.Retry(ctx, func(context.Context) error {
+		var err error
+		plugins, err = r.client.GetNeonAuthPluginConfigs(projectID, branchID)
+		return err
+	}, nil)...)
+	if diags.HasError() {
+		return found, diags
+	}
+	if diags.Append(model.refreshSettings(plugins)...); diags.HasError() {
+		return found, diags
+	}
+
 	model.ID = types.StringValue(neonAuthID(projectID, branchID))
 	model.DatabaseName = types.StringValue(integration.DbName)
 	model.AllowLocalhost = types.BoolValue(localhost.AllowLocalhost)
@@ -380,12 +413,49 @@ func (r *neonAuthResource) read(ctx context.Context, model *neonAuthResourceMode
 }
 
 func (r *neonAuthResource) setAllowLocalhost(ctx context.Context, plan neonAuthResourceModel) diag.Diagnostics {
-	defer lockNeonAuthWrites(plan.ProjectID.ValueString(), plan.BranchID.ValueString())()
-	return projectReadiness.Retry(ctx, func(context.Context) error {
-		_, err := r.client.UpdateNeonAuthAllowLocalhost(plan.ProjectID.ValueString(), plan.BranchID.ValueString(),
+	projectID, branchID := plan.ProjectID.ValueString(), plan.BranchID.ValueString()
+	return r.writeNeonAuth(ctx, projectID, branchID, func() error {
+		_, err := r.client.UpdateNeonAuthAllowLocalhost(projectID, branchID,
 			neon.UpdateNeonAuthAllowLocalhostRequest{AllowLocalhost: plan.AllowLocalhost.ValueBool()})
 		return err
-	}, nil)
+	})
+}
+
+func (r *neonAuthResource) writeNeonAuth(ctx context.Context, projectID, branchID string, write func() error) diag.Diagnostics {
+	defer lockNeonAuthWrites(projectID, branchID)()
+	return projectReadiness.Retry(ctx, func(context.Context) error { return write() }, nil)
+}
+
+// withoutUnknowns replaces unknown members of a planned object with null, so the state written before the
+// follow-up calls holds no unknown values.
+func withoutUnknowns(ctx context.Context, object types.Object, diags *diag.Diagnostics) types.Object {
+	attrTypes := object.AttributeTypes(ctx)
+	if object.IsUnknown() {
+		return types.ObjectNull(attrTypes)
+	}
+	if object.IsNull() {
+		return object
+	}
+	values := object.Attributes()
+	for name, value := range values {
+		if !value.IsUnknown() {
+			continue
+		}
+		switch value.(type) {
+		case types.Bool:
+			values[name] = types.BoolNull()
+		case types.Int64:
+			values[name] = types.Int64Null()
+		case types.String:
+			values[name] = types.StringNull()
+		default:
+			diags.AddError("Unsupported Neon Auth setting type", fmt.Sprintf("%s has the unsupported type %T.", name, value))
+			return object
+		}
+	}
+	result, d := types.ObjectValue(attrTypes, values)
+	diags.Append(d...)
+	return result
 }
 
 func neonAuthID(projectID, branchID string) string {

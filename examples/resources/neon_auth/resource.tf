@@ -8,6 +8,18 @@ resource "neon_auth" "example" {
   branch_id       = neon_project.example.branch.id
   allow_localhost = false
 
+  email_and_password = {
+    require_email_verification = true
+  }
+  magic_link = {
+    enabled    = true
+    expires_in = 15
+  }
+  organization = {
+    enabled      = true
+    creator_role = "admin"
+  }
+
   # Neon cannot enable Neon Auth again on this branch once it is disabled.
   lifecycle {
     prevent_destroy = true

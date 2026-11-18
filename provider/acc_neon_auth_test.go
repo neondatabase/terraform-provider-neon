@@ -154,6 +154,143 @@ resource "neon_auth" "this" {
 		})
 	})
 
+	t.Run("manages sign-in settings and detects changes made outside Terraform", func(t *testing.T) {
+		projectName := newProjectName(prefix)
+		auth := func(settings string) string {
+			return project(projectName, fmt.Sprintf(`
+resource "neon_auth" "this" {
+  project_id             = neon_project.this.id
+  branch_id              = neon_project.this.branch.id
+  delete_data_on_destroy = true
+%s
+}
+`, settings))
+		}
+		initial := auth(`
+  email_and_password = { require_email_verification = true }
+  magic_link         = { enabled = true, expires_in = 15 }
+  phone_number       = { enabled = true, otp_expires_in = 120 }
+  organization       = { enabled = false, membership_limit = 5, creator_role = "admin" }
+`)
+		updated := auth(`
+  email_and_password = { require_email_verification = true }
+  magic_link         = { enabled = true, expires_in = 30 }
+  organization       = { enabled = true, membership_limit = 5, creator_role = "admin" }
+`)
+		var projectID, branchID string
+		plugins := func() (neon.NeonAuthPluginConfigs, error) {
+			return client.GetNeonAuthPluginConfigs(projectID, branchID)
+		}
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: initial,
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_auth.this", "email_and_password.require_email_verification", "true"),
+						resource.TestCheckResourceAttr("neon_auth.this", "email_and_password.enabled", "true"),
+						resource.TestCheckResourceAttr("neon_auth.this", "email_and_password.email_verification_method", "otp"),
+						resource.TestCheckResourceAttr("neon_auth.this", "magic_link.enabled", "true"),
+						resource.TestCheckResourceAttr("neon_auth.this", "magic_link.expires_in", "15"),
+						resource.TestCheckResourceAttr("neon_auth.this", "magic_link.disable_sign_up", "false"),
+						resource.TestCheckResourceAttr("neon_auth.this", "phone_number.enabled", "true"),
+						resource.TestCheckResourceAttr("neon_auth.this", "phone_number.otp_expires_in", "120"),
+						resource.TestCheckResourceAttr("neon_auth.this", "organization.enabled", "false"),
+						resource.TestCheckResourceAttr("neon_auth.this", "organization.membership_limit", "5"),
+						resource.TestCheckResourceAttr("neon_auth.this", "organization.creator_role", "admin"),
+						resource.TestCheckResourceAttrSet("neon_auth.this", "organization.organization_limit"),
+						func(state *terraform.State) error {
+							projectID, branchID = ids(state)
+							got, err := plugins()
+							if err != nil {
+								return err
+							}
+							if !got.EmailAndPassword.RequireEmailVerification || !got.MagicLink.Enabled ||
+								got.MagicLink.ExpiresIn != 15 || !got.PhoneNumber.Enabled ||
+								*got.PhoneNumber.OtpExpiresIn != 120 || got.Organization.Enabled ||
+								got.Organization.MembershipLimit != 5 || got.Organization.CreatorRole.String() != "admin" {
+								return fmt.Errorf("Neon has different sign-in settings: %+v %+v %+v %+v",
+									*got.EmailAndPassword, *got.MagicLink, *got.PhoneNumber, *got.Organization)
+							}
+							return nil
+						},
+					),
+				},
+				{
+					// phone_number leaves the configuration and keeps its value on Neon.
+					Config: updated,
+					ConfigPlanChecks: resource.ConfigPlanChecks{
+						PreApply: []plancheck.PlanCheck{
+							plancheck.ExpectResourceAction("neon_auth.this", plancheck.ResourceActionUpdate),
+						},
+					},
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_auth.this", "magic_link.expires_in", "30"),
+						resource.TestCheckResourceAttr("neon_auth.this", "organization.enabled", "true"),
+						resource.TestCheckResourceAttr("neon_auth.this", "phone_number.enabled", "true"),
+						resource.TestCheckResourceAttr("neon_auth.this", "phone_number.otp_expires_in", "120"),
+						func(*terraform.State) error {
+							got, err := plugins()
+							if err != nil {
+								return err
+							}
+							if got.MagicLink.ExpiresIn != 30 || !got.Organization.Enabled || !got.PhoneNumber.Enabled {
+								return fmt.Errorf("Neon has different sign-in settings: %+v %+v %+v",
+									*got.MagicLink, *got.Organization, *got.PhoneNumber)
+							}
+							return nil
+						},
+					),
+				},
+				{
+					Config:   updated,
+					PlanOnly: true,
+				},
+				{
+					PreConfig: func() {
+						expiresIn := int32(60)
+						enabled := false
+						if _, err := client.UpdateNeonAuthMagicLinkPlugin(projectID, branchID,
+							neon.NeonAuthMagicLinkConfigUpdate{ExpiresIn: &expiresIn}); err != nil {
+							t.Fatal(err)
+						}
+						if _, err := client.UpdateNeonAuthPhoneNumberPlugin(projectID, branchID,
+							neon.NeonAuthPhoneNumberConfigUpdate{Enabled: &enabled}); err != nil {
+							t.Fatal(err)
+						}
+					},
+					Config: updated,
+					ConfigPlanChecks: resource.ConfigPlanChecks{
+						PreApply: []plancheck.PlanCheck{
+							plancheck.ExpectResourceAction("neon_auth.this", plancheck.ResourceActionUpdate),
+						},
+					},
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_auth.this", "magic_link.expires_in", "30"),
+						resource.TestCheckResourceAttr("neon_auth.this", "phone_number.enabled", "false"),
+						func(*terraform.State) error {
+							got, err := plugins()
+							if err != nil {
+								return err
+							}
+							if got.MagicLink.ExpiresIn != 30 {
+								return fmt.Errorf("magic link expires in %d minutes on Neon, want 30", got.MagicLink.ExpiresIn)
+							}
+							return nil
+						},
+					),
+				},
+				{
+					Config:                  updated,
+					ResourceName:            "neon_auth.this",
+					ImportState:             true,
+					ImportStateVerify:       true,
+					ImportStateVerifyIgnore: []string{"delete_data_on_destroy"},
+				},
+			},
+		})
+	})
+
 	t.Run("manages trusted domains and OAuth providers", func(t *testing.T) {
 		projectName := newProjectName(prefix)
 		config := func(githubClientID string) string {

@@ -220,6 +220,10 @@ resource "echo" "secret" {}
 					return nil
 				}),
 			},
+			{
+				// The final destroy can disable Realtime before it configures the echo provider, which reads the secret.
+				Config: project + realtime,
+			},
 		},
 	})
 }

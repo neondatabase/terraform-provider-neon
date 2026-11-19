@@ -21,9 +21,10 @@ import (
 )
 
 var (
-	_ resource.ResourceWithConfigure   = (*neonAuthResource)(nil)
-	_ resource.ResourceWithImportState = (*neonAuthResource)(nil)
-	_ resource.ResourceWithModifyPlan  = (*neonAuthResource)(nil)
+	_ resource.ResourceWithConfigure      = (*neonAuthResource)(nil)
+	_ resource.ResourceWithImportState    = (*neonAuthResource)(nil)
+	_ resource.ResourceWithModifyPlan     = (*neonAuthResource)(nil)
+	_ resource.ResourceWithValidateConfig = (*neonAuthResource)(nil)
 )
 
 type neonAuthResource struct {
@@ -47,6 +48,8 @@ type neonAuthResourceModel struct {
 	MagicLink             types.Object `tfsdk:"magic_link"`
 	PhoneNumber           types.Object `tfsdk:"phone_number"`
 	Organization          types.Object `tfsdk:"organization"`
+	EmailProvider         types.Object `tfsdk:"email_provider"`
+	Webhook               types.Object `tfsdk:"webhook"`
 }
 
 func NewNeonAuthResource() resource.Resource {
@@ -118,6 +121,16 @@ func (r *neonAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"out Neon Auth on that branch.",
 		Attributes: attributes,
 	}
+}
+
+func (r *neonAuthResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest,
+	resp *resource.ValidateConfigResponse) {
+	var config neonAuthResourceModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(validateEmailProvider(ctx, config.EmailProvider)...)
 }
 
 // ModifyPlan refuses to replace Neon Auth on the same branch: Neon cannot enable it again there.
@@ -206,6 +219,8 @@ func (r *neonAuthResource) Create(ctx context.Context, req resource.CreateReques
 	state.MagicLink = withoutUnknowns(ctx, state.MagicLink, &resp.Diagnostics)
 	state.PhoneNumber = withoutUnknowns(ctx, state.PhoneNumber, &resp.Diagnostics)
 	state.Organization = withoutUnknowns(ctx, state.Organization, &resp.Diagnostics)
+	state.EmailProvider = withoutUnknowns(ctx, state.EmailProvider, &resp.Diagnostics)
+	state.Webhook = withoutUnknowns(ctx, state.Webhook, &resp.Diagnostics)
 	state.OwnedBy = types.StringNull()
 	state.CreatedAt = types.StringNull()
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -290,6 +305,8 @@ func (r *neonAuthResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	state.DeleteDataOnDestroy = plan.DeleteDataOnDestroy
+	// read keeps the SMTP password it is given, because Neon doesn't return it.
+	state.EmailProvider = plan.EmailProvider
 	found, diags := r.read(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
@@ -405,7 +422,22 @@ func (r *neonAuthResource) read(ctx context.Context, model *neonAuthResourceMode
 	if diags.HasError() {
 		return found, diags
 	}
-	if diags.Append(model.refreshSettings(plugins)...); diags.HasError() {
+	var emailProvider neon.NeonAuthEmailServerConfigResponse
+	diags.Append(projectReadiness.Retry(ctx, func(context.Context) error {
+		var err error
+		emailProvider, err = r.client.GetNeonAuthEmailProvider(projectID, branchID)
+		return err
+	}, nil)...)
+	var webhook neon.NeonAuthWebhookConfig
+	diags.Append(projectReadiness.Retry(ctx, func(context.Context) error {
+		var err error
+		webhook, err = r.client.GetNeonAuthWebhookConfig(projectID, branchID)
+		return err
+	}, nil)...)
+	if diags.HasError() {
+		return found, diags
+	}
+	if diags.Append(model.refreshSettings(plugins, emailProvider, webhook)...); diags.HasError() {
 		return found, diags
 	}
 
@@ -457,6 +489,8 @@ func withoutUnknowns(ctx context.Context, object types.Object, diags *diag.Diagn
 			values[name] = types.Int64Null()
 		case types.String:
 			values[name] = types.StringNull()
+		case types.Set:
+			values[name] = types.SetNull(types.StringType)
 		default:
 			diags.AddError("Unsupported Neon Auth setting type", fmt.Sprintf("%s has the unsupported type %T.", name, value))
 			return object

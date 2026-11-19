@@ -9,6 +9,38 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
+func TestNeonAuthLinkVerificationPlansWithAnUnknownEmailProviderType(t *testing.T) {
+	t.Parallel()
+
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: newProviderFactories(),
+		Steps: []resource.TestStep{{
+			Config: `provider "neon" {
+  api_key = "unused"
+}
+
+resource "terraform_data" "smtp" { input = "standard" }
+
+resource "neon_auth" "this" {
+  project_id = "cool-moon-42"
+  branch_id  = "br-cool-moon-42"
+  email_provider = {
+    type         = terraform_data.smtp.output
+    host         = "smtp.example.com"
+    port         = 587
+    username     = "apikey"
+    password     = "secret"
+    sender_email = "auth@example.com"
+    sender_name  = "Example"
+  }
+  email_and_password = { email_verification_method = "link" }
+}`,
+			PlanOnly:           true,
+			ExpectNonEmptyPlan: true,
+		}},
+	})
+}
+
 func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
 	t.Parallel()
 
@@ -114,6 +146,51 @@ func TestDocumentedLimitsAreValidatedDuringPlan(t *testing.T) {
   email_and_password = { email_verification_method = "link" }
 }`, ids),
 			wantError: `Verification links need a custom email provider`,
+		},
+		"webhook timeout over 10 seconds": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  webhook = { timeout_seconds = 11 }
+}`, ids),
+			wantError: `value must be between 1 and 10`,
+		},
+		"unknown webhook event": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  webhook = { enabled_events = ["user.deleted"] }
+}`, ids),
+			wantError: `value must be one of`,
+		},
+		"email provider without type": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_provider = { host = "smtp.example.com" }
+}`, ids),
+			wantError: `Missing email provider type`,
+		},
+		"shared email provider with a sender name": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_provider = {
+    type        = "shared"
+    sender_name = "Example"
+  }
+}`, ids),
+			wantError: `Attribute only applies to a standard email provider`,
+		},
+		"standard email provider without a password": {
+			config: fmt.Sprintf(`resource "neon_auth" "this" {
+  %s
+  email_provider = {
+    type         = "standard"
+    host         = "smtp.example.com"
+    port         = 587
+    username     = "apikey"
+    sender_email = "auth@example.com"
+    sender_name  = "Example"
+  }
+}`, ids),
+			wantError: `Set password; a standard email provider needs`,
 		},
 		"unknown email verification method": {
 			config: fmt.Sprintf(`resource "neon_auth" "this" {

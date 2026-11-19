@@ -11,6 +11,11 @@ Enables Neon Auth (Managed Better Auth) on a branch and manages its sign-in sett
 ## Example Usage
 
 ```terraform
+variable "smtp_password" {
+  type      = string
+  sensitive = true
+}
+
 resource "neon_project" "example" {
   name      = "app"
   region_id = "aws-us-east-2"
@@ -21,8 +26,18 @@ resource "neon_auth" "example" {
   branch_id       = neon_project.example.branch.id
   allow_localhost = false
 
+  email_provider = {
+    type         = "standard"
+    host         = "smtp.resend.com"
+    port         = 587
+    username     = "resend"
+    password     = var.smtp_password
+    sender_email = "auth@example.com"
+    sender_name  = "Example"
+  }
   email_and_password = {
     require_email_verification = true
+    email_verification_method  = "link"
   }
   magic_link = {
     enabled    = true
@@ -31,6 +46,11 @@ resource "neon_auth" "example" {
   organization = {
     enabled      = true
     creator_role = "admin"
+  }
+  webhook = {
+    enabled        = true
+    url            = "https://example.com/neon-auth"
+    enabled_events = ["user.created"]
   }
 
   # Neon cannot enable Neon Auth again on this branch once it is disabled.
@@ -58,9 +78,11 @@ output "neon_auth_base_url" {
 - `database_name` (String) Database that holds the `neon_auth` schema. Defaults to the project's default database.
 - `delete_data_on_destroy` (Boolean) Whether destroying the resource also drops the `neon_auth` schema with its users and sessions.
 - `email_and_password` (Attributes) Email and password sign-in. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--email_and_password))
+- `email_provider` (Attributes) Email server that sends verification, sign-in, and invitation emails. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--email_provider))
 - `magic_link` (Attributes) Passwordless sign-in with a link sent by email. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--magic_link))
 - `organization` (Attributes) Organizations of users within Neon Auth, separate from Neon organizations. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--organization))
 - `phone_number` (Attributes) Sign-in with a one-time password sent to a phone number. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--phone_number))
+- `webhook` (Attributes) Webhook that Neon Auth calls on user, email, organization, and phone number events. Settings left out keep their current value on Neon. (see [below for nested schema](#nestedatt--webhook))
 
 ### Read-Only
 
@@ -85,6 +107,20 @@ Optional:
 - `revoke_sessions_on_password_reset` (Boolean) Whether a password reset revokes all of the user's sessions.
 - `send_verification_email_on_sign_in` (Boolean) Whether a verification email is sent when a user with an unverified email address signs in.
 - `send_verification_email_on_sign_up` (Boolean) Whether a verification email is sent when a user signs up.
+
+
+<a id="nestedatt--email_provider"></a>
+### Nested Schema for `email_provider`
+
+Optional:
+
+- `host` (String) SMTP server hostname.
+- `password` (String, Sensitive) SMTP password. Neon doesn't return it, so Terraform can't detect a password changed outside Terraform.
+- `port` (Number) SMTP server port, such as 587.
+- `sender_email` (String) Address emails are sent from.
+- `sender_name` (String) Sender name shown on emails.
+- `type` (String) `shared` sends from Neon's email server, the default. `standard` sends through your SMTP server and needs `host`, `port`, `username`, `password`, `sender_email`, and `sender_name`.
+- `username` (String) SMTP username.
 
 
 <a id="nestedatt--magic_link"></a>
@@ -116,6 +152,17 @@ Optional:
 
 - `enabled` (Boolean) Whether users can sign in with a phone number.
 - `otp_expires_in` (Number) Seconds until a one-time password expires, from 60 to 600.
+
+
+<a id="nestedatt--webhook"></a>
+### Nested Schema for `webhook`
+
+Optional:
+
+- `enabled` (Boolean) Whether Neon Auth calls the webhook.
+- `enabled_events` (Set of String) Events that call the webhook: `user.before_create`, `user.created`, `send.otp`, `send.magic_link`, `organization.invitation.created`, `organization.invitation.accepted`, and `phone_number.verified`.
+- `timeout_seconds` (Number) Seconds Neon Auth waits for the webhook to respond, from 1 to 10.
+- `url` (String) HTTPS URL that receives the event payloads.
 
 
 

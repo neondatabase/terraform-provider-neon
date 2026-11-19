@@ -291,6 +291,138 @@ resource "neon_auth" "this" {
 		})
 	})
 
+	t.Run("manages a custom email provider and webhook, and switches back to the shared provider", func(t *testing.T) {
+		projectName := newProjectName(prefix)
+		auth := func(settings string) string {
+			return project(projectName, fmt.Sprintf(`
+resource "neon_auth" "this" {
+  project_id             = neon_project.this.id
+  branch_id              = neon_project.this.branch.id
+  delete_data_on_destroy = true
+%s
+}
+`, settings))
+		}
+		custom := func(password, events string) string {
+			return auth(fmt.Sprintf(`
+  email_provider = {
+    type         = "standard"
+    host         = "smtp.example.com"
+    port         = 587
+    username     = "apikey"
+    password     = %q
+    sender_email = "auth@example.com"
+    sender_name  = "Example"
+  }
+  email_and_password = { email_verification_method = "link" }
+  webhook = {
+    enabled         = true
+    url             = "https://example.com/neon-auth"
+    enabled_events  = %s
+    timeout_seconds = 10
+  }
+`, password, events))
+		}
+		shared := auth(`
+  email_provider     = { type = "shared" }
+  email_and_password = { email_verification_method = "otp" }
+  webhook            = { enabled = false }
+`)
+		var projectID, branchID string
+		resource.Test(t, resource.TestCase{
+			ProtoV6ProviderFactories: newProviderFactories(),
+			Steps: []resource.TestStep{
+				{
+					Config: custom("first-password", `["user.created"]`),
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_auth.this", "email_provider.type", "standard"),
+						resource.TestCheckResourceAttr("neon_auth.this", "email_provider.host", "smtp.example.com"),
+						resource.TestCheckResourceAttr("neon_auth.this", "email_provider.password", "first-password"),
+						resource.TestCheckResourceAttr("neon_auth.this", "email_and_password.email_verification_method", "link"),
+						resource.TestCheckResourceAttr("neon_auth.this", "webhook.enabled", "true"),
+						resource.TestCheckTypeSetElemAttr("neon_auth.this", "webhook.enabled_events.*", "user.created"),
+						func(state *terraform.State) error {
+							projectID, branchID = ids(state)
+							provider, err := client.GetNeonAuthEmailProvider(projectID, branchID)
+							if err != nil {
+								return err
+							}
+							if provider.Type != "standard" || provider.Host != "smtp.example.com" || provider.Port != 587 ||
+								provider.StandardEmailServerResponse.SenderEmail != "auth@example.com" {
+								return fmt.Errorf("Neon has a different email provider: %+v", provider)
+							}
+							webhook, err := client.GetNeonAuthWebhookConfig(projectID, branchID)
+							if err != nil {
+								return err
+							}
+							if !webhook.Enabled || webhook.WebhookURL == nil || *webhook.WebhookURL != "https://example.com/neon-auth" ||
+								len(webhook.EnabledEvents) != 1 || *webhook.TimeoutSeconds != 10 {
+								return fmt.Errorf("Neon has a different webhook: %+v", webhook)
+							}
+							return nil
+						},
+					),
+				},
+				{
+					Config: custom("second-password", `["user.created", "send.otp"]`),
+					ConfigPlanChecks: resource.ConfigPlanChecks{
+						PreApply: []plancheck.PlanCheck{
+							plancheck.ExpectResourceAction("neon_auth.this", plancheck.ResourceActionUpdate),
+						},
+					},
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_auth.this", "email_provider.password", "second-password"),
+						resource.TestCheckResourceAttr("neon_auth.this", "webhook.enabled_events.#", "2"),
+						func(*terraform.State) error {
+							webhook, err := client.GetNeonAuthWebhookConfig(projectID, branchID)
+							if err != nil {
+								return err
+							}
+							if len(webhook.EnabledEvents) != 2 || webhook.WebhookURL == nil {
+								return fmt.Errorf("Neon has a different webhook: %+v", webhook)
+							}
+							return nil
+						},
+					),
+				},
+				{
+					Config:   custom("second-password", `["user.created", "send.otp"]`),
+					PlanOnly: true,
+				},
+				{
+					Config: shared,
+					Check: resource.ComposeTestCheckFunc(
+						resource.TestCheckResourceAttr("neon_auth.this", "email_provider.type", "shared"),
+						resource.TestCheckNoResourceAttr("neon_auth.this", "email_provider.password"),
+						resource.TestCheckResourceAttr("neon_auth.this", "email_and_password.email_verification_method", "otp"),
+						resource.TestCheckResourceAttr("neon_auth.this", "webhook.enabled", "false"),
+						func(*terraform.State) error {
+							provider, err := client.GetNeonAuthEmailProvider(projectID, branchID)
+							if err != nil {
+								return err
+							}
+							if provider.Type != "shared" {
+								return fmt.Errorf("email provider is %q on Neon, want shared", provider.Type)
+							}
+							return nil
+						},
+					),
+				},
+				{
+					Config:   shared,
+					PlanOnly: true,
+				},
+				{
+					Config:                  shared,
+					ResourceName:            "neon_auth.this",
+					ImportState:             true,
+					ImportStateVerify:       true,
+					ImportStateVerifyIgnore: []string{"delete_data_on_destroy"},
+				},
+			},
+		})
+	})
+
 	t.Run("manages trusted domains and OAuth providers", func(t *testing.T) {
 		projectName := newProjectName(prefix)
 		config := func(githubClientID string) string {

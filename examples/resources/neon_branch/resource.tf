@@ -20,6 +20,12 @@ resource "neon_branch" "parent" {
   name       = "foo"
 }
 
+resource "neon_branch" "schema_copy" {
+  project_id  = neon_project.example.id
+  parent_id   = neon_branch.parent.id
+  init_source = "parent-schema"
+}
+
 resource "neon_branch" "child" {
   project_id = neon_project.example.id
   parent_id  = neon_branch.parent.id

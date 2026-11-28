@@ -44,6 +44,7 @@ Read-Only:
 
 - `default` (Boolean) Default branch flag.
 - `id` (String) Branch ID.
+- `init_source` (String) Branch initialization mode. On creation, parent-data copies schema and rows (the API default), parent-schema copies only schema into a child, and schema-only copies schema from parent_id into a new root. Changing the configured mode replaces the branch.
 - `logical_size` (Number) Branch logical size in bytes.
 - `name` (String) Branch name.
 - `parent_id` (String) Parent branch ID.

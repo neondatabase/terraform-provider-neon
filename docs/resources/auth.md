@@ -162,7 +162,7 @@ Optional:
 - `enabled` (Boolean) Whether Neon Auth calls the webhook.
 - `enabled_events` (Set of String) Events that call the webhook: `user.before_create`, `user.created`, `send.otp`, `send.magic_link`, `organization.invitation.created`, `organization.invitation.accepted`, and `phone_number.verified`.
 - `timeout_seconds` (Number) Seconds Neon Auth waits for the webhook to respond, from 1 to 10.
-- `url` (String) HTTPS URL that receives the event payloads.
+- `url` (String) HTTPS URL with a domain hostname that receives the event payloads.
 
 
 

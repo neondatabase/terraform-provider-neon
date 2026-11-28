@@ -99,6 +99,9 @@ func TestUpgradeResourceState_v018(t *testing.T) {
 
 	t.Run("neon_branch protected", func(t *testing.T) {
 		assertBool(t, upgraded["neon_branch"]["protected"], false)
+		if mode, ok := upgraded["neon_branch"]["init_source"]; !ok || !mode.IsNull() {
+			t.Fatal("legacy branch upgrade must leave init_source unset")
+		}
 	})
 
 	t.Run("neon_jwks_url empty strings", func(t *testing.T) {

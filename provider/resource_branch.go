@@ -34,6 +34,7 @@ type neonBranchResourceModel struct {
 	ID              types.String `tfsdk:"id"`
 	ProjectID       types.String `tfsdk:"project_id"`
 	Name            types.String `tfsdk:"name"`
+	InitSource      types.String `tfsdk:"init_source"`
 	ParentID        types.String `tfsdk:"parent_id"`
 	ParentLsn       types.String `tfsdk:"parent_lsn"`
 	ParentTimestamp types.Int64  `tfsdk:"parent_timestamp"`
@@ -47,13 +48,23 @@ func (v *neonBranchResourceModel) inferAttr(branch neon.Branch) {
 	v.ID = types.StringValue(branch.ID)
 	v.ProjectID = types.StringValue(branch.ProjectID)
 	v.Name = types.StringValue(branch.Name)
-	v.ParentID = types.StringPointerValue(branch.ParentID)
-	v.ParentLsn = types.StringPointerValue(branch.ParentLsn)
+	if branch.InitSource != nil {
+		v.InitSource = types.StringPointerValue(branch.InitSource)
+	}
+	schemaRoot := v.InitSource.ValueString() == "schema-only"
+	if !schemaRoot || branch.ParentID != nil {
+		v.ParentID = types.StringPointerValue(branch.ParentID)
+	}
+	if !schemaRoot || branch.ParentLsn != nil {
+		v.ParentLsn = types.StringPointerValue(branch.ParentLsn)
+	}
 	var parentTimestamp int64
 	if branch.ParentTimestamp != nil {
 		parentTimestamp = branch.ParentTimestamp.Unix()
 	}
-	v.ParentTimestamp = types.Int64Value(parentTimestamp)
+	if !schemaRoot || branch.ParentTimestamp != nil || v.ParentTimestamp.IsNull() {
+		v.ParentTimestamp = types.Int64Value(parentTimestamp)
+	}
 	v.Protected = types.BoolValue(branch.Protected)
 	v.LogicalSize = types.Int64PointerValue(branch.LogicalSize)
 	v.Default = types.BoolValue(branch.Default)
@@ -93,6 +104,12 @@ func (r *neonBranchResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"init_source": schema.StringAttribute{
+				Optional: true, Computed: true,
+				Description:   "Branch initialization mode. On creation, parent-data copies schema and rows (the API default), parent-schema copies only schema into a child, and schema-only copies schema from parent_id into a new root. Changing the configured mode replaces the branch.",
+				Validators:    []validator.String{stringvalidator.OneOf("parent-data", "parent-schema", "schema-only")},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplaceIfConfigured()},
 			},
 			"parent_id": schema.StringAttribute{
 				Optional:    true,
@@ -174,10 +191,11 @@ func (r *neonBranchResource) Create(ctx context.Context, req resource.CreateRequ
 	cfg := &neon.CreateProjectBranchCfg{
 		BranchCreateRequest: neon.BranchCreateRequest{
 			Branch: &neon.BranchCreateRequestBranch{
-				Name:      state.Name.ValueStringPointer(),
-				ParentID:  state.ParentID.ValueStringPointer(),
-				ParentLsn: state.ParentLsn.ValueStringPointer(),
-				Protected: state.Protected.ValueBoolPointer(),
+				InitSource: state.InitSource.ValueStringPointer(),
+				Name:       state.Name.ValueStringPointer(),
+				ParentID:   state.ParentID.ValueStringPointer(),
+				ParentLsn:  state.ParentLsn.ValueStringPointer(),
+				Protected:  state.Protected.ValueBoolPointer(),
 			},
 		},
 	}

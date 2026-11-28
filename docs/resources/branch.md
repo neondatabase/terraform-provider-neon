@@ -33,6 +33,12 @@ resource "neon_branch" "parent" {
   name       = "foo"
 }
 
+resource "neon_branch" "schema_copy" {
+  project_id  = neon_project.example.id
+  parent_id   = neon_branch.parent.id
+  init_source = "parent-schema"
+}
+
 resource "neon_branch" "child" {
   project_id = neon_project.example.id
   parent_id  = neon_branch.parent.id
@@ -49,6 +55,7 @@ resource "neon_branch" "child" {
 
 ### Optional
 
+- `init_source` (String) Branch initialization mode. On creation, parent-data copies schema and rows (the API default), parent-schema copies only schema into a child, and schema-only copies schema from parent_id into a new root. Changing the configured mode replaces the branch.
 - `name` (String) Branch name.
 - `parent_id` (String) Parent branch ID.
 - `parent_lsn` (String) Parent branch Log Sequence Number (LSN).

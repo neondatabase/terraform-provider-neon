@@ -1,0 +1,27 @@
+{
+  "source": "https://github.com/neondatabase/website/blob/4464f909665ae2b9e06b88449efaac7273f53f62/content/docs/auth/guides/webhooks.md#webhook-url-requirements",
+  "sha256": "5f4cb267ff6f81d609237f9862050d0ea727524b65667b0f486418817aade450",
+  "operation": "updateNeonAuthWebhookConfig",
+  "cases": [
+    {
+      "url": "https://1password.com/x",
+      "reject": false
+    },
+    {
+      "url": "https://br-cool-darkness-123456-hooks.compute.c-1.us-east-2.aws.neon.tech/neon-auth",
+      "reject": false
+    },
+    {
+      "url": "https://169.254.169.254/events",
+      "reject": true
+    },
+    {
+      "url": "https://93.184.216.34/webhook",
+      "reject": true
+    },
+    {
+      "url": "http://your-app.com/events",
+      "reject": true
+    }
+  ]
+}

@@ -158,8 +158,9 @@ func neonAuthSettingsAttributes() map[string]schema.Attribute {
 		}
 	}
 
-	text := func(description string) schema.StringAttribute {
+	text := func(description string, validators ...validator.String) schema.StringAttribute {
 		return schema.StringAttribute{
+			Validators:    validators,
 			Optional:      true,
 			Computed:      true,
 			Description:   description,
@@ -186,7 +187,7 @@ func neonAuthSettingsAttributes() map[string]schema.Attribute {
 		}),
 		"webhook": setting("Webhook that Neon Auth calls on user, email, organization, and phone number events.", map[string]schema.Attribute{
 			"enabled": flag("Whether Neon Auth calls the webhook."),
-			"url":     text("HTTPS URL that receives the event payloads."),
+			"url":     text("HTTPS URL with a domain hostname that receives the event payloads.", webhookURLValidator{}),
 			"enabled_events": schema.SetAttribute{
 				Optional:      true,
 				Computed:      true,
